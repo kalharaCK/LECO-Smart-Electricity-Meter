@@ -1,0 +1,8 @@
+{
+  "name": "Smart Electricity Meter",
+  "description": "Real-time usage tracking, monthly cost projections, and billing dashboard for smart electricity monitoring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
