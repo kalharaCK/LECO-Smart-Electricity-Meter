@@ -1,5 +1,5 @@
 # Smart Electricity Meter System
-
+ss
 A full-stack web application for monitoring, managing, and analyzing electricity consumption data. Built with React (frontend) and Node.js + Express (backend).
 
 ---
