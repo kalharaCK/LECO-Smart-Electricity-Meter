@@ -906,6 +906,182 @@ const setMeterBalance = async (req, res) => {
   }
 };
 
+/**
+ * Staff API: Get all meters with comprehensive telemetry, consumption, customer, and complaint status
+ * GET /api/meters/all
+ */
+const getAllMetersForStaff = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        m.id,
+        m.meter_number,
+        m.account_number,
+        m.name,
+        m.balance,
+        m.status,
+        m.emergency_credit_limit,
+        m.emergency_credit_active,
+        m.emergency_credit_activated_at,
+        m.created_at,
+        u.id AS customer_id,
+        u.email AS customer_email,
+        u.role AS customer_role,
+        u.created_at AS customer_since,
+        COALESCE(us.phone_number, '+94 77 123 4567') AS phone_number,
+        COALESCE(us.tariff_type, 'Domestic D-1 (PUCSL Block Tariff)') AS tariff_type,
+        COALESCE(us.low_balance_threshold, 300.00) AS low_balance_threshold,
+        COALESCE(us.daily_kwh_budget, 12.00) AS daily_kwh_budget,
+        COALESCE(today_c.today_consumption, 0) AS today_kwh,
+        COALESCE(total_c.total_consumption, 0) AS total_kwh,
+        COALESCE(complaints_cnt.open_complaints, 0) AS open_complaints_count,
+        COALESCE(last_pay.last_payment_amount, 0) AS last_payment_amount,
+        last_pay.last_payment_date
+      FROM meters m
+      JOIN users u ON m.user_id = u.id
+      LEFT JOIN user_settings us ON us.user_id = u.id
+      LEFT JOIN (
+        SELECT meter_id, ROUND(SUM(consumption)::numeric, 2) AS today_consumption
+        FROM consumption_logs
+        WHERE reading_date = CURRENT_DATE
+        GROUP BY meter_id
+      ) today_c ON today_c.meter_id = m.id
+      LEFT JOIN (
+        SELECT meter_id, ROUND(SUM(consumption)::numeric, 2) AS total_consumption
+        FROM consumption_logs
+        GROUP BY meter_id
+      ) total_c ON total_c.meter_id = m.id
+      LEFT JOIN (
+        SELECT meter_id, COUNT(*) AS open_complaints
+        FROM complaints
+        WHERE status IN ('submitted', 'in_review', 'investigating')
+        GROUP BY meter_id
+      ) complaints_cnt ON complaints_cnt.meter_id = m.id
+      LEFT JOIN (
+        SELECT DISTINCT ON (meter_id) 
+          meter_id, 
+          amount AS last_payment_amount, 
+          created_at AS last_payment_date
+        FROM payments
+        ORDER BY meter_id, created_at DESC
+      ) last_pay ON last_pay.meter_id = m.id
+      ORDER BY m.id ASC
+    `;
+    const result = await pool.query(query);
+    return res.json({
+      success: true,
+      meters: result.rows
+    });
+  } catch (error) {
+    console.error('Error fetching all meters for staff:', error);
+    return res.status(500).json({ success: false, message: 'Failed to load meters for staff.' });
+  }
+};
+
+/**
+ * Staff API: Remotely toggle physical relay state (Connect / Disconnect)
+ * POST /api/meters/:meterId/toggle-relay
+ */
+const toggleMeterRelay = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const { action, reason } = req.body; // action: 'Connected' | 'Disconnected'
+
+    const check = await pool.query('SELECT * FROM meters WHERE id = $1', [meterId]);
+    if (check.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Meter not found.' });
+    }
+    const meter = check.rows[0];
+    const newStatus = action || (meter.status === 'Connected' ? 'Disconnected' : 'Connected');
+
+    await pool.query('UPDATE meters SET status = $1 WHERE id = $2', [newStatus, meterId]);
+
+    // Insert alert notification to customer
+    await pool.query(
+      `INSERT INTO notifications (user_id, meter_id, type, title, message)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        meter.user_id,
+        meterId,
+        newStatus === 'Connected' ? 'success' : 'alert',
+        `Grid Relay Status: ${newStatus}`,
+        reason || `LECO Grid Control Center has set your meter ${meter.meter_number} to ${newStatus}.`
+      ]
+    );
+
+    // Broadcast to real-time WebSockets
+    broadcastMeterState(meterId).catch(console.error);
+
+    return res.json({
+      success: true,
+      message: `Meter relay successfully changed to ${newStatus}.`,
+      status: newStatus
+    });
+  } catch (err) {
+    console.error('Error toggling meter relay:', err);
+    return res.status(500).json({ success: false, message: 'Failed to toggle relay.' });
+  }
+};
+
+/**
+ * Staff API: Manual emergency top-up / credit relief override
+ * POST /api/meters/:meterId/staff-topup
+ */
+const staffTopupMeter = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const { amount, reason } = req.body;
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Valid top-up amount required.' });
+    }
+
+    const check = await pool.query('SELECT * FROM meters WHERE id = $1', [meterId]);
+    if (check.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Meter not found.' });
+    }
+    const meter = check.rows[0];
+    const prevBalance = parseFloat(meter.balance);
+    const newBalance = prevBalance + numAmount;
+    const newStatus = newBalance > 0 ? 'Connected' : meter.status;
+
+    await pool.query(
+      'UPDATE meters SET balance = $1, status = $2 WHERE id = $3',
+      [newBalance, newStatus, meterId]
+    );
+
+    const txId = 'STAFF-RELIEF-' + Date.now();
+    await pool.query(
+      `INSERT INTO payments (user_id, meter_id, amount, payment_method, transaction_id, previous_balance, new_balance, status)
+       VALUES ($1, $2, $3, 'Staff Manual Relief', $4, $5, $6, 'Success')`,
+      [meter.user_id, meterId, numAmount, txId, prevBalance, newBalance]
+    );
+
+    // Notify user
+    await pool.query(
+      `INSERT INTO notifications (user_id, meter_id, type, title, message)
+       VALUES ($1, $2, 'success', 'Staff Credit Adjustment', $3)`,
+      [
+        meter.user_id,
+        meterId,
+        `LECO Staff credited Rs. ${numAmount.toFixed(2)} to meter ${meter.meter_number}. ${reason ? 'Reason: ' + reason : ''}`
+      ]
+    );
+
+    broadcastMeterState(meterId).catch(console.error);
+
+    return res.json({
+      success: true,
+      message: `Credited Rs. ${numAmount.toFixed(2)} to meter ${meter.meter_number}.`,
+      newBalance,
+      status: newStatus
+    });
+  } catch (err) {
+    console.error('Error in staff topup:', err);
+    return res.status(500).json({ success: false, message: 'Failed to process staff topup.' });
+  }
+};
+
 module.exports = { 
   getUserMeters, 
   addMeter, 
@@ -916,5 +1092,8 @@ module.exports = {
   updateMeterName,
   activateEmergencyCredit,
   simulateConsumption,
-  setMeterBalance
+  setMeterBalance,
+  getAllMetersForStaff,
+  toggleMeterRelay,
+  staffTopupMeter
 };

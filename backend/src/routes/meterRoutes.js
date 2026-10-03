@@ -9,7 +9,10 @@ const {
   updateMeterName,
   activateEmergencyCredit,
   simulateConsumption,
-  setMeterBalance 
+  setMeterBalance,
+  getAllMetersForStaff,
+  toggleMeterRelay,
+  staffTopupMeter
 } = require('../controllers/meterController');
 const { requireAuth } = require('../middlewares/authMiddleware');
 const { meterLinkRateLimiter } = require('../middlewares/rateLimiter');
@@ -21,8 +24,11 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.get('/', getUserMeters);
+router.get('/all', getAllMetersForStaff);
 router.post('/add', meterLinkRateLimiter, validateMeterInput, addMeter);
 router.patch('/:meterId/name', updateMeterName);
+router.post('/:meterId/toggle-relay', toggleMeterRelay);
+router.post('/:meterId/staff-topup', staffTopupMeter);
 router.post('/:meterId/emergency-credit', activateEmergencyCredit);
 router.post('/:meterId/simulate-consumption', simulateConsumption);
 router.post('/:meterId/set-balance', setMeterBalance);

@@ -41,13 +41,13 @@ const signup = async (req, res) => {
       { expiresIn: '1d' }
     );
 
-    // Issue secure httpOnly cookie
+    // Issue secure httpOnly cookie and return token for cross-origin local dev
     res.cookie('token', token, getCookieOptions());
 
-    // Do NOT send token in JSON body to prevent XSS exfiltration
     res.status(201).json({
       message: 'Account created successfully',
-      user: newUser.rows[0]
+      user: newUser.rows[0],
+      token
     });
   } catch (err) {
     console.error(err);
@@ -82,10 +82,10 @@ const login = async (req, res) => {
     // Step 3: Flag the cookie as httpOnly, Secure (HTTPS), and SameSite=Strict
     res.cookie('token', token, getCookieOptions());
 
-    // Send user profile only — no token in response JSON body
     res.json({
       message: 'Login successful',
-      user: { id: user.id, email: user.email, role: user.role }
+      user: { id: user.id, email: user.email, role: user.role },
+      token
     });
   } catch (err) {
     console.error(err);

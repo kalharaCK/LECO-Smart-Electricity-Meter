@@ -110,6 +110,18 @@ const initDb = async () => {
       }
       console.log(`[Security] Migrated ${unhashedMeters.rows.length} legacy meter PIN(s) to bcrypt cryptographic hashes.`);
     }
+
+    // Seed default staff account if not exists
+    const staffCheck = await pool.query(`SELECT id FROM users WHERE email = 'staff@leco.lk'`);
+    if (staffCheck.rows.length === 0) {
+      const bcrypt = require('bcryptjs');
+      const staffHash = await bcrypt.hash('staff123', 10);
+      await pool.query(
+        `INSERT INTO users (email, password, role) VALUES ('staff@leco.lk', $1, 'staff')`,
+        [staffHash]
+      );
+      console.log('[Auth] Created default LECO staff account: staff@leco.lk (password: staff123)');
+    }
   } catch (err) {
     console.error('Error initializing database:', err);
   }

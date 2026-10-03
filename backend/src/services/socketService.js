@@ -39,6 +39,10 @@ const initSocket = (server) => {
         socket.join(`user_${userId}`);
       }
     });
+
+    socket.on('join_staff', () => {
+      socket.join('staff_room');
+    });
   });
 
   return io;
@@ -54,6 +58,7 @@ const getIo = () => io;
 const emitMeterUpdate = (meterId, payload) => {
   if (io && meterId) {
     io.to(`meter_${meterId}`).emit('meter_update', payload);
+    io.emit('meter_update', { meterId, ...payload });
   }
 };
 
@@ -65,17 +70,22 @@ const emitMeterUpdate = (meterId, payload) => {
 const emitNotification = (userId, notification) => {
   if (io && userId) {
     io.to(`user_${userId}`).emit('notification', notification);
+    io.emit('notification', { userId, ...notification });
   }
 };
 
 /**
- * Broadcast real-time complaint status update to user's room
+ * Broadcast real-time complaint status update to user's room and staff
  * @param {number|string} userId 
  * @param {object} complaint 
  */
 const emitComplaintUpdate = (userId, complaint) => {
-  if (io && userId) {
-    io.to(`user_${userId}`).emit('complaint_update', complaint);
+  if (io) {
+    if (userId) {
+      io.to(`user_${userId}`).emit('complaint_update', complaint);
+    }
+    io.to('staff_room').emit('complaint_update', complaint);
+    io.emit('complaint_update', complaint);
   }
 };
 
