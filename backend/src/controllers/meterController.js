@@ -261,58 +261,122 @@ const rechargeMeter = async (req, res) => {
     const { meterId } = req.params;
     const { amount, paymentMethod } = req.body;
     const userId = req.user.id;
+    const idempotencyKey = req.headers['idempotency-key'] || req.headers['x-idempotency-key'] || req.body.idempotencyKey;
 
     if (!amount || isNaN(amount) || parseFloat(amount) < 100) {
       return res.status(400).json({ message: 'Minimum recharge amount is Rs. 100' });
     }
 
-    // Verify ownership
-    const meterCheck = await pool.query(
-      'SELECT id, balance, meter_number FROM meters WHERE id = $1 AND user_id = $2',
-      [meterId, userId]
-    );
-    if (meterCheck.rows.length === 0) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Step 1: Idempotency Check - prevent double-charges from network lag or multiple clicks
+    if (idempotencyKey) {
+      const existingPayment = await pool.query(
+        `SELECT p.*, m.meter_number 
+         FROM payments p 
+         JOIN meters m ON p.meter_id = m.id 
+         WHERE (p.idempotency_key = $1 OR p.transaction_id = $1) AND p.user_id = $2`,
+        [idempotencyKey, userId]
+      );
+
+      if (existingPayment.rows.length > 0) {
+        const row = existingPayment.rows[0];
+        console.log(`[Idempotency] Duplicate request intercepted for key: ${idempotencyKey}. Returning previous result without double-charging.`);
+        return res.status(200).json({
+          message: 'Recharge already processed (idempotent)',
+          prevBalance: parseFloat(row.previous_balance).toFixed(2),
+          newBalance: parseFloat(row.new_balance).toFixed(2),
+          amount: parseFloat(row.amount).toFixed(2),
+          paymentMethod: row.payment_method,
+          txnId: row.transaction_id,
+          idempotencyKey: row.idempotency_key,
+          isIdempotentReplay: true
+        });
+      }
     }
 
-    const prevBalance = parseFloat(meterCheck.rows[0].balance);
-    const rechargeAmount = parseFloat(amount);
-    const newBalance = prevBalance + rechargeAmount;
-    const method = paymentMethod || 'card';
+    // Connect client for atomic database transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    // Update balance
-    await pool.query(
-      'UPDATE meters SET balance = $1 WHERE id = $2',
-      [newBalance.toFixed(2), meterId]
-    );
+      // Verify ownership with row-level lock (FOR UPDATE)
+      const meterCheck = await client.query(
+        'SELECT id, balance, meter_number FROM meters WHERE id = $1 AND user_id = $2 FOR UPDATE',
+        [meterId, userId]
+      );
+      if (meterCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ message: 'Access denied' });
+      }
 
-    const txnId = `TXN-${Date.now()}`;
+      const prevBalance = parseFloat(meterCheck.rows[0].balance);
+      const rechargeAmount = parseFloat(amount);
+      const newBalance = prevBalance + rechargeAmount;
+      const method = paymentMethod || 'card';
 
-    // Record in payments table
-    await pool.query(
-      `INSERT INTO payments (user_id, meter_id, amount, payment_method, transaction_id, previous_balance, new_balance, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [userId, meterId, rechargeAmount, method, txnId, prevBalance.toFixed(2), newBalance.toFixed(2), 'Success']
-    );
+      // Update meter balance
+      await client.query(
+        'UPDATE meters SET balance = $1 WHERE id = $2',
+        [newBalance.toFixed(2), meterId]
+      );
 
-    // Insert payment success notification
-    await pool.query(
-      `INSERT INTO notifications (user_id, meter_id, type, title, message) VALUES ($1, $2, $3, $4, $5)`,
-      [
-        userId, meterId, 'success',
-        'Recharge Successful',
-        `Rs. ${rechargeAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} credited to meter ${meterCheck.rows[0].meter_number}. New balance: Rs. ${newBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}. Ref: ${txnId}`
-      ]
-    );
+      // Generate consistent transaction ID linked to idempotency key
+      const shortKey = idempotencyKey ? idempotencyKey.replace(/-/g, '').slice(0, 8).toUpperCase() : Date.now().toString().slice(-6);
+      const txnId = `TXN-${shortKey}-${Date.now().toString().slice(-4)}`;
 
-    res.json({
-      message: 'Recharge successful',
-      prevBalance: prevBalance.toFixed(2),
-      newBalance: newBalance.toFixed(2),
-      amount: rechargeAmount.toFixed(2),
-      paymentMethod: method,
-      txnId,
-    });
+      // Record in payments table with idempotency_key
+      await client.query(
+        `INSERT INTO payments (user_id, meter_id, amount, payment_method, transaction_id, idempotency_key, previous_balance, new_balance, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [userId, meterId, rechargeAmount, method, txnId, idempotencyKey || null, prevBalance.toFixed(2), newBalance.toFixed(2), 'Success']
+      );
+
+      // Insert payment success notification
+      await client.query(
+        `INSERT INTO notifications (user_id, meter_id, type, title, message) VALUES ($1, $2, $3, $4, $5)`,
+        [
+          userId, meterId, 'success',
+          'Recharge Successful',
+          `Rs. ${rechargeAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} credited to meter ${meterCheck.rows[0].meter_number}. New balance: Rs. ${newBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}. Ref: ${txnId}`
+        ]
+      );
+
+      await client.query('COMMIT');
+
+      res.status(200).json({
+        message: 'Recharge successful',
+        prevBalance: prevBalance.toFixed(2),
+        newBalance: newBalance.toFixed(2),
+        amount: rechargeAmount.toFixed(2),
+        paymentMethod: method,
+        txnId,
+        idempotencyKey: idempotencyKey || null,
+      });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      
+      // Handle rare concurrent race condition where duplicate key constraint triggers
+      if (err.code === '23505' && idempotencyKey) {
+        const existing = await pool.query(
+          `SELECT p.* FROM payments p WHERE p.idempotency_key = $1 AND p.user_id = $2`,
+          [idempotencyKey, userId]
+        );
+        if (existing.rows.length > 0) {
+          const row = existing.rows[0];
+          return res.status(200).json({
+            message: 'Recharge already processed (idempotent)',
+            prevBalance: parseFloat(row.previous_balance).toFixed(2),
+            newBalance: parseFloat(row.new_balance).toFixed(2),
+            amount: parseFloat(row.amount).toFixed(2),
+            paymentMethod: row.payment_method,
+            txnId: row.transaction_id,
+            isIdempotentReplay: true
+          });
+        }
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     console.error('Error recharging meter:', error);
     res.status(500).json({ message: 'Server error during recharge' });

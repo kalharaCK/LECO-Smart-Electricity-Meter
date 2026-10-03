@@ -38,6 +38,7 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
   const [meters, setMeters] = useState<Meter[]>([])
   const [selectedMeterId, setSelectedMeterId] = useState<number | null>(null)
   const [loadingMeter, setLoadingMeter] = useState(true)
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => crypto.randomUUID())
 
   // Fetch user meters
   useEffect(() => {
@@ -76,8 +77,13 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          "Idempotency-Key": idempotencyKey,
         },
-        body: JSON.stringify({ amount: parseFloat(selectedAmount), paymentMethod }),
+        body: JSON.stringify({
+          amount: parseFloat(selectedAmount),
+          paymentMethod,
+          idempotencyKey,
+        }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -355,7 +361,13 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
                   <Button
                     variant="outline"
                     className="flex-1 bg-transparent border-white/20 text-white hover:bg-white/10"
-                    onClick={() => { setStep("amount"); setResult(null); setAmount("1000"); setCustomAmount("") }}
+                    onClick={() => {
+                      setStep("amount");
+                      setResult(null);
+                      setAmount("1000");
+                      setCustomAmount("");
+                      setIdempotencyKey(crypto.randomUUID());
+                    }}
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
                     New Recharge

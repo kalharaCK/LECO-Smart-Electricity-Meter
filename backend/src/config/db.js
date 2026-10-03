@@ -55,11 +55,13 @@ const initDb = async () => {
         amount DECIMAL(10, 2) NOT NULL,
         payment_method VARCHAR(50) DEFAULT 'card',
         transaction_id VARCHAR(100) UNIQUE NOT NULL,
+        idempotency_key VARCHAR(100) UNIQUE,
         previous_balance DECIMAL(10, 2) NOT NULL,
         new_balance DECIMAL(10, 2) NOT NULL,
         status VARCHAR(50) DEFAULT 'Success',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(100) UNIQUE;
     `);
     console.log('Database tables initialized');
   } catch (err) {
