@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
 const { getWalletLifetimePrediction } = require('../services/predictionEngine');
 const { calculateDomesticBill } = require('../services/tariffEngine');
+const { sanitizeString } = require('../middlewares/sanitizer');
 
 const getUserMeters = async (req, res) => {
   try {
@@ -24,7 +25,7 @@ const getUserMeters = async (req, res) => {
 const addMeter = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { meterNumber, accountNumber, pin } = req.body;
+    const { meterNumber, accountNumber, pin, name } = req.body;
 
     if (!meterNumber || !accountNumber || !pin) {
       return res.status(400).json({ message: 'All fields are required' });
@@ -53,12 +54,13 @@ const addMeter = async (req, res) => {
       }
 
       // Link unassigned meter to the requesting user (never returning pin)
+      const meterName = sanitizeString(name || existingMeter.name || 'Home', 100);
       const linkResult = await pool.query(
         `UPDATE meters 
-         SET user_id = $1, account_number = COALESCE($2, account_number) 
-         WHERE id = $3 
+         SET user_id = $1, account_number = COALESCE($2, account_number), name = $3 
+         WHERE id = $4 
          RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, created_at`,
-        [userId, accountNumber, existingMeter.id]
+        [userId, accountNumber, meterName, existingMeter.id]
       );
 
       return res.status(200).json({ message: 'Meter linked successfully', meter: linkResult.rows[0] });
@@ -70,12 +72,13 @@ const addMeter = async (req, res) => {
 
     const initialBalance = 1850.00;
     const dailyAvg = 220.00;
+    const meterName = sanitizeString(name || 'Home', 100);
 
     const result = await pool.query(
       `INSERT INTO meters (user_id, meter_number, account_number, pin, balance, daily_average, name) 
        VALUES ($1, $2, $3, $4, $5, $6, $7) 
        RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, created_at`,
-      [userId, meterNumber, accountNumber, hashedPin, initialBalance, dailyAvg, 'Home']
+      [userId, meterNumber, accountNumber, hashedPin, initialBalance, dailyAvg, meterName]
     );
 
     const newMeter = result.rows[0];
@@ -469,4 +472,46 @@ const getPaymentHistory = async (req, res) => {
   }
 };
 
-module.exports = { getUserMeters, addMeter, getMeterConsumption, getMeterPrediction, rechargeMeter, getPaymentHistory };
+const updateMeterName = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const { name } = req.body;
+    const userId = req.user.id;
+
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ message: 'Valid meter name is required' });
+    }
+
+    const cleanName = sanitizeString(name, 100);
+    if (!cleanName) {
+      return res.status(400).json({ message: 'Meter name cannot be blank or solely HTML tags' });
+    }
+
+    const result = await pool.query(
+      `UPDATE meters 
+       SET name = $1 
+       WHERE id = $2 AND user_id = $3 
+       RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, created_at`,
+      [cleanName, meterId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Meter not found or unauthorized' });
+    }
+
+    res.json({ message: 'Meter name updated successfully', meter: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating meter name:', error);
+    res.status(500).json({ message: 'Server error updating meter name' });
+  }
+};
+
+module.exports = { 
+  getUserMeters, 
+  addMeter, 
+  getMeterConsumption, 
+  getMeterPrediction, 
+  rechargeMeter, 
+  getPaymentHistory,
+  updateMeterName 
+};

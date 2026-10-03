@@ -1,11 +1,45 @@
 const express = require('express');
+const helmet = require('helmet');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/authRoutes');
 const meterRoutes = require('./routes/meterRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const { sanitizeInputs } = require('./middlewares/sanitizer');
 
 const app = express();
+
+// Phase 5 Step 5: Apply HTTP Security Headers
+// 1. Strip X-Powered-By to prevent framework fingerprinting
+app.disable('x-powered-by');
+
+// 2. Helmet middleware for CSP, Anti-Clickjacking (X-Frame-Options: DENY), and MIME-sniffing protection
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: [
+          "'self'",
+          "http://localhost:3000",
+          "http://localhost:5173",
+          "http://localhost:5174",
+          "https:"
+        ],
+        frameAncestors: ["'none'"], // CSP anti-clickjacking
+      },
+    },
+    frameguard: {
+      action: 'deny', // X-Frame-Options: DENY
+    },
+    noSniff: true, // X-Content-Type-Options: nosniff
+    hidePoweredBy: true,
+  })
+);
 
 // Middlewares
 app.use(cors({
@@ -19,7 +53,10 @@ app.use(cors({
   credentials: true
 }));
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
+
+// Phase 5 Step 6: Input Sanitization across all request bodies, queries, and params
+app.use(sanitizeInputs);
 
 // Routes
 app.use('/api', authRoutes);

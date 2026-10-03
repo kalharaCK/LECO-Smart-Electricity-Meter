@@ -508,6 +508,20 @@ npm run dev -- --port 5174
   - Excess requests are immediately blocked with HTTP `429 Too Many Requests` containing standard `RateLimit-*` draft headers and `Retry-After`.
   - Optimized database telemetry insertion using PostgreSQL `UNNEST` to execute batch mock seeds in a single network roundtrip (<50ms).
 
+### Phase 5: Application & Network Layer Defenses (Headers & Input Sanitization)
+- **Threat**: Clickjacking attacks embedding portal in hidden iframes, MIME-type sniffing, framework reconnaissance (`X-Powered-By: Express`), and Stored Cross-Site Scripting (XSS) via injected `<script>` or `<iframe>` tags in user input (Meter Names, complaints, profiles).
+- **Solution**:
+  - **Step 5: HTTP Security Headers via Helmet**:
+    - `X-Frame-Options: DENY`: Prevents the customer and staff portals from being embedded in iframes on third-party sites (anti-clickjacking).
+    - `Content-Security-Policy (CSP)`: Strict policy restricting script, style, and font loading domains and declaring `frame-ancestors 'none'`.
+    - `X-Content-Type-Options: nosniff`: Neutralizes browser MIME-type confusion attacks.
+    - Stripped `X-Powered-By` header to conceal backend software stack fingerprints.
+  - **Step 6: Input Sanitization & Validation**:
+    - Created global recursive `sanitizeInputs` middleware parsing `req.body`, `req.query`, and `req.params`.
+    - Automatically strips all HTML tags, script constructs, and dangerous event handlers (`<script>`, `<iframe>`, `onload=`, etc.) before reaching database or controllers.
+    - Added strict type and length validations (e.g. meter numbers capped at 50 chars, meter names capped at 100 chars).
+    - Added `PATCH /api/meters/:meterId/name` with end-to-end sanitization.
+
 ---
 
 ## 🔮 Future Roadmap
