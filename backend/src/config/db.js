@@ -62,6 +62,9 @@ const initDb = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
       ALTER TABLE payments ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(100) UNIQUE;
+      ALTER TABLE meters ADD COLUMN IF NOT EXISTS emergency_credit_limit DECIMAL(10, 2) DEFAULT 500.00;
+      ALTER TABLE meters ADD COLUMN IF NOT EXISTS emergency_credit_active BOOLEAN DEFAULT FALSE;
+      ALTER TABLE meters ADD COLUMN IF NOT EXISTS emergency_credit_activated_at TIMESTAMP;
     `);
     console.log('Database tables initialized');
 

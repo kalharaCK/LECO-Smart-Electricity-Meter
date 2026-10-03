@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Battery, Zap, AlertTriangle, Activity, Clock, History as HistoryIcon, Loader2, TrendingUp, Sparkles } from "lucide-react"
+import { Battery, Zap, AlertTriangle, Activity, Clock, History as HistoryIcon, Loader2, TrendingUp, Sparkles, LifeBuoy, HeartPulse, CheckCircle2 } from "lucide-react"
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 
 export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey?: number; onNavigate?: (section: string) => void }) {
@@ -11,6 +11,8 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
   const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [activatingEmergency, setActivatingEmergency] = useState(false)
+  const [emergencySuccessMsg, setEmergencySuccessMsg] = useState<string | null>(null)
 
   const user = JSON.parse(localStorage.getItem('user') || '{"email": "User"}')
 
@@ -19,51 +21,80 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     return () => clearInterval(timer)
   }, [])
 
-  useEffect(() => {
-    const fetchMeters = async () => {
-      setLoading(true);
-      setMeter(null);
-      setConsumption(null);
-      try {
-        const token = localStorage.getItem('token');
-        const headers: Record<string, string> = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
+  const fetchMetersData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const res = await fetch('http://localhost:3000/api/meters', {
-          credentials: 'include',
-          headers
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.length > 0) {
-            setMeter(data[0]);
-            
-            // Fetch consumption stats for this meter
-            const consRes = await fetch(`http://localhost:3000/api/meters/${data[0].id}/consumption`, {
-              credentials: 'include',
-              headers
-            });
-            if (consRes.ok) {
-              setConsumption(await consRes.json());
-            }
-            // Fetch notifications
-            const notifRes = await fetch("http://localhost:3000/api/notifications", {
-              credentials: 'include',
-              headers
-            });
-            if (notifRes.ok) {
-              setNotifications(await notifRes.json());
-            }
+      const res = await fetch('http://localhost:3000/api/meters', {
+        credentials: 'include',
+        headers
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.length > 0) {
+          setMeter(data[0]);
+          
+          // Fetch consumption stats for this meter
+          const consRes = await fetch(`http://localhost:3000/api/meters/${data[0].id}/consumption`, {
+            credentials: 'include',
+            headers
+          });
+          if (consRes.ok) {
+            setConsumption(await consRes.json());
+          }
+          // Fetch notifications
+          const notifRes = await fetch("http://localhost:3000/api/notifications", {
+            credentials: 'include',
+            headers
+          });
+          if (notifRes.ok) {
+            setNotifications(await notifRes.json());
           }
         }
-      } catch (e) {
-        console.error("Failed to fetch data", e);
-      } finally {
-        setLoading(false);
       }
-    };
-    fetchMeters();
-  }, [refreshKey]);
+    } catch (e) {
+      console.error("Failed to fetch data", e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMetersData();
+  }, [fetchMetersData, refreshKey]);
+
+  const handleActivateEmergency = async () => {
+    if (!meter) return;
+    setActivatingEmergency(true);
+    setEmergencySuccessMsg(null);
+    try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/emergency-credit`, {
+        method: 'POST',
+        credentials: 'include',
+        headers
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setEmergencySuccessMsg(data.message || 'Emergency Credit activated! Power will remain connected.');
+        await fetchMetersData();
+      } else {
+        alert(data.message || 'Failed to activate emergency credit');
+      }
+    } catch (e) {
+      alert('Network error while activating emergency credit.');
+    } finally {
+      setActivatingEmergency(false);
+    }
+  };
 
   if (loading) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-yellow-400" /></div>
@@ -104,7 +135,103 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
         </Button>
       </div>
 
-      {/* Top Section - Balance and Quick Status */}
+      {/* Success Notification for Emergency Credit */}
+      {emergencySuccessMsg && (
+        <div className="p-4 rounded-xl bg-green-500/15 border border-green-500/30 flex items-center justify-between text-green-300 text-sm">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-green-400 shrink-0" />
+            <span>{emergencySuccessMsg}</span>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setEmergencySuccessMsg(null)}
+            className="text-green-300 hover:text-white hover:bg-green-500/20 text-xs"
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
+
+      {/* Lifeline Mode Active Card */}
+      {meter?.emergency_credit_active && (
+        <Card className="bg-gradient-to-r from-red-950/40 via-amber-950/30 to-black/60 border border-red-500/40 shadow-xl text-white p-5 rounded-2xl">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="p-3 bg-red-500/20 rounded-xl border border-red-500/30 text-red-400 shrink-0 mt-0.5">
+                <LifeBuoy className="h-6 w-6 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-bold text-lg text-white">Emergency Credit Active (Lifeline Mode)</h4>
+                  <Badge className="bg-red-500/20 text-red-300 border-red-500/40 text-xs animate-pulse">Power Protected</Badge>
+                </div>
+                <p className="text-sm text-white/70 mt-1 max-w-xl">
+                  Your power remains connected. Your emergency buffer of <strong>Rs. {Number(meter.emergency_credit_limit || 500).toFixed(2)}</strong> prevents cut-offs during late hours or critical times. Outstanding debt will be recovered automatically upon recharge.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-white/80">
+                  <div className="bg-black/30 px-3 py-1.5 rounded-lg border border-white/10">
+                    <span className="text-white/50">Buffer Used: </span>
+                    <span className="font-mono font-bold text-amber-300">
+                      Rs. {consumption?.prediction ? Number(consumption.prediction.lifelineUsed).toFixed(2) : (Number(meter.balance) < 0 ? Math.abs(Number(meter.balance)).toFixed(2) : '0.00')}
+                    </span>
+                  </div>
+                  <div className="bg-black/30 px-3 py-1.5 rounded-lg border border-white/10">
+                    <span className="text-white/50">Buffer Remaining: </span>
+                    <span className="font-mono font-bold text-green-400">
+                      Rs. {consumption?.prediction ? Number(consumption.prediction.lifelineRemaining).toFixed(2) : (500 - (Number(meter.balance) < 0 ? Math.abs(Number(meter.balance)) : 0)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Button
+              onClick={() => onNavigate?.("payments")}
+              className="bg-amber-400 text-black hover:bg-amber-300 font-bold shrink-0 shadow-md transition-transform hover:scale-105"
+            >
+              Recharge & Clear Debt
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Low Balance Alert & Lifeline Mode Activation Offer */}
+      {!meter?.emergency_credit_active && Number(meter?.balance) <= 100 && (
+        <Card className="bg-gradient-to-r from-amber-950/40 via-yellow-950/20 to-black/60 border border-yellow-500/30 shadow-lg text-white p-5 rounded-2xl">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="p-3 bg-yellow-500/20 rounded-xl border border-yellow-500/30 text-yellow-400 shrink-0 mt-0.5">
+                <HeartPulse className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-base text-white">Emergency Credit Available</h4>
+                  <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/30 text-xs">Lifeline Protection</Badge>
+                </div>
+                <p className="text-sm text-white/70 mt-1 max-w-xl">
+                  Your prepaid balance is low (Rs. {Number(meter?.balance || 0).toFixed(2)}). Avoid sudden power interruption overnight by activating Emergency Credit (up to Rs. 500 limit). Outstanding debt will be recovered on your next recharge.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={handleActivateEmergency}
+              disabled={activatingEmergency}
+              className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold shrink-0 shadow-md transition-transform hover:scale-105"
+            >
+              {activatingEmergency ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Activating...
+                </>
+              ) : (
+                <>
+                  <LifeBuoy className="mr-2 h-4 w-4" /> Activate Emergency Credit
+                </>
+              )}
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* Top Section - Balance and Quick Status */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Main Balance Card */}
@@ -115,25 +242,37 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle className="text-white/80">Available Prepaid Balance</CardTitle>
-              {consumption?.prediction && (
-                <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/30 text-[11px] font-normal flex items-center gap-1">
-                  <Sparkles className="h-3 w-3" />
-                  {consumption.prediction.currentTariffGroup}
-                </Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {meter?.emergency_credit_active && (
+                  <Badge className="bg-red-500/30 text-red-200 border-red-500/50 text-[11px] font-normal flex items-center gap-1 animate-pulse">
+                    <LifeBuoy className="h-3 w-3" />
+                    Lifeline Mode Active
+                  </Badge>
+                )}
+                {consumption?.prediction && (
+                  <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/30 text-[11px] font-normal flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" />
+                    {consumption.prediction.currentTariffGroup}
+                  </Badge>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <div className="text-5xl font-bold mb-2">
-                {meter ? `Rs. ${Number(meter.balance).toLocaleString('en-US', {minimumFractionDigits: 2})}` : 'Rs. 0.00'}
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`text-5xl font-bold ${Number(meter?.balance) < 0 ? 'text-amber-300' : ''}`}>
+                  {meter ? `Rs. ${Number(meter.balance).toLocaleString('en-US', {minimumFractionDigits: 2})}` : 'Rs. 0.00'}
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-white/80">
                 <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1 rounded-full border border-white/10 text-xs text-white">
                   <Clock className="h-3.5 w-3.5 text-yellow-400" />
                   <span>
                     {consumption?.prediction
-                      ? `≈ ~${consumption.prediction.estimatedDaysRemaining} days remaining`
+                      ? (meter?.emergency_credit_active && Number(meter.balance) < 0
+                          ? `≈ ~${consumption.prediction.estimatedDaysRemaining} days remaining (on buffer)`
+                          : `≈ ~${consumption.prediction.estimatedDaysRemaining} days remaining`)
                       : meter && meter.daily_average > 0
                       ? `≈ ${Math.floor(meter.balance / meter.daily_average)} days remaining`
                       : 'Calculating...'}

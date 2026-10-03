@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
-import { CreditCard, Smartphone, CheckCircle2, Loader2, ArrowRight, Zap, ArrowLeft, RefreshCw } from "lucide-react"
+import { CreditCard, Smartphone, CheckCircle2, Loader2, ArrowRight, Zap, ArrowLeft, RefreshCw, LifeBuoy, AlertTriangle } from "lucide-react"
 
 interface RechargeResult {
   prevBalance: string
   newBalance: string
   amount: string
   txnId: string
+  debtRecovered?: number
+  lifelineReplenished?: boolean
 }
 
 interface Meter {
@@ -20,6 +22,8 @@ interface Meter {
   balance: string | number
   status: string
   name?: string
+  emergency_credit_active?: boolean
+  emergency_credit_limit?: string | number
 }
 
 interface PaymentsSectionProps {
@@ -159,21 +163,35 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
         <CardContent>
           {/* Active Meter Display / Selector */}
           {selectedMeter && step !== "success" && (
-            <div className="mb-6 p-4 rounded-xl bg-black/30 border border-white/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div>
-                <div className="text-xs text-white/50 uppercase tracking-wider font-semibold">Target Smart Meter</div>
-                <div className="font-medium text-white flex items-center gap-2 mt-0.5">
-                  <Zap className="h-4 w-4 text-yellow-400" />
-                  <span className="font-mono text-sm">{selectedMeter.meter_number}</span>
-                  {selectedMeter.name && <span className="text-xs text-white/60">({selectedMeter.name})</span>}
+            <div className="mb-6 space-y-3">
+              <div className="p-4 rounded-xl bg-black/30 border border-white/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                  <div className="text-xs text-white/50 uppercase tracking-wider font-semibold">Target Smart Meter</div>
+                  <div className="font-medium text-white flex items-center gap-2 mt-0.5">
+                    <Zap className="h-4 w-4 text-yellow-400" />
+                    <span className="font-mono text-sm">{selectedMeter.meter_number}</span>
+                    {selectedMeter.name && <span className="text-xs text-white/60">({selectedMeter.name})</span>}
+                  </div>
+                </div>
+                <div className="sm:text-right">
+                  <div className="text-xs text-white/50 uppercase tracking-wider font-semibold">Current Balance</div>
+                  <div className={`text-lg font-bold ${Number(selectedMeter.balance) < 0 ? 'text-amber-400' : 'text-yellow-400'}`}>
+                    Rs. {Number(selectedMeter.balance).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </div>
                 </div>
               </div>
-              <div className="sm:text-right">
-                <div className="text-xs text-white/50 uppercase tracking-wider font-semibold">Current Balance</div>
-                <div className="text-lg font-bold text-yellow-400">
-                  Rs. {Number(selectedMeter.balance).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+
+              {Number(selectedMeter.balance) < 0 && (
+                <div className="p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-start gap-3 text-amber-200 text-xs">
+                  <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold text-amber-300">Emergency Credit Debt Recovery:</span>
+                    {" "}This meter has an active Lifeline buffer with an outstanding debt of{" "}
+                    <strong className="text-white font-mono">Rs. {Math.abs(Number(selectedMeter.balance)).toFixed(2)}</strong>.
+                    Your recharge payment will first automatically settle this debt, and the remainder will be credited as your available balance.
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -337,12 +355,32 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-white/60">Previous Balance</span>
-                    <span className="font-medium text-white/80">Rs. {parseFloat(result.prevBalance).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                    <span className={`font-medium ${Number(result.prevBalance) < 0 ? 'text-amber-400 font-bold' : 'text-white/80'}`}>
+                      Rs. {parseFloat(result.prevBalance).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </span>
                   </div>
+                  {result.debtRecovered && Number(result.debtRecovered) > 0 && (
+                    <div className="flex justify-between text-sm text-amber-300 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                      <span className="flex items-center gap-1">
+                        <LifeBuoy className="h-3.5 w-3.5" /> Emergency Debt Cleared
+                      </span>
+                      <span className="font-medium font-mono">
+                        - Rs. {Number(result.debtRecovered).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm text-green-400">
-                    <span className="text-green-400/80">Recharge Credited</span>
+                    <span className="text-green-400/80">Recharge Amount</span>
                     <span className="font-medium">+ Rs. {parseFloat(result.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
                   </div>
+                  {result.lifelineReplenished && (
+                    <div className="flex justify-between text-xs text-green-300 bg-green-500/10 px-2.5 py-1.5 rounded border border-green-500/20">
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Lifeline Buffer Restored
+                      </span>
+                      <span>Full Rs. 500.00 Limit Available</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-base pt-2 border-t border-white/10">
                     <span className="font-semibold text-white/80">New Available Balance</span>
                     <span className="font-bold text-2xl text-yellow-400">

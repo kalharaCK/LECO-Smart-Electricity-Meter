@@ -6,7 +6,8 @@ const {
   getMeterPrediction, 
   rechargeMeter, 
   getPaymentHistory,
-  updateMeterName 
+  updateMeterName,
+  activateEmergencyCredit 
 } = require('../controllers/meterController');
 const { requireAuth } = require('../middlewares/authMiddleware');
 const { meterLinkRateLimiter } = require('../middlewares/rateLimiter');
@@ -20,6 +21,7 @@ router.use(requireAuth);
 router.get('/', getUserMeters);
 router.post('/add', meterLinkRateLimiter, validateMeterInput, addMeter);
 router.patch('/:meterId/name', updateMeterName);
+router.post('/:meterId/emergency-credit', activateEmergencyCredit);
 router.get('/payments/history', getPaymentHistory);
 router.get('/:meterId/consumption', getMeterConsumption);
 router.get('/:meterId/prediction', getMeterPrediction);

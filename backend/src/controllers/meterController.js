@@ -9,7 +9,8 @@ const getUserMeters = async (req, res) => {
     const userId = req.user.id;
     // Exclude sensitive cryptographic pin hash from client responses
     const result = await pool.query(
-      `SELECT id, user_id, meter_number, account_number, balance, status, daily_average, name, created_at 
+      `SELECT id, user_id, meter_number, account_number, balance, status, daily_average, name, 
+              emergency_credit_limit, emergency_credit_active, emergency_credit_activated_at, created_at 
        FROM meters 
        WHERE user_id = $1 
        ORDER BY created_at DESC`,
@@ -59,7 +60,8 @@ const addMeter = async (req, res) => {
         `UPDATE meters 
          SET user_id = $1, account_number = COALESCE($2, account_number), name = $3 
          WHERE id = $4 
-         RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, created_at`,
+         RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, 
+                   emergency_credit_limit, emergency_credit_active, emergency_credit_activated_at, created_at`,
         [userId, accountNumber, meterName, existingMeter.id]
       );
 
@@ -77,7 +79,8 @@ const addMeter = async (req, res) => {
     const result = await pool.query(
       `INSERT INTO meters (user_id, meter_number, account_number, pin, balance, daily_average, name) 
        VALUES ($1, $2, $3, $4, $5, $6, $7) 
-       RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, created_at`,
+       RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, 
+                 emergency_credit_limit, emergency_credit_active, emergency_credit_activated_at, created_at`,
       [userId, meterNumber, accountNumber, hashedPin, initialBalance, dailyAvg, meterName]
     );
 
@@ -223,8 +226,10 @@ const getMeterConsumption = async (req, res) => {
       [meterId]
     );
 
-    const meterRow = await pool.query('SELECT balance FROM meters WHERE id = $1', [meterId]);
+    const meterRow = await pool.query('SELECT balance, emergency_credit_limit, emergency_credit_active FROM meters WHERE id = $1', [meterId]);
     const balance = parseFloat(meterRow.rows[0]?.balance || 0);
+    const emergencyCreditLimit = parseFloat(meterRow.rows[0]?.emergency_credit_limit || 500);
+    const emergencyCreditActive = Boolean(meterRow.rows[0]?.emergency_credit_active);
 
     const prediction = getWalletLifetimePrediction({
       walletBalance: balance,
@@ -234,7 +239,9 @@ const getMeterConsumption = async (req, res) => {
         date: r.date,
         consumption: parseFloat(r.consumption || 0),
         dayOfWeek: r.day_of_week
-      }))
+      })),
+      emergencyCreditLimit,
+      emergencyCreditActive
     });
 
     res.json({
@@ -271,7 +278,10 @@ const getMeterConsumption = async (req, res) => {
 const getMeterPrediction = async (req, res) => {
   try {
     const { meterId } = req.params;
-    const meterCheck = await pool.query('SELECT id, balance FROM meters WHERE id = $1 AND user_id = $2', [meterId, req.user.id]);
+    const meterCheck = await pool.query(
+      'SELECT id, balance, emergency_credit_limit, emergency_credit_active FROM meters WHERE id = $1 AND user_id = $2',
+      [meterId, req.user.id]
+    );
     if (meterCheck.rows.length === 0) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -304,7 +314,9 @@ const getMeterPrediction = async (req, res) => {
         date: r.date,
         consumption: parseFloat(r.consumption || 0),
         dayOfWeek: r.day_of_week
-      }))
+      })),
+      emergencyCreditLimit: parseFloat(meterCheck.rows[0].emergency_credit_limit || 500),
+      emergencyCreditActive: Boolean(meterCheck.rows[0].emergency_credit_active)
     });
 
     res.json(prediction);
@@ -358,7 +370,9 @@ const rechargeMeter = async (req, res) => {
 
       // Verify ownership with row-level lock (FOR UPDATE)
       const meterCheck = await client.query(
-        'SELECT id, balance, meter_number FROM meters WHERE id = $1 AND user_id = $2 FOR UPDATE',
+        `SELECT id, balance, meter_number, emergency_credit_active, emergency_credit_limit 
+         FROM meters 
+         WHERE id = $1 AND user_id = $2 FOR UPDATE`,
         [meterId, userId]
       );
       if (meterCheck.rows.length === 0) {
@@ -371,10 +385,20 @@ const rechargeMeter = async (req, res) => {
       const newBalance = prevBalance + rechargeAmount;
       const method = paymentMethod || 'card';
 
-      // Update meter balance
+      // Lifeline Debt Recovery:
+      const hadNegativeDebt = prevBalance < 0;
+      const debtRecovered = hadNegativeDebt ? Math.min(rechargeAmount, Math.abs(prevBalance)) : 0;
+      const wasLifelineActive = Boolean(meterCheck.rows[0].emergency_credit_active);
+      const shouldDeactivateLifeline = wasLifelineActive && newBalance >= 0;
+
+      // Update meter balance & deactivate lifeline if debt cleared
       await client.query(
-        'UPDATE meters SET balance = $1 WHERE id = $2',
-        [newBalance.toFixed(2), meterId]
+        `UPDATE meters 
+         SET balance = $1,
+             status = 'Connected',
+             emergency_credit_active = CASE WHEN $2 = TRUE THEN FALSE ELSE emergency_credit_active END
+         WHERE id = $3`,
+        [newBalance.toFixed(2), shouldDeactivateLifeline, meterId]
       );
 
       // Generate consistent transaction ID linked to idempotency key
@@ -388,23 +412,28 @@ const rechargeMeter = async (req, res) => {
         [userId, meterId, rechargeAmount, method, txnId, idempotencyKey || null, prevBalance.toFixed(2), newBalance.toFixed(2), 'Success']
       );
 
-      // Insert payment success notification
+      // Insert payment success notification with debt recovery context
+      let notificationMsg = `Rs. ${rechargeAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} credited to meter ${meterCheck.rows[0].meter_number}. New balance: Rs. ${newBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}. Ref: ${txnId}`;
+      if (debtRecovered > 0) {
+        notificationMsg = `Rs. ${rechargeAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} recharge completed. Rs. ${debtRecovered.toFixed(2)} negative lifeline debt automatically recovered. Net available balance: Rs. ${newBalance.toFixed(2)}. Emergency Credit replenished! Ref: ${txnId}`;
+      }
+
       await client.query(
         `INSERT INTO notifications (user_id, meter_id, type, title, message) VALUES ($1, $2, $3, $4, $5)`,
-        [
-          userId, meterId, 'success',
-          'Recharge Successful',
-          `Rs. ${rechargeAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })} credited to meter ${meterCheck.rows[0].meter_number}. New balance: Rs. ${newBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}. Ref: ${txnId}`
-        ]
+        [userId, meterId, 'success', 'Recharge Successful', notificationMsg]
       );
 
       await client.query('COMMIT');
 
       res.status(200).json({
-        message: 'Recharge successful',
+        message: debtRecovered > 0 
+          ? `Recharge successful. Recovered Rs. ${debtRecovered.toFixed(2)} emergency credit debt.` 
+          : 'Recharge successful',
         prevBalance: prevBalance.toFixed(2),
         newBalance: newBalance.toFixed(2),
         amount: rechargeAmount.toFixed(2),
+        debtRecovered: debtRecovered.toFixed(2),
+        lifelineReplenished: shouldDeactivateLifeline,
         paymentMethod: method,
         txnId,
         idempotencyKey: idempotencyKey || null,
@@ -506,6 +535,86 @@ const updateMeterName = async (req, res) => {
   }
 };
 
+const activateEmergencyCredit = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const userId = req.user.id;
+
+    const meterRes = await pool.query(
+      `SELECT id, meter_number, balance, status, emergency_credit_limit, emergency_credit_active 
+       FROM meters 
+       WHERE id = $1 AND user_id = $2`,
+      [meterId, userId]
+    );
+
+    if (meterRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Meter not found or access denied' });
+    }
+
+    const meter = meterRes.rows[0];
+    const balance = parseFloat(meter.balance || 0);
+    const limit = parseFloat(meter.emergency_credit_limit || 500.00);
+
+    if (meter.emergency_credit_active) {
+      return res.status(400).json({ 
+        message: 'Emergency credit (Lifeline Mode) is already active for this meter',
+        isLifelineActive: true,
+        limit,
+        balance
+      });
+    }
+
+    // Emergency credit can be activated if balance is <= Rs. 100 or already depleted/negative
+    if (balance > 100) {
+      return res.status(400).json({ 
+        message: `Emergency credit can only be activated when balance drops below Rs. 100. Current balance: Rs. ${balance.toFixed(2)}.` 
+      });
+    }
+
+    // If balance is already below the negative limit (e.g. <= -500), cannot activate
+    if (balance <= -limit) {
+      return res.status(400).json({ 
+        message: `Maximum emergency credit limit of Rs. ${limit.toFixed(2)} has been reached. Please recharge to restore service.` 
+      });
+    }
+
+    // Activate Lifeline Mode
+    const updateResult = await pool.query(
+      `UPDATE meters 
+       SET emergency_credit_active = TRUE, 
+           emergency_credit_activated_at = CURRENT_TIMESTAMP,
+           status = 'Connected'
+       WHERE id = $1 
+       RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, 
+                 emergency_credit_limit, emergency_credit_active, emergency_credit_activated_at, created_at`,
+      [meterId]
+    );
+
+    const updatedMeter = updateResult.rows[0];
+
+    // Notification
+    await pool.query(
+      `INSERT INTO notifications (user_id, meter_id, type, title, message)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        userId,
+        meterId,
+        'info',
+        'Lifeline Mode Activated',
+        `Emergency Credit of Rs. ${limit.toFixed(2)} is now active for meter ${meter.meter_number}. Power will remain connected up to -Rs. ${limit.toFixed(2)}. The negative debt will be recovered upon next recharge.`
+      ]
+    );
+
+    res.json({
+      message: `Emergency credit of Rs. ${limit.toFixed(2)} activated! Power will remain connected.`,
+      meter: updatedMeter
+    });
+  } catch (error) {
+    console.error('Error activating emergency credit:', error);
+    res.status(500).json({ message: 'Server error activating emergency credit' });
+  }
+};
+
 module.exports = { 
   getUserMeters, 
   addMeter, 
@@ -513,5 +622,6 @@ module.exports = {
   getMeterPrediction, 
   rechargeMeter, 
   getPaymentHistory,
-  updateMeterName 
+  updateMeterName,
+  activateEmergencyCredit
 };

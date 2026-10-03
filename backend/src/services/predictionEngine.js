@@ -148,34 +148,49 @@ function getWalletLifetimePrediction({
   currentCycleKWh = 0,
   currentCycleDay = 1,
   dailyHistory = [],
+  emergencyCreditLimit = 500,
+  emergencyCreditActive = false
 }) {
   const balance = Number(walletBalance) || 0;
   const cycleKWh = Number(currentCycleKWh) || 0;
+  const limit = Number(emergencyCreditLimit) || 500;
+  const isLifeline = Boolean(emergencyCreditActive);
+
+  // Lifeline metrics
+  const lifelineUsed = isLifeline && balance < 0 ? Math.min(limit, Math.abs(balance)) : 0;
+  const lifelineRemaining = isLifeline ? Math.max(0, limit - lifelineUsed) : 0;
+  // If Lifeline is active, effective balance is balance + limit
+  const effectiveBuffer = isLifeline ? Math.max(0, balance + limit) : Math.max(0, balance);
 
   // Base prediction for tomorrow
   const { predictedKWh, avgDailyKwh, confidence } = predictDailyConsumption(dailyHistory, new Date());
+  const currentBill = calculateDomesticBill(cycleKWh);
 
-  if (balance <= 0) {
+  if (effectiveBuffer <= 0) {
     return {
-      walletBalance: 0,
+      walletBalance: Math.round(balance * 100) / 100,
       estimatedDaysRemaining: 0,
       estimatedMinDays: 0,
       estimatedMaxDays: 0,
       averageDailyUsageKwh: avgDailyKwh,
       predictedTomorrowKwh: predictedKWh,
       billingCycleConsumptionKwh: cycleKWh,
-      currentTariffGroup: calculateDomesticBill(cycleKWh).group,
-      currentCycleLiability: calculateDomesticBill(cycleKWh).totalCharge,
+      currentTariffGroup: currentBill.group,
+      currentCycleLiability: currentBill.totalCharge,
       predictionConfidence: confidence,
       predictionMethod: "WEIGHTED_HISTORICAL",
+      isLifelineActive: isLifeline,
+      lifelineLimit: limit,
+      lifelineUsed: Math.round(lifelineUsed * 100) / 100,
+      lifelineRemaining: Math.round(lifelineRemaining * 100) / 100,
       calculatedAt: new Date().toISOString(),
     };
   }
 
-  // Simulate under three scenarios
+  // Simulate under three scenarios with effective available buffer
   // Normal usage (1.00x)
   const normalDays = simulateWalletLifetime({
-    walletBalance: balance,
+    walletBalance: effectiveBuffer,
     currentCycleKWh: cycleKWh,
     currentCycleDay,
     dailyHistory,
@@ -184,7 +199,7 @@ function getWalletLifetimePrediction({
 
   // High usage (1.15x) -> yields shorter wallet lifetime (minDays)
   const minDays = simulateWalletLifetime({
-    walletBalance: balance,
+    walletBalance: effectiveBuffer,
     currentCycleKWh: cycleKWh,
     currentCycleDay,
     dailyHistory,
@@ -193,14 +208,12 @@ function getWalletLifetimePrediction({
 
   // Low usage (0.85x) -> yields longer wallet lifetime (maxDays)
   const maxDays = simulateWalletLifetime({
-    walletBalance: balance,
+    walletBalance: effectiveBuffer,
     currentCycleKWh: cycleKWh,
     currentCycleDay,
     dailyHistory,
     scenarioMultiplier: 0.85,
   });
-
-  const currentBill = calculateDomesticBill(cycleKWh);
 
   return {
     walletBalance: Math.round(balance * 100) / 100,
@@ -214,6 +227,10 @@ function getWalletLifetimePrediction({
     currentCycleLiability: currentBill.totalCharge,
     predictionConfidence: confidence,
     predictionMethod: "WEIGHTED_HISTORICAL",
+    isLifelineActive: isLifeline,
+    lifelineLimit: limit,
+    lifelineUsed: Math.round(lifelineUsed * 100) / 100,
+    lifelineRemaining: Math.round(lifelineRemaining * 100) / 100,
     calculatedAt: new Date().toISOString(),
   };
 }

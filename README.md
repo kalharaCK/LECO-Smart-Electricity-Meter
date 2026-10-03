@@ -221,6 +221,9 @@ erDiagram
 | `status` | `VARCHAR(50)` | Default `'Connected'` | `'Connected'`, `'Disconnected'`, `'Suspended'` |
 | `daily_average` | `DECIMAL(10,2)` | Default `0.00` | Computed daily burn rate in Rs. |
 | `name` | `VARCHAR(100)` | Default `'Home'` | User-friendly meter alias (e.g. Home, Factory) |
+| `emergency_credit_limit` | `DECIMAL(10,2)` | Default `500.00` | Lifeline overdraft threshold allowed (Rs. 500.00) |
+| `emergency_credit_active` | `BOOLEAN` | Default `false` | Whether Lifeline Mode is currently engaged |
+| `emergency_credit_activated_at` | `TIMESTAMP` | Nullable | Timestamp when user enabled Lifeline Mode |
 | `created_at` | `TIMESTAMP` | Default `CURRENT_TIMESTAMP` | Date meter was linked |
 
 #### 3. `consumption_logs`
@@ -293,6 +296,12 @@ erDiagram
 - **Transaction Table**: Formatted date/time, copyable Transaction ID, meter alias, balance impact ($Prev \to New$), and status badge.
 - **Interactive Receipt Modal**: Clean dialog allowing prosumers to review line items and trigger browser printing.
 
+### 5. Emergency Credit / Lifeline Mode (`OverviewSection.tsx`, `PaymentsSection.tsx`)
+- **Off-Hours Disconnection Protection**: If a user's balance drops to near 0 or negative during off-hours (e.g., 2:00 AM), they can activate an emergency buffer of up to **Rs. 500.00**.
+- **1-Click Portal Activation**: When balance $\le$ Rs. 100, an "Activate Emergency Credit" card appears. Clicking it switches the meter to `Lifeline Mode`, guaranteeing uninterrupted power.
+- **Buffer & Runaway Tracking**: The prediction engine computes days remaining based on the emergency buffer even when balance dips into negative territory.
+- **Automated Debt Recovery**: When the customer subsequently recharges, the system automatically settles the negative overdraft first, deposits any net remainder into the available balance, and replenishes the full Rs. 500 emergency buffer for future use.
+
 ---
 
 ## 📡 REST API Specification
@@ -310,14 +319,11 @@ All protected endpoints require an `Authorization: Bearer <JWT>` header.
 | Method | Endpoint | Description | Response / Payload |
 |---|---|---|---|
 | `GET` | `/api/meters` | Get user's linked meters | `Array<Meter>` |
-| `POST` | `/api/meters/add` | Link a smart meter | `{ meterNumber, accountNumber, pin }` |
-| Method | Endpoint | Description | Response / Payload |
-|---|---|---|---|
-| `GET` | `/api/meters` | Get user's linked meters | `Array<Meter>` |
-| `POST` | `/api/meters/add` | Link a smart meter | `{ meterNumber, accountNumber, pin }` |
+| `POST` | `/api/meters/add` | Link a smart meter (bcrypt PIN verified, rate-limited) | `{ meterNumber, accountNumber, pin }` |
 | `GET` | `/api/meters/:meterId/consumption` | Fetch consumption stats & prediction | `{ today, chartData, prediction: {...} }` |
-| `GET` | `/api/meters/:meterId/prediction` | Fetch standalone wallet prediction | `{ walletBalance, estimatedDaysRemaining, ... }` |
-| `POST` | `/api/meters/:meterId/recharge` | Top up prepaid credit | `{ amount: number, paymentMethod: string }` |
+| `GET` | `/api/meters/:meterId/prediction` | Fetch standalone wallet prediction with Lifeline metrics | `{ walletBalance, estimatedDaysRemaining, isLifelineActive, ... }` |
+| `POST` | `/api/meters/:meterId/emergency-credit` | Activate Emergency Credit (Lifeline Mode up to Rs. 500) | `{ message, meterId, emergencyCreditLimit, status }` |
+| `POST` | `/api/meters/:meterId/recharge` | Top up prepaid credit (idempotent, auto debt recovery) | `{ amount: number, paymentMethod: string, idempotencyKey }` |
 | `GET` | `/api/meters/payments/history` | Get user payment transaction ledger | `Array<PaymentRecord>` (supports `?meterId=`) |
 
 ### Notification Endpoints (`/api/notifications`)
