@@ -35,7 +35,19 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     if (isInitial) setLoading(true);
     try {
       let token = localStorage.getItem('token');
-      if (!token && user?.email) {
+      let needsFreshToken = !token;
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          if (payload.role !== 'customer') {
+            needsFreshToken = true;
+          }
+        } catch (e) {
+          needsFreshToken = true;
+        }
+      }
+
+      if (needsFreshToken && user?.email) {
         try {
           const tokenRes = await fetch('http://localhost:3000/api/auth/token', {
             method: 'POST',
@@ -58,12 +70,11 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       let res = await fetch('http://localhost:3000/api/meters', {
-        credentials: 'include',
         headers
       });
 
-      // If unauthorized, attempt one recovery cycle
-      if (res.status === 401 && user?.email) {
+      // If unauthorized or failed, attempt one recovery cycle
+      if ((res.status === 401 || !res.ok) && user?.email) {
         try {
           const tokenRes = await fetch('http://localhost:3000/api/auth/token', {
             method: 'POST',
@@ -76,7 +87,6 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
               localStorage.setItem('token', tokenData.token);
               headers['Authorization'] = `Bearer ${tokenData.token}`;
               res = await fetch('http://localhost:3000/api/meters', {
-                credentials: 'include',
                 headers
               });
             }
@@ -95,7 +105,6 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
           
           // Fetch consumption stats for this meter
           const consRes = await fetch(`http://localhost:3000/api/meters/${firstMeter.id}/consumption`, {
-            credentials: 'include',
             headers
           });
           if (consRes.ok) {
@@ -103,12 +112,13 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
           }
           // Fetch notifications
           const notifRes = await fetch("http://localhost:3000/api/notifications", {
-            credentials: 'include',
             headers
           });
           if (notifRes.ok) {
             setNotifications(await notifRes.json());
           }
+        } else {
+          setMeter(null);
         }
       }
     } catch (e) {

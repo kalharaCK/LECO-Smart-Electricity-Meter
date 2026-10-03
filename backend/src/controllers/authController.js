@@ -123,17 +123,6 @@ const getMe = async (req, res) => {
 
 const getSessionToken = async (req, res) => {
   try {
-    let token = req.cookies?.token;
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_jwt_key');
-        const userRes = await pool.query('SELECT id, email, role FROM users WHERE id = $1', [decoded.id]);
-        if (userRes.rows.length > 0) {
-          return res.json({ token, user: userRes.rows[0] });
-        }
-      } catch (e) {}
-    }
-
     const email = req.body?.email || req.query?.email;
     if (email) {
       const userRes = await pool.query('SELECT id, email, role FROM users WHERE email = $1', [email]);
@@ -144,9 +133,19 @@ const getSessionToken = async (req, res) => {
           process.env.JWT_SECRET || 'super_secret_jwt_key',
           { expiresIn: '1d' }
         );
-        res.cookie('token', freshToken, getCookieOptions());
         return res.json({ token: freshToken, user: u });
       }
+    }
+
+    let token = req.cookies?.token;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_jwt_key');
+        const userRes = await pool.query('SELECT id, email, role FROM users WHERE id = $1', [decoded.id]);
+        if (userRes.rows.length > 0) {
+          return res.json({ token, user: userRes.rows[0] });
+        }
+      } catch (e) {}
     }
 
     return res.status(401).json({ message: 'No active session found' });

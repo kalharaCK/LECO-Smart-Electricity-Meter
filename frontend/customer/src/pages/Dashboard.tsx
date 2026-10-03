@@ -121,8 +121,20 @@ export default function Dashboard() {
       
       const initializeAuthAndData = async () => {
         let token = localStorage.getItem("token")
-        // If token missing in localStorage, auto-recover from backend
-        if (!token && parsedUser?.email) {
+        let needsNewToken = !token
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]))
+            if (payload.role !== 'customer') {
+              needsNewToken = true
+            }
+          } catch (e) {
+            needsNewToken = true
+          }
+        }
+
+        // If token missing or from staff session, auto-recover customer token
+        if (needsNewToken && parsedUser?.email) {
           try {
             const tokenRes = await fetch("http://localhost:3000/api/auth/token", {
               method: "POST",
@@ -146,7 +158,6 @@ export default function Dashboard() {
           const headers: Record<string, string> = {}
           if (token) headers["Authorization"] = `Bearer ${token}`
           const res = await fetch("http://localhost:3000/api/notifications", {
-            credentials: "include",
             headers
           })
           if (res.ok) {
