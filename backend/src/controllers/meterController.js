@@ -45,14 +45,14 @@ const addMeter = async (req, res) => {
         d.setDate(d.getDate() - i);
         const dateStr = d.toISOString().split('T')[0];
         
-        // 24 hours of data
+        // 24 hours of data - realistic Sri Lankan domestic household (avg ~4.5 kWh/day)
         for (let h = 0; h < 24; h++) {
-          // random consumption between 0.1 and 1.5 kWh
-          const consumption = (Math.random() * 1.4 + 0.1).toFixed(2);
-          // random export (e.g., solar generation) during daytime (8 AM to 5 PM)
+          const baseHour = (h >= 23 || h < 6) ? 0.08 : (h >= 18 && h <= 22) ? 0.28 : 0.18;
+          const consumption = Math.max(0.02, baseHour + (Math.random() * 0.1 - 0.05)).toFixed(2);
+          // Solar export during sunny daytime (9 AM to 4 PM)
           let energyExport = '0.00';
-          if (h >= 8 && h <= 17) {
-            energyExport = (Math.random() * 2.0).toFixed(2);
+          if (h >= 9 && h <= 16) {
+            energyExport = (Math.random() * 0.25 + 0.10).toFixed(2);
           }
           await client.query(
             `INSERT INTO consumption_logs (meter_id, reading_date, reading_hour, consumption, energy_export) VALUES ($1, $2, $3, $4, $5)`,
@@ -143,11 +143,11 @@ const getMeterConsumption = async (req, res) => {
     const currentPower = (Math.random() * 1.5 + 0.5).toFixed(2); // Mock current kW draw
     const currentExport = (new Date().getHours() >= 8 && new Date().getHours() <= 17) ? (Math.random() * 2.0).toFixed(2) : '0.00';
 
-    // Fetch daily history for LECO wallet lifetime prediction
+    // Fetch daily history for LECO wallet lifetime prediction (Net consumption: Import - Export)
     const historyResult = await pool.query(
       `SELECT 
          reading_date::text as date,
-         SUM(consumption) as consumption,
+         GREATEST(0, SUM(consumption) - SUM(energy_export)) as consumption,
          EXTRACT(DOW FROM reading_date)::int as day_of_week
        FROM consumption_logs
        WHERE meter_id = $1
@@ -157,11 +157,11 @@ const getMeterConsumption = async (req, res) => {
       [meterId]
     );
 
-    // Fetch cycle consumption (last 30 days)
+    // Fetch cycle net consumption (since start of current billing month)
     const cycleResult = await pool.query(
-      `SELECT COALESCE(SUM(consumption), 0) as cycle_import 
+      `SELECT GREATEST(0, COALESCE(SUM(consumption) - SUM(energy_export), 0)) as cycle_net 
        FROM consumption_logs 
-       WHERE meter_id = $1 AND reading_date >= CURRENT_DATE - INTERVAL '29 days'`,
+       WHERE meter_id = $1 AND reading_date >= date_trunc('month', CURRENT_DATE)`,
       [meterId]
     );
 
@@ -170,7 +170,7 @@ const getMeterConsumption = async (req, res) => {
 
     const prediction = getWalletLifetimePrediction({
       walletBalance: balance,
-      currentCycleKWh: parseFloat(cycleResult.rows[0]?.cycle_import || 0),
+      currentCycleKWh: parseFloat(cycleResult.rows[0]?.cycle_net || 0),
       currentCycleDay: new Date().getDate(),
       dailyHistory: historyResult.rows.map(r => ({
         date: r.date,
@@ -221,7 +221,7 @@ const getMeterPrediction = async (req, res) => {
     const historyResult = await pool.query(
       `SELECT 
          reading_date::text as date,
-         SUM(consumption) as consumption,
+         GREATEST(0, SUM(consumption) - SUM(energy_export)) as consumption,
          EXTRACT(DOW FROM reading_date)::int as day_of_week
        FROM consumption_logs
        WHERE meter_id = $1
@@ -232,15 +232,15 @@ const getMeterPrediction = async (req, res) => {
     );
 
     const cycleResult = await pool.query(
-      `SELECT COALESCE(SUM(consumption), 0) as cycle_import 
+      `SELECT GREATEST(0, COALESCE(SUM(consumption) - SUM(energy_export), 0)) as cycle_net 
        FROM consumption_logs 
-       WHERE meter_id = $1 AND reading_date >= CURRENT_DATE - INTERVAL '29 days'`,
+       WHERE meter_id = $1 AND reading_date >= date_trunc('month', CURRENT_DATE)`,
       [meterId]
     );
 
     const prediction = getWalletLifetimePrediction({
       walletBalance: parseFloat(meterCheck.rows[0].balance || 0),
-      currentCycleKWh: parseFloat(cycleResult.rows[0]?.cycle_import || 0),
+      currentCycleKWh: parseFloat(cycleResult.rows[0]?.cycle_net || 0),
       currentCycleDay: new Date().getDate(),
       dailyHistory: historyResult.rows.map(r => ({
         date: r.date,
