@@ -1,16 +1,18 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Battery, Zap, AlertTriangle, Activity, Clock, History as HistoryIcon, Loader2, TrendingUp, Sparkles, LifeBuoy, HeartPulse, CheckCircle2, Flame, Sliders, RotateCcw, ChevronDown, ChevronUp, Play, ArrowDownRight } from "lucide-react"
+import { Battery, Zap, AlertTriangle, Activity, Clock, History as HistoryIcon, Loader2, TrendingUp, Sparkles, LifeBuoy, HeartPulse, CheckCircle2, Flame, Sliders, RotateCcw, ChevronDown, ChevronUp, Play, ArrowDownRight, Wifi, WifiOff } from "lucide-react"
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
+import { getSocket } from "@/lib/socket"
 
 export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey?: number; onNavigate?: (section: string) => void }) {
   const [meter, setMeter] = useState<any>(null)
   const [consumption, setConsumption] = useState<any>(null)
   const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [socketConnected, setSocketConnected] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [activatingEmergency, setActivatingEmergency] = useState(false)
   const [emergencySuccessMsg, setEmergencySuccessMsg] = useState<string | null>(null)
@@ -19,6 +21,8 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
   const [customKwh, setCustomKwh] = useState("2.5")
   const [showSimulator, setShowSimulator] = useState(true)
 
+  const activeMeterIdRef = useRef<number | null>(null);
+
   const user = JSON.parse(localStorage.getItem('user') || '{"email": "User"}')
 
   useEffect(() => {
@@ -26,8 +30,9 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     return () => clearInterval(timer)
   }, [])
 
-  const fetchMetersData = useCallback(async () => {
-    setLoading(true);
+  // Non-blocking fetch: Only sets loading spinner on initial load or manual reload
+  const fetchMetersData = useCallback(async (isInitial = false) => {
+    if (isInitial) setLoading(true);
     try {
       const token = localStorage.getItem('token');
       const headers: Record<string, string> = {};
@@ -40,10 +45,12 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
       if (res.ok) {
         const data = await res.json();
         if (data.length > 0) {
-          setMeter(data[0]);
+          const firstMeter = data[0];
+          activeMeterIdRef.current = firstMeter.id;
+          setMeter((prev: any) => ({ ...(prev || {}), ...firstMeter }));
           
           // Fetch consumption stats for this meter
-          const consRes = await fetch(`http://localhost:3000/api/meters/${data[0].id}/consumption`, {
+          const consRes = await fetch(`http://localhost:3000/api/meters/${firstMeter.id}/consumption`, {
             credentials: 'include',
             headers
           });
@@ -63,13 +70,71 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     } catch (e) {
       console.error("Failed to fetch data", e);
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchMetersData();
+    fetchMetersData(true);
   }, [fetchMetersData, refreshKey]);
+
+  // Step 1, 2, 3 & 4: WebSockets Real-Time Listener (Zero-Flicker Surgical Updates)
+  useEffect(() => {
+    const socket = getSocket();
+
+    const onConnect = () => setSocketConnected(true);
+    const onDisconnect = () => setSocketConnected(false);
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    if (socket.connected) setSocketConnected(true);
+
+    if (meter?.id) {
+      socket.emit('join_meter', meter.id);
+    }
+
+    const handleMeterUpdate = (payload: any) => {
+      if (!payload || (meter?.id && payload.meterId !== meter.id)) return;
+
+      // SURGICAL UPDATE 1: Meter Balance & Status (Zero component remount)
+      setMeter((prev: any) => prev ? {
+        ...prev,
+        balance: payload.balance ?? prev.balance,
+        status: payload.status ?? prev.status,
+        emergency_credit_active: payload.emergency_credit_active ?? prev.emergency_credit_active,
+        emergency_credit_limit: payload.emergency_credit_limit ?? prev.emergency_credit_limit,
+      } : prev);
+
+      // SURGICAL UPDATE 2: Consumption, Live Draw & Sliding Window Chart Data
+      setConsumption((prev: any) => {
+        if (!prev) return payload;
+        return {
+          ...prev,
+          today: payload.today ?? prev.today,
+          exportToday: payload.exportToday ?? prev.exportToday,
+          yesterday: payload.yesterday ?? prev.yesterday,
+          exportYesterday: payload.exportYesterday ?? prev.exportYesterday,
+          thisWeek: payload.thisWeek ?? prev.thisWeek,
+          exportThisWeek: payload.exportThisWeek ?? prev.exportThisWeek,
+          currentPower: payload.currentPower ?? prev.currentPower,
+          currentExport: payload.currentExport ?? prev.currentExport,
+          prediction: payload.prediction ?? prev.prediction,
+          chartData: payload.chartData ?? prev.chartData
+        };
+      });
+    };
+
+    socket.on('meter_update', handleMeterUpdate);
+
+    return () => {
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('meter_update', handleMeterUpdate);
+      if (meter?.id) {
+        socket.emit('leave_meter', meter.id);
+      }
+    };
+  }, [meter?.id]);
 
   const handleActivateEmergency = async () => {
     if (!meter) return;
@@ -90,7 +155,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
       const data = await res.json();
       if (res.ok) {
         setEmergencySuccessMsg(data.message || 'Emergency Credit activated! Power will remain connected.');
-        await fetchMetersData();
+        // State is updated automatically via WebSocket broadcast from backend
       } else {
         alert(data.message || 'Failed to activate emergency credit');
       }
@@ -118,8 +183,23 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
       });
       const data = await res.json();
       if (res.ok) {
-        setSimulationLog(`⚡ Burned +${data.kwhAdded} kWh (Deducted Rs. ${Number(data.costDeducted).toFixed(2)} via PUCSL tariff). Balance is now Rs. ${Number(data.newBalance).toFixed(2)}.`);
-        await fetchMetersData();
+        setSimulationLog(`⚡ Burned +${data.kwhAdded} kWh (Deducted Rs. ${Number(data.costDeducted).toFixed(2)} via PUCSL tariff). Balance: Rs. ${Number(data.newBalance).toFixed(2)}.`);
+        // Backend already emitted 'meter_update' via WebSocket; apply surgical fallback if needed
+        if (data.livePayload) {
+          setMeter((prev: any) => prev ? {
+            ...prev,
+            balance: data.livePayload.balance,
+            status: data.livePayload.status,
+            emergency_credit_active: data.livePayload.emergency_credit_active
+          } : prev);
+          setConsumption((prev: any) => prev ? {
+            ...prev,
+            today: data.livePayload.today,
+            thisWeek: data.livePayload.thisWeek,
+            prediction: data.livePayload.prediction,
+            chartData: data.livePayload.chartData
+          } : prev);
+        }
       } else {
         alert(data.message || 'Simulation failed');
       }
@@ -148,7 +228,12 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
       const data = await res.json();
       if (res.ok) {
         setSimulationLog(`🎯 Balance updated directly to Rs. ${Number(data.newBalance).toFixed(2)}. Status: ${data.status}.`);
-        await fetchMetersData();
+        // Instant surgical update without reloading
+        setMeter((prev: any) => prev ? {
+          ...prev,
+          balance: data.newBalance,
+          status: data.status
+        } : prev);
       } else {
         alert(data.message || 'Failed to set balance');
       }
@@ -181,9 +266,32 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     <div className="flex flex-col gap-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-2">
         <div>
-          <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">
-            Welcome back, <span className="text-[#992511]">{user.email.split('@')[0]}</span>
-          </h2>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">
+              Welcome back, <span className="text-[#992511]">{user.email.split('@')[0]}</span>
+            </h2>
+            <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border mb-2 font-mono ${
+              socketConnected 
+                ? 'text-green-400 bg-green-500/10 border-green-500/20' 
+                : 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+            }`}>
+              {socketConnected ? (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                  </span>
+                  <Wifi className="h-3 w-3 ml-0.5" />
+                  <span>Live Sync</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="h-3 w-3" />
+                  <span>Connecting...</span>
+                </>
+              )}
+            </div>
+          </div>
           <p className="text-white/60">
             {currentTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             <span className="mx-2">•</span>

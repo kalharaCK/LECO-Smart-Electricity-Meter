@@ -323,8 +323,16 @@ All protected endpoints require an `Authorization: Bearer <JWT>` header.
 | `GET` | `/api/meters/:meterId/consumption` | Fetch consumption stats & prediction | `{ today, chartData, prediction: {...} }` |
 | `GET` | `/api/meters/:meterId/prediction` | Fetch standalone wallet prediction with Lifeline metrics | `{ walletBalance, estimatedDaysRemaining, isLifelineActive, ... }` |
 | `POST` | `/api/meters/:meterId/emergency-credit` | Activate Emergency Credit (Lifeline Mode up to Rs. 500) | `{ message, meterId, emergencyCreditLimit, status }` |
-| `POST` | `/api/meters/:meterId/recharge` | Top up prepaid credit (idempotent, auto debt recovery) | `{ amount: number, paymentMethod: string, idempotencyKey }` |
+| `POST` | `/api/meters/:meterId/simulate-consumption` | Simulate live kWh usage (PUCSL tariff cost deducted, WS emitted) | `{ kwh: number, exportKwh?: number }` |
+| `POST` | `/api/meters/:meterId/set-balance` | Set balance directly for scenario testing (WS emitted) | `{ balance: number }` |
+| `POST` | `/api/meters/:meterId/recharge` | Top up prepaid credit (idempotent, auto debt recovery, WS emitted) | `{ amount: number, paymentMethod: string, idempotencyKey }` |
 | `GET` | `/api/meters/payments/history` | Get user payment transaction ledger | `Array<PaymentRecord>` (supports `?meterId=`) |
+
+### WebSockets & Real-Time Bi-Directional Architecture (`Socket.io`)
+- **Transport**: Persistent WebSocket connection with automatic exponential-backoff reconnection.
+- **Private Rooms**: Sockets automatically join isolated meter channels (`meter_${meterId}`) and user channels (`user_${userId}`).
+- **Event `meter_update`**: Instantly emitted upon every incoming telemetry reading, balance deduction, lifeline toggle, or recharge.
+- **Zero-Reload Surgical State Management**: React state updates balance, days remaining, live kW, and sliding window chart in-place without triggering full page reloads or unmounting components.
 
 ### Notification Endpoints (`/api/notifications`)
 | Method | Endpoint | Description |

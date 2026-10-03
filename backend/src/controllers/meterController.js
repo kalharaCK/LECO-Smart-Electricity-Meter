@@ -3,6 +3,110 @@ const { pool } = require('../config/db');
 const { getWalletLifetimePrediction } = require('../services/predictionEngine');
 const { calculateDomesticBill } = require('../services/tariffEngine');
 const { sanitizeString } = require('../middlewares/sanitizer');
+const { emitMeterUpdate, emitNotification } = require('../services/socketService');
+
+/**
+ * Broadcasts latest meter telemetry, balance, and prediction over WebSocket
+ * @param {number|string} meterId 
+ */
+async function broadcastMeterState(meterId) {
+  try {
+    const meterRow = await pool.query(
+      `SELECT id, user_id, meter_number, balance, status, emergency_credit_limit, emergency_credit_active 
+       FROM meters WHERE id = $1`,
+      [meterId]
+    );
+    if (meterRow.rows.length === 0) return null;
+    const meter = meterRow.rows[0];
+    const balance = parseFloat(meter.balance);
+    const limit = parseFloat(meter.emergency_credit_limit || 500);
+
+    const todayResult = await pool.query(
+      `SELECT SUM(consumption) as total_import, SUM(energy_export) as total_export FROM consumption_logs WHERE meter_id = $1 AND reading_date = CURRENT_DATE`,
+      [meterId]
+    );
+    const yesterdayResult = await pool.query(
+      `SELECT SUM(consumption) as total_import, SUM(energy_export) as total_export FROM consumption_logs WHERE meter_id = $1 AND reading_date = CURRENT_DATE - INTERVAL '1 day'`,
+      [meterId]
+    );
+    const weekResult = await pool.query(
+      `SELECT SUM(consumption) as total_import, SUM(energy_export) as total_export FROM consumption_logs WHERE meter_id = $1 AND reading_date >= CURRENT_DATE - INTERVAL '7 days'`,
+      [meterId]
+    );
+    const historyResult = await pool.query(
+      `SELECT 
+         reading_date::text as date,
+         GREATEST(0, SUM(consumption) - SUM(energy_export)) as consumption,
+         EXTRACT(DOW FROM reading_date)::int as day_of_week
+       FROM consumption_logs
+       WHERE meter_id = $1
+       GROUP BY reading_date
+       ORDER BY reading_date DESC
+       LIMIT 60`,
+      [meterId]
+    );
+    const cycleResult = await pool.query(
+      `SELECT GREATEST(0, COALESCE(SUM(consumption) - SUM(energy_export), 0)) as cycle_net 
+       FROM consumption_logs 
+       WHERE meter_id = $1 AND reading_date >= date_trunc('month', CURRENT_DATE)`,
+      [meterId]
+    );
+
+    const prediction = getWalletLifetimePrediction({
+      walletBalance: balance,
+      currentCycleKWh: parseFloat(cycleResult.rows[0]?.cycle_net || 0),
+      currentCycleDay: new Date().getDate(),
+      dailyHistory: historyResult.rows.map(r => ({
+        date: r.date,
+        consumption: parseFloat(r.consumption || 0),
+        dayOfWeek: r.day_of_week
+      })),
+      emergencyCreditLimit: limit,
+      emergencyCreditActive: meter.emergency_credit_active
+    });
+
+    const chartResult = await pool.query(
+      `SELECT 
+         to_char(reading_date, 'Mon DD') as date,
+         SUM(consumption) as import,
+         SUM(energy_export) as export
+       FROM consumption_logs 
+       WHERE meter_id = $1 AND reading_date >= CURRENT_DATE - INTERVAL '6 days'
+       GROUP BY reading_date
+       ORDER BY reading_date ASC`,
+      [meterId]
+    );
+
+    const payload = {
+      meterId: Number(meterId),
+      balance: balance,
+      status: meter.status,
+      emergency_credit_active: meter.emergency_credit_active,
+      emergency_credit_limit: limit,
+      today: parseFloat(todayResult.rows[0]?.total_import || 0).toFixed(1),
+      exportToday: parseFloat(todayResult.rows[0]?.total_export || 0).toFixed(1),
+      yesterday: parseFloat(yesterdayResult.rows[0]?.total_import || 0).toFixed(1),
+      exportYesterday: parseFloat(yesterdayResult.rows[0]?.total_export || 0).toFixed(1),
+      thisWeek: parseFloat(weekResult.rows[0]?.total_import || 0).toFixed(1),
+      exportThisWeek: parseFloat(weekResult.rows[0]?.total_export || 0).toFixed(1),
+      currentPower: (Math.random() * 1.5 + 0.5).toFixed(2),
+      currentExport: (new Date().getHours() >= 8 && new Date().getHours() <= 17) ? (Math.random() * 2.0).toFixed(2) : '0.00',
+      chartData: chartResult.rows.map(r => ({
+        date: r.date,
+        import: parseFloat(r.import || 0),
+        export: parseFloat(r.export || 0)
+      })),
+      prediction,
+      timestamp: new Date().toISOString()
+    };
+
+    emitMeterUpdate(meterId, payload);
+    return payload;
+  } catch (err) {
+    console.error('Error in broadcastMeterState:', err);
+    return null;
+  }
+}
 
 const getUserMeters = async (req, res) => {
   try {
@@ -425,6 +529,9 @@ const rechargeMeter = async (req, res) => {
 
       await client.query('COMMIT');
 
+      // Real-time WebSocket Broadcast
+      broadcastMeterState(meterId).catch(e => console.error('WS broadcast error:', e));
+
       res.status(200).json({
         message: debtRecovered > 0 
           ? `Recharge successful. Recovered Rs. ${debtRecovered.toFixed(2)} emergency credit debt.` 
@@ -605,6 +712,9 @@ const activateEmergencyCredit = async (req, res) => {
       ]
     );
 
+    // Real-time WebSocket Broadcast
+    broadcastMeterState(meterId).catch(e => console.error('WS broadcast error:', e));
+
     res.json({
       message: `Emergency credit of Rs. ${limit.toFixed(2)} activated! Power will remain connected.`,
       meter: updatedMeter
@@ -727,6 +837,9 @@ const simulateConsumption = async (req, res) => {
       );
     }
 
+    // Real-time WebSocket Broadcast (instantly notifies frontend without full page reload)
+    const livePayload = await broadcastMeterState(meterId);
+
     res.json({
       message: `Simulated ${kwh} kWh consumed. Deducted Rs. ${energyCost.toFixed(2)} from prepaid balance.`,
       kwhAdded: kwh,
@@ -735,7 +848,8 @@ const simulateConsumption = async (req, res) => {
       newBalance,
       status: newStatus,
       isLifelineActive: meter.emergency_credit_active,
-      disconnected
+      disconnected,
+      livePayload
     });
   } catch (error) {
     console.error('Error simulating consumption:', error);
@@ -777,6 +891,9 @@ const setMeterBalance = async (req, res) => {
       `UPDATE meters SET balance = $1, status = $2 WHERE id = $3`,
       [targetBalance, status, meterId]
     );
+
+    // Real-time WebSocket Broadcast
+    broadcastMeterState(meterId).catch(e => console.error('WS broadcast error:', e));
 
     res.json({
       message: `Meter balance set to Rs. ${targetBalance.toFixed(2)}`,

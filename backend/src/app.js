@@ -28,6 +28,8 @@ app.use(
           "http://localhost:3000",
           "http://localhost:5173",
           "http://localhost:5174",
+          "ws://localhost:3000",
+          "wss://localhost:3000",
           "https:"
         ],
         frameAncestors: ["'none'"], // CSP anti-clickjacking
