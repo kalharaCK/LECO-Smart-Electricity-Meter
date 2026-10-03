@@ -1,3 +1,4 @@
+const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
 const { getWalletLifetimePrediction } = require('../services/predictionEngine');
 const { calculateDomesticBill } = require('../services/tariffEngine');
@@ -5,7 +6,14 @@ const { calculateDomesticBill } = require('../services/tariffEngine');
 const getUserMeters = async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await pool.query('SELECT * FROM meters WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
+    // Exclude sensitive cryptographic pin hash from client responses
+    const result = await pool.query(
+      `SELECT id, user_id, meter_number, account_number, balance, status, daily_average, name, created_at 
+       FROM meters 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC`,
+      [userId]
+    );
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching meters:', error);
@@ -22,15 +30,52 @@ const addMeter = async (req, res) => {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // For prototype, we will just create a new meter entry for the user
-    // Give it a dummy balance so they see something interesting on the dashboard
+    // Step 2 Security: Cryptographic PIN Verification & Hashing
+    // Check if meter was already provisioned/manufactured in the database
+    const existingMeterResult = await pool.query('SELECT * FROM meters WHERE meter_number = $1', [meterNumber]);
+
+    if (existingMeterResult.rows.length > 0) {
+      const existingMeter = existingMeterResult.rows[0];
+
+      // Cryptographic comparison: compare user-supplied plaintext PIN with stored bcrypt hash
+      const isPinValid = await bcrypt.compare(String(pin), existingMeter.pin);
+      if (!isPinValid) {
+        return res.status(401).json({ message: 'Invalid Meter PIN. Verification failed.' });
+      }
+
+      // Check if already claimed by another user
+      if (existingMeter.user_id && existingMeter.user_id !== userId) {
+        return res.status(400).json({ message: 'This meter is already linked to another account' });
+      }
+
+      if (existingMeter.user_id === userId) {
+        return res.status(400).json({ message: 'Meter is already linked to your account' });
+      }
+
+      // Link unassigned meter to the requesting user (never returning pin)
+      const linkResult = await pool.query(
+        `UPDATE meters 
+         SET user_id = $1, account_number = COALESCE($2, account_number) 
+         WHERE id = $3 
+         RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, created_at`,
+        [userId, accountNumber, existingMeter.id]
+      );
+
+      return res.status(200).json({ message: 'Meter linked successfully', meter: linkResult.rows[0] });
+    }
+
+    // If meter does not exist yet (self-provisioning / seed in database):
+    // Cryptographically hash the PIN with a one-way salt using bcrypt (10 rounds)
+    const hashedPin = await bcrypt.hash(String(pin), 10);
+
     const initialBalance = 1850.00;
     const dailyAvg = 220.00;
 
     const result = await pool.query(
       `INSERT INTO meters (user_id, meter_number, account_number, pin, balance, daily_average, name) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [userId, meterNumber, accountNumber, pin, initialBalance, dailyAvg, 'Home']
+       VALUES ($1, $2, $3, $4, $5, $6, $7) 
+       RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, created_at`,
+      [userId, meterNumber, accountNumber, hashedPin, initialBalance, dailyAvg, 'Home']
     );
 
     const newMeter = result.rows[0];

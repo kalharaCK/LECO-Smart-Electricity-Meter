@@ -216,7 +216,7 @@ erDiagram
 | `user_id` | `INTEGER` | Foreign Key (`users.id`) | Owner user reference |
 | `meter_number` | `VARCHAR(100)` | Unique, Not Null | Hardware/serial ID stamped on meter |
 | `account_number` | `VARCHAR(100)` | Not Null | Utility utility billing account number |
-| `pin` | `VARCHAR(255)` | Not Null | Security activation PIN |
+| `pin` | `VARCHAR(255)` | Not Null | Bcrypt salted hash (one-way cryptographic hash for hardware security) |
 | `balance` | `DECIMAL(10,2)` | Default `0.00` | Current available prepaid balance (Rs.) |
 | `status` | `VARCHAR(50)` | Default `'Connected'` | `'Connected'`, `'Disconnected'`, `'Suspended'` |
 | `daily_average` | `DECIMAL(10,2)` | Default `0.00` | Computed daily burn rate in Rs. |
@@ -463,6 +463,28 @@ npm install
 npm run dev -- --port 5174
 # Staff Portal live on http://localhost:5174
 ```
+
+---
+
+## 🔒 Security Architecture
+
+### Phase 1: Financial Transaction Security (Idempotency)
+- **Threat**: Double-charges and wallet balance inconsistencies caused by network lag or repeated user clicks.
+- **Solution**: 
+  - Unique UUID v4 idempotency keys generated on the client upon recharge screen invocation.
+  - Client transmits `Idempotency-Key` via HTTP request headers.
+  - Backend performs atomic checking via Neon PostgreSQL table constraints (`UNIQUE` index).
+  - Uses row-level locking (`SELECT ... FOR UPDATE`) in an atomic transaction.
+  - Replays existing payment records with `isIdempotentReplay: true` if an identical request is re-submitted.
+
+### Phase 2: Hardware & Database Secret Protection (Cryptographic PIN Hashing)
+- **Threat**: Plain-text hardware PINs leaking in a database breach, enabling unauthorized attackers to hijack meters.
+- **Solution**:
+  - Meter PINs are treated strictly like passwords.
+  - One-way hashing algorithm (`bcryptjs` with 10 salt rounds) applied before writing to database storage.
+  - Existing database records automatically migrated to bcrypt hashes during bootstrap.
+  - Verification on linking (`/api/meters/add`) executes constant-time `bcrypt.compare(pin, meter.pin)` rather than raw equality.
+  - All public meter queries (`getUserMeters`, `addMeter`) explicitly omit the `pin` column from database `SELECT` and `RETURNING` clauses.
 
 ---
 

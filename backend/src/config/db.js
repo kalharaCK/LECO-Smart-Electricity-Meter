@@ -64,6 +64,17 @@ const initDb = async () => {
       ALTER TABLE payments ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(100) UNIQUE;
     `);
     console.log('Database tables initialized');
+
+    // Phase 2 Security: Encrypt any legacy unhashed meter PINs using bcrypt
+    const unhashedMeters = await pool.query(`SELECT id, pin FROM meters WHERE pin NOT LIKE '$2%'`);
+    if (unhashedMeters.rows.length > 0) {
+      const bcrypt = require('bcryptjs');
+      for (const m of unhashedMeters.rows) {
+        const hashed = await bcrypt.hash(m.pin, 10);
+        await pool.query('UPDATE meters SET pin = $1 WHERE id = $2', [hashed, m.id]);
+      }
+      console.log(`[Security] Migrated ${unhashedMeters.rows.length} legacy meter PIN(s) to bcrypt cryptographic hashes.`);
+    }
   } catch (err) {
     console.error('Error initializing database:', err);
   }
