@@ -65,6 +65,25 @@ const initDb = async () => {
       ALTER TABLE meters ADD COLUMN IF NOT EXISTS emergency_credit_limit DECIMAL(10, 2) DEFAULT 500.00;
       ALTER TABLE meters ADD COLUMN IF NOT EXISTS emergency_credit_active BOOLEAN DEFAULT FALSE;
       ALTER TABLE meters ADD COLUMN IF NOT EXISTS emergency_credit_activated_at TIMESTAMP;
+
+      CREATE TABLE IF NOT EXISTS complaints (
+        id SERIAL PRIMARY KEY,
+        ticket_number VARCHAR(50) UNIQUE NOT NULL,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        meter_id INTEGER REFERENCES meters(id) ON DELETE SET NULL,
+        complaint_type VARCHAR(100) NOT NULL,
+        subject VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        priority VARCHAR(20) DEFAULT 'medium',
+        status VARCHAR(50) DEFAULT 'submitted',
+        resolution_notes TEXT,
+        resolved_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_complaints_user_id ON complaints(user_id);
+      CREATE INDEX IF NOT EXISTS idx_complaints_ticket_number ON complaints(ticket_number);
+      CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status);
     `);
     console.log('Database tables initialized');
 

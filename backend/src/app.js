@@ -6,6 +6,7 @@ const authRoutes = require('./routes/authRoutes');
 const meterRoutes = require('./routes/meterRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const complaintRoutes = require('./routes/complaintRoutes');
 const { sanitizeInputs } = require('./middlewares/sanitizer');
 
 const app = express();
@@ -67,6 +68,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/meters', meterRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/complaints', complaintRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

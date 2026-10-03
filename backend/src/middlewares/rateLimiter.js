@@ -46,7 +46,27 @@ const meterLinkRateLimiter = rateLimit({
   }
 });
 
+/**
+ * Rate Limiter for Complaint Submissions (/api/complaints)
+ * Limit: 10 complaints per IP address every 15 minutes
+ * Protects support queues from automated bot spam
+ */
+const complaintRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  statusCode: 429,
+  message: {
+    error: 'Too Many Requests',
+    message: 'Too many complaint submissions. Please wait a few minutes before submitting another ticket.',
+    statusCode: 429,
+    retryAfterMinutes: 15
+  }
+});
+
 module.exports = {
   authRateLimiter,
-  meterLinkRateLimiter
+  meterLinkRateLimiter,
+  complaintRateLimiter
 };

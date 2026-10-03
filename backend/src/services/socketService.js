@@ -68,9 +68,21 @@ const emitNotification = (userId, notification) => {
   }
 };
 
+/**
+ * Broadcast real-time complaint status update to user's room
+ * @param {number|string} userId 
+ * @param {object} complaint 
+ */
+const emitComplaintUpdate = (userId, complaint) => {
+  if (io && userId) {
+    io.to(`user_${userId}`).emit('complaint_update', complaint);
+  }
+};
+
 module.exports = {
   initSocket,
   getIo,
   emitMeterUpdate,
-  emitNotification
+  emitNotification,
+  emitComplaintUpdate
 };
