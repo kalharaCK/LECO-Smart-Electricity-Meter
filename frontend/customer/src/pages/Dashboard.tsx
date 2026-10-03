@@ -17,6 +17,7 @@ import AddMeterSection from "../components/dashboard/AddMeterSection"
 import PaymentsSection from "../components/dashboard/PaymentsSection"
 import ComplaintsSection from "../components/dashboard/ComplaintsSection"
 import PaymentHistorySection from "../components/dashboard/PaymentHistorySection"
+import SettingsSection from "../components/dashboard/SettingsSection"
 import EnergyAssistantBot from "../components/chat/EnergyAssistantBot"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -144,17 +145,7 @@ export default function Dashboard() {
       case "complaints":
         return <ComplaintsSection />
       case "settings":
-        return (
-          <Card className="bg-gradient-to-br from-[#992511] to-[#3a0b04] border-0 shadow-xl text-white hover:scale-[1.02] transition-all duration-300">
-            <CardHeader>
-              <CardTitle className="capitalize">{activeSection.replace('-', ' ')}</CardTitle>
-              <CardDescription className="text-white/70">Manage your {activeSection.replace('-', ' ')} here.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-white/70">This section is under construction.</p>
-            </CardContent>
-          </Card>
-        )
+        return <SettingsSection onLogout={handleLogout} />
       default:
         return <div>Select a section</div>
     }

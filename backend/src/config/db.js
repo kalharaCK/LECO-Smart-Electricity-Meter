@@ -81,9 +81,22 @@ const initDb = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-      CREATE INDEX IF NOT EXISTS idx_complaints_user_id ON complaints(user_id);
-      CREATE INDEX IF NOT EXISTS idx_complaints_ticket_number ON complaints(ticket_number);
-      CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status);
+      CREATE TABLE IF NOT EXISTS user_settings (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        phone_number VARCHAR(20) DEFAULT '+94 77 123 4567',
+        low_balance_threshold DECIMAL(10, 2) DEFAULT 300.00,
+        daily_kwh_budget DECIMAL(10, 2) DEFAULT 12.00,
+        auto_emergency_credit BOOLEAN DEFAULT TRUE,
+        night_curfew_enabled BOOLEAN DEFAULT TRUE,
+        email_notifications BOOLEAN DEFAULT TRUE,
+        sms_notifications BOOLEAN DEFAULT TRUE,
+        weekly_report BOOLEAN DEFAULT TRUE,
+        tariff_type VARCHAR(100) DEFAULT 'Domestic D-1 (PUCSL Block Tariff)',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
     `);
     console.log('Database tables initialized');
 
