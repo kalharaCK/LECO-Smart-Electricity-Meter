@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/authRoutes');
 const meterRoutes = require('./routes/meterRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 const { sanitizeInputs } = require('./middlewares/sanitizer');
 
 const app = express();
@@ -65,6 +66,7 @@ app.use('/api', authRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/meters', meterRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

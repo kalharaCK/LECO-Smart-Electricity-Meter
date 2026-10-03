@@ -17,6 +17,7 @@ import AddMeterSection from "../components/dashboard/AddMeterSection"
 import PaymentsSection from "../components/dashboard/PaymentsSection"
 import ComplaintsSection from "../components/dashboard/ComplaintsSection"
 import PaymentHistorySection from "../components/dashboard/PaymentHistorySection"
+import EnergyAssistantBot from "../components/chat/EnergyAssistantBot"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import {
@@ -273,6 +274,9 @@ export default function Dashboard() {
           </main>
         </SidebarInset>
       </div>
+
+      {/* Floating AI Energy Assistant Bot */}
+      <EnergyAssistantBot />
     </SidebarProvider>
   )
 }

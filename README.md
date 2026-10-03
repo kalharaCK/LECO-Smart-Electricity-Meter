@@ -302,6 +302,15 @@ erDiagram
 - **Buffer & Runaway Tracking**: The prediction engine computes days remaining based on the emergency buffer even when balance dips into negative territory.
 - **Automated Debt Recovery**: When the customer subsequently recharges, the system automatically settles the negative overdraft first, deposits any net remainder into the available balance, and replenishes the full Rs. 500 emergency buffer for future use.
 
+### 6. LECO AI Smart Energy Assistant (`EnergyAssistantBot.tsx`, `chatService.js`)
+- **AI Brain with Function Calling**: Uses OpenAI `gpt-4o-mini` with native Tool Calling (and resilient local database fallback) to query the PostgreSQL ledger directly.
+- **Live Database Tools**:
+  - `get_last_topup(user_id)`: Fetches the most recent recharge, amount in Rs., date, and transaction reference.
+  - `compare_weekly_usage(meter_id)`: Analyzes net kWh for the last 7 days vs the prior 7 days with percentage trend changes.
+  - `get_predicted_days(meter_id)`: Runs the PUCSL block tariff prediction algorithm to report remaining days of power supply.
+  - `get_current_meter_status(meter_id)`: Checks live balance, connection status, and Lifeline overdraft protection.
+- **Sleek Floating Chat UI**: Radix UI modal with animated typing indicators, quick suggestion chips, formatted markdown, and unread notification counter.
+
 ---
 
 ## 📡 REST API Specification
@@ -339,6 +348,11 @@ All protected endpoints require an `Authorization: Bearer <JWT>` header.
 |---|---|---|
 | `GET` | `/api/notifications` | Fetch user alerts and activity events |
 | `PUT` | `/api/notifications/:id/read` | Mark individual notification as read |
+
+### AI Chatbot Endpoints (`/api/chat`)
+| Method | Endpoint | Description | Request Body |
+|---|---|---|---|
+| `POST` | `/api/chat` | Chat with LECO AI Copilot (Function Calling / Database Tools) | `{ message: string, history?: Array }` |
 
 ---
 
