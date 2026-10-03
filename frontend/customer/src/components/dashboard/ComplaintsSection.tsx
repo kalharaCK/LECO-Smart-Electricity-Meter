@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Loader2,
   Zap,
+  ZapOff,
   RefreshCw,
   Search,
   Activity,
@@ -23,7 +24,11 @@ import {
   Sliders,
   Check,
   ChevronRight,
-  HelpCircle
+  ChevronDown,
+  HelpCircle,
+  CreditCard,
+  Wifi,
+  TrendingUp
 } from "lucide-react"
 
 interface Meter {
@@ -52,14 +57,21 @@ interface Complaint {
 }
 
 const COMPLAINT_TYPES = [
-  { id: "meter-issue", label: "Meter Hardware Issue", desc: "LCD dark, red fault indicator, or relay trip" },
-  { id: "incorrect-balance", label: "Incorrect Balance", desc: "Balance deduction mismatch or rate dispute" },
-  { id: "recharge-problem", label: "Recharge / Token Issue", desc: "Money debited but meter balance not credited" },
-  { id: "power-interruption", label: "Power Interruption", desc: "Unexpected blackout or single-phase loss" },
-  { id: "high-consumption", label: "High Consumption Surge", desc: "Abnormal surge in daily kWh consumption" },
-  { id: "voltage-fluctuation", label: "Voltage Fluctuation", desc: "Flickering lights or high/low voltage hazard" },
-  { id: "connection-problem", label: "Smart Connectivity Problem", desc: "Meter offline or telemetry not sending" },
-  { id: "other", label: "Other Support Request", desc: "General administrative or account assistance" }
+  { id: "recharge-problem", label: "Recharge / Token Issue", desc: "Money debited but meter balance not credited", icon: CreditCard },
+  { id: "incorrect-balance", label: "Incorrect Balance", desc: "Balance deduction mismatch or rate dispute", icon: Sliders },
+  { id: "meter-issue", label: "Meter Hardware Issue", desc: "LCD dark, red fault indicator, or relay trip", icon: Zap },
+  { id: "power-interruption", label: "Power Interruption", desc: "Unexpected blackout or single-phase loss", icon: ZapOff },
+  { id: "high-consumption", label: "High Consumption Surge", desc: "Abnormal surge in daily kWh consumption", icon: TrendingUp },
+  { id: "voltage-fluctuation", label: "Voltage Fluctuation", desc: "Flickering lights or high/low voltage hazard", icon: Activity },
+  { id: "connection-problem", label: "Smart Connectivity Problem", desc: "Meter offline or telemetry not sending", icon: Wifi },
+  { id: "other", label: "Other Support Request", desc: "General administrative or account assistance", icon: HelpCircle }
+]
+
+const PRIORITIES = [
+  { id: "low", label: "Low Priority", sla: "48h SLA", desc: "General inquiry or tariff question", color: "text-emerald-400", dot: "bg-emerald-400" },
+  { id: "medium", label: "Medium Priority", sla: "24h SLA", desc: "Standard meter or billing issue", color: "text-yellow-400", dot: "bg-yellow-400" },
+  { id: "high", label: "High Priority", sla: "6h SLA", desc: "Recharge or balance deduction failure", color: "text-orange-400", dot: "bg-orange-400" },
+  { id: "emergency", label: "Emergency Breakdown", sla: "Immediate", desc: "Total blackout or electrical hazard", color: "text-red-400", dot: "bg-red-400" }
 ]
 
 const STATUS_STEPS: Array<{ key: Complaint["status"]; label: string; desc: string }> = [
@@ -82,6 +94,25 @@ export default function ComplaintsSection() {
   const [priority, setPriority] = useState<"low" | "medium" | "high" | "emergency">("medium")
   const [subject, setSubject] = useState("")
   const [description, setDescription] = useState("")
+
+  // Dropdown states & click-outside refs
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false)
+  const [isPriorityOpen, setIsPriorityOpen] = useState(false)
+  const categoryRef = React.useRef<HTMLDivElement>(null)
+  const priorityRef = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
+        setIsCategoryOpen(false)
+      }
+      if (priorityRef.current && !priorityRef.current.contains(e.target as Node)) {
+        setIsPriorityOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   // UI state
   const [loading, setLoading] = useState(true)
@@ -261,6 +292,8 @@ export default function ComplaintsSection() {
   })
 
   const selectedComplaint = complaints.find((c) => c.id === selectedComplaintId) || complaints[0]
+  const selectedCategory = COMPLAINT_TYPES.find((t) => t.id === complaintType) || COMPLAINT_TYPES[0]
+  const selectedPriority = PRIORITIES.find((p) => p.id === priority) || PRIORITIES[1]
 
   // Queue step helper
   const getStepIndex = (status: Complaint["status"]) => {
@@ -423,77 +456,185 @@ export default function ComplaintsSection() {
                     </div>
                   )}
 
-                  {/* Complaint Category Selector */}
-                  <div className="space-y-2">
-                    <Label className="text-white text-xs font-semibold uppercase tracking-wider">
-                      Issue Category
+                  {/* Issue Category - Sleek Executive Dropdown */}
+                  <div className="space-y-1.5 relative" ref={categoryRef}>
+                    <Label className="text-white text-xs font-semibold uppercase tracking-wider flex items-center justify-between">
+                      <span>Issue Category</span>
+                      <span className="text-[10px] text-white/50 normal-case">Select primary problem</span>
                     </Label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[220px] overflow-y-auto pr-1">
-                      {COMPLAINT_TYPES.map((t) => {
-                        const isSelected = complaintType === t.id
-                        return (
-                          <button
-                            key={t.id}
-                            type="button"
-                            onClick={() => setComplaintType(t.id)}
-                            className={`p-2.5 rounded-xl border text-left transition-all ${
-                              isSelected
-                                ? "bg-yellow-400/20 border-yellow-400 text-white shadow-md shadow-yellow-400/10"
-                                : "bg-black/20 border-white/10 text-white/70 hover:bg-black/40 hover:text-white"
-                            }`}
-                          >
-                            <div className="font-semibold text-xs text-white flex items-center justify-between">
-                              <span>{t.label}</span>
-                              {isSelected && <Check className="h-3 w-3 text-yellow-400" />}
-                            </div>
-                            <div className="text-[10px] text-white/50 mt-0.5 line-clamp-1">{t.desc}</div>
-                          </button>
-                        )
-                      })}
-                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCategoryOpen(!isCategoryOpen)
+                        setIsPriorityOpen(false)
+                      }}
+                      className="w-full bg-black/40 hover:bg-black/60 border border-white/15 focus:border-yellow-400 rounded-xl px-3.5 py-2.5 flex items-center justify-between transition-all group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3 text-left">
+                        <div className="w-8 h-8 rounded-lg bg-yellow-400/15 border border-yellow-400/30 flex items-center justify-center text-yellow-400 shrink-0">
+                          <selectedCategory.icon className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-white group-hover:text-yellow-300 transition-colors">
+                            {selectedCategory.label}
+                          </div>
+                          <div className="text-[10px] text-white/50 line-clamp-1">
+                            {selectedCategory.desc}
+                          </div>
+                        </div>
+                      </div>
+                      <ChevronDown
+                        className={`h-4 w-4 text-white/60 transition-transform duration-200 shrink-0 ${
+                          isCategoryOpen ? "rotate-180 text-yellow-400" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {/* Category Popover Menu */}
+                    {isCategoryOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-[#1e0703]/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                        {COMPLAINT_TYPES.map((t) => {
+                          const IconComp = t.icon
+                          const isSelected = complaintType === t.id
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => {
+                                setComplaintType(t.id)
+                                setIsCategoryOpen(false)
+                              }}
+                              className={`w-full p-2 rounded-xl text-left flex items-center justify-between transition-all cursor-pointer ${
+                                isSelected
+                                  ? "bg-yellow-400/20 text-white border border-yellow-400/40"
+                                  : "hover:bg-white/10 text-white/80 hover:text-white border border-transparent"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <div
+                                  className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                                    isSelected
+                                      ? "bg-yellow-400 text-black font-bold"
+                                      : "bg-white/10 text-white/70"
+                                  }`}
+                                >
+                                  <IconComp className="h-3.5 w-3.5" />
+                                </div>
+                                <div>
+                                  <div className="text-xs font-semibold text-white">{t.label}</div>
+                                  <div className="text-[10px] text-white/50">{t.desc}</div>
+                                </div>
+                              </div>
+                              {isSelected && <Check className="h-3.5 w-3.5 text-yellow-400 mr-1 shrink-0" />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Meter Association & Priority */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Meter Selector */}
+                  {/* Meter Association & Priority in Balanced Two Columns */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {/* Affected Smart Meter */}
                     <div className="space-y-1.5">
-                      <Label htmlFor="meter-select" className="text-white text-xs">
+                      <Label htmlFor="meter-select" className="text-white text-xs font-semibold uppercase tracking-wider">
                         Affected Smart Meter
                       </Label>
                       {meters.length > 0 ? (
-                        <select
-                          id="meter-select"
-                          value={selectedMeterId}
-                          onChange={(e) => setSelectedMeterId(e.target.value)}
-                          className="w-full bg-black/30 border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-yellow-400"
-                        >
-                          {meters.map((m) => (
-                            <option key={m.id} value={m.id} className="bg-[#2b0803] text-white">
-                              {m.meter_number} ({m.name || "Home"})
-                            </option>
-                          ))}
-                        </select>
+                        <div className="relative">
+                          <select
+                            id="meter-select"
+                            value={selectedMeterId}
+                            onChange={(e) => setSelectedMeterId(e.target.value)}
+                            className="w-full appearance-none bg-black/40 hover:bg-black/60 border border-white/15 focus:border-yellow-400 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none transition-all cursor-pointer pr-9 h-[42px]"
+                          >
+                            {meters.map((m) => (
+                              <option key={m.id} value={m.id} className="bg-[#240804] text-white">
+                                {m.meter_number} — {m.name || "Home"}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="h-4 w-4 text-white/50 absolute right-3 top-3 pointer-events-none" />
+                        </div>
                       ) : (
-                        <div className="text-xs text-white/50 italic py-2">No meter linked yet</div>
+                        <div className="bg-black/30 border border-white/10 rounded-xl px-3.5 py-2 flex items-center gap-2.5 text-white/60 text-xs h-[42px]">
+                          <ShieldAlert className="h-4 w-4 text-yellow-400/80 shrink-0" />
+                          <div className="line-clamp-1">
+                            <span className="font-semibold text-white/80">General Account</span>
+                            <span className="text-[9px] text-white/40 block leading-tight">No meter linked yet</span>
+                          </div>
+                        </div>
                       )}
                     </div>
 
-                    {/* Priority Selector */}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="priority-select" className="text-white text-xs">
-                        Urgency / Priority
+                    {/* Priority Selector with Custom Dropdown */}
+                    <div className="space-y-1.5 relative" ref={priorityRef}>
+                      <Label className="text-white text-xs font-semibold uppercase tracking-wider">
+                        Urgency / SLA
                       </Label>
-                      <select
-                        id="priority-select"
-                        value={priority}
-                        onChange={(e) => setPriority(e.target.value as any)}
-                        className="w-full bg-black/30 border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-yellow-400"
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsPriorityOpen(!isPriorityOpen)
+                          setIsCategoryOpen(false)
+                        }}
+                        className="w-full bg-black/40 hover:bg-black/60 border border-white/15 focus:border-yellow-400 rounded-xl px-3.5 py-2 flex items-center justify-between transition-all group cursor-pointer h-[42px]"
                       >
-                        <option value="low" className="bg-[#2b0803] text-white">Low (General Query)</option>
-                        <option value="medium" className="bg-[#2b0803] text-white">Medium (Standard Issue)</option>
-                        <option value="high" className="bg-[#2b0803] text-white">High (Billing / Top-up Failure)</option>
-                        <option value="emergency" className="bg-[#2b0803] text-white">Emergency (Total Blackout)</option>
-                      </select>
+                        <div className="flex items-center gap-2 text-left">
+                          <span className={`h-2.5 w-2.5 rounded-full ${selectedPriority.dot} ring-2 ring-white/10 shrink-0`} />
+                          <div className="line-clamp-1">
+                            <span className={`text-xs font-bold ${selectedPriority.color}`}>
+                              {selectedPriority.label}
+                            </span>
+                            <span className="text-[10px] text-white/50 ml-1.5 font-medium">({selectedPriority.sla})</span>
+                          </div>
+                        </div>
+                        <ChevronDown
+                          className={`h-4 w-4 text-white/60 transition-transform duration-200 shrink-0 ${
+                            isPriorityOpen ? "rotate-180 text-yellow-400" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {/* Priority Dropdown Menu */}
+                      {isPriorityOpen && (
+                        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-[#1e0703]/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                          {PRIORITIES.map((p) => {
+                            const isSelected = priority === p.id
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => {
+                                  setPriority(p.id as any)
+                                  setIsPriorityOpen(false)
+                                }}
+                                className={`w-full p-2 rounded-xl text-left flex items-center justify-between transition-all cursor-pointer ${
+                                  isSelected
+                                    ? "bg-white/15 text-white border border-white/25"
+                                    : "hover:bg-white/5 text-white/80 hover:text-white border border-transparent"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <span className={`h-2 w-2 rounded-full ${p.dot} shrink-0`} />
+                                  <div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={`text-xs font-bold ${p.color}`}>{p.label}</span>
+                                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/10 text-white/70 font-semibold">
+                                        {p.sla}
+                                      </span>
+                                    </div>
+                                    <div className="text-[10px] text-white/50">{p.desc}</div>
+                                  </div>
+                                </div>
+                                {isSelected && <Check className="h-3.5 w-3.5 text-yellow-400 mr-1 shrink-0" />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
 
