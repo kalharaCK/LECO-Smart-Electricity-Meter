@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Battery, Zap, AlertTriangle, Activity, Clock, History as HistoryIcon, Loader2, TrendingUp, Sparkles, LifeBuoy, HeartPulse, CheckCircle2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Battery, Zap, AlertTriangle, Activity, Clock, History as HistoryIcon, Loader2, TrendingUp, Sparkles, LifeBuoy, HeartPulse, CheckCircle2, Flame, Sliders, RotateCcw, ChevronDown, ChevronUp, Play, ArrowDownRight } from "lucide-react"
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 
 export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey?: number; onNavigate?: (section: string) => void }) {
@@ -13,6 +14,10 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
   const [currentTime, setCurrentTime] = useState(new Date())
   const [activatingEmergency, setActivatingEmergency] = useState(false)
   const [emergencySuccessMsg, setEmergencySuccessMsg] = useState<string | null>(null)
+  const [simulating, setSimulating] = useState(false)
+  const [simulationLog, setSimulationLog] = useState<string | null>(null)
+  const [customKwh, setCustomKwh] = useState("2.5")
+  const [showSimulator, setShowSimulator] = useState(true)
 
   const user = JSON.parse(localStorage.getItem('user') || '{"email": "User"}')
 
@@ -96,6 +101,64 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     }
   };
 
+  const handleSimulate = async (kwhAmount: number) => {
+    if (!meter) return;
+    setSimulating(true);
+    setSimulationLog(null);
+    try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/simulate-consumption`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({ kwh: kwhAmount })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSimulationLog(`⚡ Burned +${data.kwhAdded} kWh (Deducted Rs. ${Number(data.costDeducted).toFixed(2)} via PUCSL tariff). Balance is now Rs. ${Number(data.newBalance).toFixed(2)}.`);
+        await fetchMetersData();
+      } else {
+        alert(data.message || 'Simulation failed');
+      }
+    } catch (e) {
+      alert('Network error during consumption simulation.');
+    } finally {
+      setSimulating(false);
+    }
+  };
+
+  const handleSetBalance = async (targetBalance: number) => {
+    if (!meter) return;
+    setSimulating(true);
+    setSimulationLog(null);
+    try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/set-balance`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({ balance: targetBalance })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSimulationLog(`🎯 Balance updated directly to Rs. ${Number(data.newBalance).toFixed(2)}. Status: ${data.status}.`);
+        await fetchMetersData();
+      } else {
+        alert(data.message || 'Failed to set balance');
+      }
+    } catch (e) {
+      alert('Network error updating balance.');
+    } finally {
+      setSimulating(false);
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-yellow-400" /></div>
   }
@@ -134,6 +197,153 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
           Quick Recharge Now
         </Button>
       </div>
+
+      {/* Interactive Consumption & Balance Simulator Bar */}
+      <Card className="bg-gradient-to-r from-[#141416] via-[#1a1829] to-[#121217] border border-yellow-500/25 shadow-2xl text-white rounded-2xl overflow-hidden">
+        <div className="p-4 bg-gradient-to-r from-yellow-500/10 via-red-500/10 to-transparent flex items-center justify-between border-b border-white/5">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-yellow-400/20 text-yellow-300 rounded-lg border border-yellow-400/30">
+              <Sliders className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-white">Live Electricity & Balance Simulator</span>
+                <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/40 text-[10px] py-0 px-2 font-mono">
+                  Testing Mode
+                </Badge>
+              </div>
+              <p className="text-[11px] text-white/50">
+                Simulate real consumption in kWh: deducts money via PUCSL tariffs, updates predictions, & tests Lifeline Mode in real-time.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowSimulator(!showSimulator)}
+            className="text-white/60 hover:text-white hover:bg-white/10 text-xs gap-1"
+          >
+            {showSimulator ? (
+              <>Hide <ChevronUp className="h-3.5 w-3.5" /></>
+            ) : (
+              <>Expand <ChevronDown className="h-3.5 w-3.5" /></>
+            )}
+          </Button>
+        </div>
+
+        {showSimulator && (
+          <CardContent className="p-4 space-y-3">
+            {/* Quick Consumption Buttons */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold text-white/70 flex items-center gap-1 mr-1">
+                  <Flame className="h-3.5 w-3.5 text-amber-400" /> Add Usage:
+                </span>
+                <Button
+                  size="sm"
+                  disabled={simulating}
+                  onClick={() => handleSimulate(1)}
+                  className="bg-white/10 hover:bg-white/20 text-white border border-white/10 text-xs h-8 hover:scale-105 transition-all"
+                >
+                  +1 kWh (~Rs. 9)
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={simulating}
+                  onClick={() => handleSimulate(5)}
+                  className="bg-yellow-400/20 hover:bg-yellow-400/30 text-yellow-300 border border-yellow-400/40 text-xs h-8 hover:scale-105 transition-all font-semibold"
+                >
+                  +5 kWh (~Rs. 45)
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={simulating}
+                  onClick={() => handleSimulate(15)}
+                  className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/40 text-xs h-8 hover:scale-105 transition-all font-semibold"
+                >
+                  +15 kWh (~Rs. 150)
+                </Button>
+                
+                {/* Custom kWh input */}
+                <div className="flex items-center gap-1.5 ml-2">
+                  <Input
+                    type="number"
+                    step="0.5"
+                    min="0.1"
+                    value={customKwh}
+                    onChange={(e) => setCustomKwh(e.target.value)}
+                    className="w-16 h-8 text-xs bg-black/40 border-white/15 text-white focus-visible:ring-yellow-400/50"
+                  />
+                  <span className="text-xs text-white/60">kWh</span>
+                  <Button
+                    size="sm"
+                    disabled={simulating || !customKwh || parseFloat(customKwh) <= 0}
+                    onClick={() => handleSimulate(parseFloat(customKwh))}
+                    className="bg-[#992511] hover:bg-[#992511]/80 text-white text-xs h-8 px-2.5 ml-1"
+                  >
+                    <Play className="h-3 w-3 mr-1" /> Burn
+                  </Button>
+                </div>
+              </div>
+
+              {/* Balance Jump Presets */}
+              <div className="flex flex-wrap items-center gap-2 border-t md:border-t-0 md:border-l border-white/10 pt-2 md:pt-0 md:pl-4">
+                <span className="text-xs font-semibold text-white/70 mr-1">
+                  Preset Balance:
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={simulating}
+                  onClick={() => handleSetBalance(80)}
+                  className="bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20 text-xs h-8"
+                  title="Simulates low balance (< Rs. 100) to test Lifeline button prompt"
+                >
+                  Rs. 80 (Low)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={simulating}
+                  onClick={() => handleSetBalance(-50)}
+                  className="bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20 text-xs h-8"
+                  title="Simulates negative balance to test Lifeline buffer & debt recovery"
+                >
+                  -Rs. 50 (In Debt)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={simulating}
+                  onClick={() => handleSetBalance(1500)}
+                  className="bg-green-500/10 border-green-500/30 text-green-300 hover:bg-green-500/20 text-xs h-8"
+                  title="Resets balance to Rs. 1,500"
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" /> Rs. 1,500
+                </Button>
+              </div>
+            </div>
+
+            {/* Simulation Feedback Log */}
+            {simulationLog && (
+              <div className="p-2.5 rounded-lg bg-yellow-400/10 border border-yellow-400/20 text-yellow-200 text-xs flex items-center justify-between animate-in fade-in duration-300">
+                <div className="flex items-center gap-2">
+                  <ArrowDownRight className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
+                  <span>{simulationLog}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSimulationLog(null)}
+                  className="text-yellow-400 hover:text-white hover:bg-yellow-400/20 text-[10px] h-6 px-1.5"
+                >
+                  Clear
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
 
       {/* Success Notification for Emergency Credit */}
       {emergencySuccessMsg && (

@@ -615,6 +615,180 @@ const activateEmergencyCredit = async (req, res) => {
   }
 };
 
+/**
+ * Simulate electricity consumption on a meter.
+ * Calculates cost using PUCSL tariffs, deducts from prepaid balance,
+ * respects Lifeline Mode, and inserts telemetry into consumption_logs.
+ */
+const simulateConsumption = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const userId = req.user.id;
+    const kwh = parseFloat(req.body.kwh);
+    const exportKwh = parseFloat(req.body.exportKwh || 0);
+
+    if (isNaN(kwh) || kwh <= 0) {
+      return res.status(400).json({ message: 'Valid positive kWh consumption is required (e.g. 1.0, 5.0)' });
+    }
+
+    // Verify ownership
+    const meterQuery = await pool.query(
+      `SELECT id, user_id, meter_number, balance, status, emergency_credit_limit, emergency_credit_active
+       FROM meters WHERE id = $1 AND user_id = $2`,
+      [meterId, userId]
+    );
+
+    if (meterQuery.rows.length === 0) {
+      return res.status(404).json({ message: 'Meter not found or access denied' });
+    }
+
+    const meter = meterQuery.rows[0];
+    const prevBalance = parseFloat(meter.balance);
+    const limit = parseFloat(meter.emergency_credit_limit || 500);
+
+    // Calculate energy cost using official PUCSL block tariff for current month
+    const monthResult = await pool.query(
+      `SELECT COALESCE(SUM(consumption), 0) as month_kwh 
+       FROM consumption_logs 
+       WHERE meter_id = $1 AND reading_date >= date_trunc('month', CURRENT_DATE)`,
+      [meterId]
+    );
+    const currentMonthKwh = parseFloat(monthResult.rows[0]?.month_kwh || 0);
+    const billBefore = calculateDomesticBill(currentMonthKwh);
+    const billAfter = calculateDomesticBill(currentMonthKwh + kwh);
+    let energyCost = Math.round((billAfter.energyCharge - billBefore.energyCharge) * 100) / 100;
+    if (energyCost <= 0) {
+      energyCost = Math.round(kwh * 9.0 * 100) / 100; // fallback base energy rate
+    }
+
+    // Deduct cost from balance
+    const newBalance = Math.round((prevBalance - energyCost) * 100) / 100;
+
+    // Evaluate connection status and lifeline protection
+    let newStatus = meter.status;
+    let disconnected = false;
+
+    if (newBalance <= 0) {
+      if (meter.emergency_credit_active) {
+        if (newBalance < -limit) {
+          newStatus = 'Disconnected';
+          disconnected = true;
+        } else {
+          newStatus = 'Connected'; // Protected by Lifeline Mode
+        }
+      } else {
+        newStatus = 'Disconnected';
+        disconnected = true;
+      }
+    } else {
+      newStatus = 'Connected';
+    }
+
+    // Record consumption telemetry for current hour
+    const currentHour = new Date().getHours();
+    await pool.query(
+      `INSERT INTO consumption_logs (meter_id, reading_date, reading_hour, consumption, energy_export)
+       VALUES ($1, CURRENT_DATE, $2, $3, $4)`,
+      [meterId, currentHour, kwh, exportKwh]
+    );
+
+    // Update meter balance & status
+    await pool.query(
+      `UPDATE meters SET balance = $1, status = $2 WHERE id = $3`,
+      [newBalance, newStatus, meterId]
+    );
+
+    // Notification alerts
+    if (disconnected && meter.status !== 'Disconnected') {
+      await pool.query(
+        `INSERT INTO notifications (user_id, meter_id, type, title, message)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          userId,
+          meterId,
+          'alert',
+          'Power Disconnected (Zero Balance)',
+          meter.emergency_credit_active
+            ? `Emergency credit buffer of Rs. ${limit.toFixed(2)} has been exhausted (Balance: Rs. ${newBalance.toFixed(2)}). Power disconnected. Please recharge immediately.`
+            : `Prepaid balance exhausted (Rs. ${newBalance.toFixed(2)}). Power disconnected. Please recharge or activate Lifeline Emergency Credit.`
+        ]
+      );
+    } else if (newBalance <= 100 && prevBalance > 100 && !meter.emergency_credit_active) {
+      await pool.query(
+        `INSERT INTO notifications (user_id, meter_id, type, title, message)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          userId,
+          meterId,
+          'alert',
+          'Low Balance Alert',
+          `Your balance has dropped to Rs. ${newBalance.toFixed(2)}. You are now eligible to activate Emergency Credit (Lifeline Mode).`
+        ]
+      );
+    }
+
+    res.json({
+      message: `Simulated ${kwh} kWh consumed. Deducted Rs. ${energyCost.toFixed(2)} from prepaid balance.`,
+      kwhAdded: kwh,
+      costDeducted: energyCost,
+      prevBalance,
+      newBalance,
+      status: newStatus,
+      isLifelineActive: meter.emergency_credit_active,
+      disconnected
+    });
+  } catch (error) {
+    console.error('Error simulating consumption:', error);
+    res.status(500).json({ message: 'Server error simulating consumption' });
+  }
+};
+
+/**
+ * Set meter balance directly for testing/demonstration purposes.
+ */
+const setMeterBalance = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const userId = req.user.id;
+    const targetBalance = parseFloat(req.body.balance);
+
+    if (isNaN(targetBalance)) {
+      return res.status(400).json({ message: 'Valid balance number required' });
+    }
+
+    const meterQuery = await pool.query(
+      `SELECT id, user_id, status, emergency_credit_active, emergency_credit_limit FROM meters WHERE id = $1 AND user_id = $2`,
+      [meterId, userId]
+    );
+    if (meterQuery.rows.length === 0) {
+      return res.status(404).json({ message: 'Meter not found or access denied' });
+    }
+
+    const meter = meterQuery.rows[0];
+    const limit = parseFloat(meter.emergency_credit_limit || 500);
+    let status = 'Connected';
+    if (targetBalance <= 0) {
+      if (!meter.emergency_credit_active || targetBalance < -limit) {
+        status = 'Disconnected';
+      }
+    }
+
+    await pool.query(
+      `UPDATE meters SET balance = $1, status = $2 WHERE id = $3`,
+      [targetBalance, status, meterId]
+    );
+
+    res.json({
+      message: `Meter balance set to Rs. ${targetBalance.toFixed(2)}`,
+      newBalance: targetBalance,
+      status
+    });
+  } catch (error) {
+    console.error('Error setting meter balance:', error);
+    res.status(500).json({ message: 'Server error setting meter balance' });
+  }
+};
+
 module.exports = { 
   getUserMeters, 
   addMeter, 
@@ -623,5 +797,7 @@ module.exports = {
   rechargeMeter, 
   getPaymentHistory,
   updateMeterName,
-  activateEmergencyCredit
+  activateEmergencyCredit,
+  simulateConsumption,
+  setMeterBalance
 };
