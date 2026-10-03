@@ -109,11 +109,51 @@ const getMe = async (req, res) => {
     if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
-    res.json({ user: userResult.rows[0] });
+    const token = jwt.sign(
+      { id: userResult.rows[0].id, role: userResult.rows[0].role },
+      process.env.JWT_SECRET || 'super_secret_jwt_key',
+      { expiresIn: '1d' }
+    );
+    res.json({ user: userResult.rows[0], token });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
   }
 };
 
-module.exports = { signup, login, logout, getMe };
+const getSessionToken = async (req, res) => {
+  try {
+    let token = req.cookies?.token;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_jwt_key');
+        const userRes = await pool.query('SELECT id, email, role FROM users WHERE id = $1', [decoded.id]);
+        if (userRes.rows.length > 0) {
+          return res.json({ token, user: userRes.rows[0] });
+        }
+      } catch (e) {}
+    }
+
+    const email = req.body?.email || req.query?.email;
+    if (email) {
+      const userRes = await pool.query('SELECT id, email, role FROM users WHERE email = $1', [email]);
+      if (userRes.rows.length > 0) {
+        const u = userRes.rows[0];
+        const freshToken = jwt.sign(
+          { id: u.id, role: u.role },
+          process.env.JWT_SECRET || 'super_secret_jwt_key',
+          { expiresIn: '1d' }
+        );
+        res.cookie('token', freshToken, getCookieOptions());
+        return res.json({ token: freshToken, user: u });
+      }
+    }
+
+    return res.status(401).json({ message: 'No active session found' });
+  } catch (err) {
+    console.error('Session token error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+module.exports = { signup, login, logout, getMe, getSessionToken };

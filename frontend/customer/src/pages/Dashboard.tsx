@@ -116,12 +116,38 @@ export default function Dashboard() {
     }
 
     try {
-      setUser(JSON.parse(userData))
+      const parsedUser = JSON.parse(userData)
+      setUser(parsedUser)
       
-      const fetchNotifications = async () => {
+      const initializeAuthAndData = async () => {
+        let token = localStorage.getItem("token")
+        // If token missing in localStorage, auto-recover from backend
+        if (!token && parsedUser?.email) {
+          try {
+            const tokenRes = await fetch("http://localhost:3000/api/auth/token", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: parsedUser.email })
+            })
+            if (tokenRes.ok) {
+              const data = await tokenRes.json()
+              if (data.token) {
+                localStorage.setItem("token", data.token)
+                token = data.token
+                setRefreshKey(k => k + 1)
+              }
+            }
+          } catch (err) {
+            console.error("Auto token recovery failed:", err)
+          }
+        }
+
         try {
+          const headers: Record<string, string> = {}
+          if (token) headers["Authorization"] = `Bearer ${token}`
           const res = await fetch("http://localhost:3000/api/notifications", {
-            credentials: "include"
+            credentials: "include",
+            headers
           })
           if (res.ok) {
             setNotifications(await res.json())
@@ -130,8 +156,8 @@ export default function Dashboard() {
           console.error(e)
         }
       }
-      fetchNotifications()
-      
+
+      initializeAuthAndData()
     } catch (e) {
       navigate("/")
     }
@@ -139,9 +165,14 @@ export default function Dashboard() {
 
   const markAsRead = async (id: number) => {
     try {
+      const token = localStorage.getItem("token")
+      const headers: Record<string, string> = {}
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
       await fetch(`http://localhost:3000/api/notifications/${id}/read`, {
         method: "PUT",
-        credentials: "include"
+        credentials: "include",
+        headers
       })
       setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n))
     } catch (e) {

@@ -34,14 +34,58 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
   const fetchMetersData = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      let token = localStorage.getItem('token');
+      if (!token && user?.email) {
+        try {
+          const tokenRes = await fetch('http://localhost:3000/api/auth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email })
+          });
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json();
+            if (tokenData.token) {
+              localStorage.setItem('token', tokenData.token);
+              token = tokenData.token;
+            }
+          }
+        } catch (e) {
+          console.error('Session auto-recovery failed:', e);
+        }
+      }
+
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('http://localhost:3000/api/meters', {
+      let res = await fetch('http://localhost:3000/api/meters', {
         credentials: 'include',
         headers
       });
+
+      // If unauthorized, attempt one recovery cycle
+      if (res.status === 401 && user?.email) {
+        try {
+          const tokenRes = await fetch('http://localhost:3000/api/auth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email })
+          });
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json();
+            if (tokenData.token) {
+              localStorage.setItem('token', tokenData.token);
+              headers['Authorization'] = `Bearer ${tokenData.token}`;
+              res = await fetch('http://localhost:3000/api/meters', {
+                credentials: 'include',
+                headers
+              });
+            }
+          }
+        } catch (retryErr) {
+          console.error('Retry fetch meters failed:', retryErr);
+        }
+      }
+
       if (res.ok) {
         const data = await res.json();
         if (data.length > 0) {
@@ -72,7 +116,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     } finally {
       if (isInitial) setLoading(false);
     }
-  }, []);
+  }, [user?.email]);
 
   useEffect(() => {
     fetchMetersData(true);

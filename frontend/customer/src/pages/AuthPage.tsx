@@ -44,17 +44,25 @@ export default function AuthPage() {
       }
       
       if (isLogin) {
-        // Store user in localStorage (token is secured in httpOnly cookie)
+        // Store user and token in localStorage for cross-port client authorization
         localStorage.setItem("user", JSON.stringify(data.user))
-        localStorage.removeItem("token")
+        if (data.token) {
+          localStorage.setItem("token", data.token)
+        }
         
         setMessage({ type: "success", text: "Login successful! Redirecting..." })
         
         // Navigate to dashboard after short delay
         setTimeout(() => {
           navigate("/dashboard")
-        }, 1000)
+        }, 800)
       } else {
+        if (data.user) {
+          localStorage.setItem("user", JSON.stringify(data.user))
+        }
+        if (data.token) {
+          localStorage.setItem("token", data.token)
+        }
         setMessage({ type: "success", text: "Signup successful! You can now log in." })
       }
     } catch (err: any) {
