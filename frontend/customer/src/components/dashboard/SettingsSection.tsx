@@ -66,13 +66,12 @@ interface SettingsSectionProps {
 }
 
 export default function SettingsSection({ onLogout }: SettingsSectionProps) {
-  const [activeTab, setActiveTab] = useState<"alerts" | "hardware" | "notifications" | "security">("alerts")
+  const [activeTab, setActiveTab] = useState<"alerts" | "notifications" | "security">("alerts")
 
   // Data states
   const [loading, setLoading] = useState(true)
   const [savingPreferences, setSavingPreferences] = useState(false)
   const [meters, setMeters] = useState<Meter[]>([])
-  const [selectedMeterId, setSelectedMeterId] = useState<number | null>(null)
   const [user, setUser] = useState<UserProfile | null>(null)
 
   // Settings State
@@ -85,13 +84,6 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
   const [smsNotifications, setSmsNotifications] = useState(true)
   const [weeklyReport, setWeeklyReport] = useState(true)
   const [tariffType, setTariffType] = useState("Domestic D-1 (PUCSL Block Tariff)")
-
-  // Meter Hardware State
-  const [meterName, setMeterName] = useState("")
-  const [savingMeterName, setSavingMeterName] = useState(false)
-  const [newMeterPin, setNewMeterPin] = useState("")
-  const [confirmMeterPin, setConfirmMeterPin] = useState("")
-  const [savingMeterPin, setSavingMeterPin] = useState(false)
 
   // Security / Password State
   const [currentPassword, setCurrentPassword] = useState("")
@@ -144,10 +136,6 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
         }
         if (data.meters && Array.isArray(data.meters)) {
           setMeters(data.meters)
-          if (data.meters.length > 0) {
-            setSelectedMeterId(data.meters[0].id)
-            setMeterName(data.meters[0].name || "Home")
-          }
         }
       }
     } catch (err) {
@@ -161,16 +149,6 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
   useEffect(() => {
     fetchSettings()
   }, [fetchSettings])
-
-  // Update selected meter name input when switching meters
-  useEffect(() => {
-    if (selectedMeterId) {
-      const current = meters.find((m) => m.id === selectedMeterId)
-      if (current) {
-        setMeterName(current.name || "Home")
-      }
-    }
-  }, [selectedMeterId, meters])
 
   // Save General Preferences
   const handleSavePreferences = async () => {
@@ -203,88 +181,6 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
       showToast("Network error saving preferences", "error")
     } finally {
       setSavingPreferences(false)
-    }
-  }
-
-  // Update Meter Alias
-  const handleSaveMeterName = async () => {
-    if (!selectedMeterId || !meterName.trim()) {
-      showToast("Please enter a valid meter name", "error")
-      return
-    }
-
-    setSavingMeterName(true)
-    try {
-      const res = await fetch("http://localhost:3000/api/settings/meter-name", {
-        method: "PATCH",
-        headers: getAuthHeaders({ "Content-Type": "application/json" }),
-        credentials: "include",
-        body: JSON.stringify({
-          meterId: selectedMeterId,
-          name: meterName.trim()
-        })
-      })
-
-      const data = await res.json()
-      if (res.ok && data.success) {
-        setMeters((prev) =>
-          prev.map((m) => (m.id === selectedMeterId ? { ...m, name: meterName.trim() } : m))
-        )
-        showToast("Meter name updated successfully!", "success")
-      } else {
-        showToast(data.message || "Failed to update meter name", "error")
-      }
-    } catch (err) {
-      console.error("Error updating meter name:", err)
-      showToast("Network error updating meter name", "error")
-    } finally {
-      setSavingMeterName(false)
-    }
-  }
-
-  // Update Meter PIN (Bcrypt Hashed in Backend)
-  const handleSaveMeterPin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedMeterId) {
-      showToast("Please select a smart meter first", "error")
-      return
-    }
-
-    if (!/^\d{4}$/.test(newMeterPin)) {
-      showToast("Hardware PIN must be exactly 4 digits (e.g. 1234)", "error")
-      return
-    }
-
-    if (newMeterPin !== confirmMeterPin) {
-      showToast("PIN confirmation does not match", "error")
-      return
-    }
-
-    setSavingMeterPin(true)
-    try {
-      const res = await fetch("http://localhost:3000/api/settings/meter-pin", {
-        method: "PATCH",
-        headers: getAuthHeaders({ "Content-Type": "application/json" }),
-        credentials: "include",
-        body: JSON.stringify({
-          meterId: selectedMeterId,
-          newPin: newMeterPin
-        })
-      })
-
-      const data = await res.json()
-      if (res.ok && data.success) {
-        showToast(data.message || "Hardware PIN updated and cryptographically hashed!", "success")
-        setNewMeterPin("")
-        setConfirmMeterPin("")
-      } else {
-        showToast(data.message || "Failed to update PIN", "error")
-      }
-    } catch (err) {
-      console.error("Error updating PIN:", err)
-      showToast("Network error updating PIN", "error")
-    } finally {
-      setSavingMeterPin(false)
     }
   }
 
@@ -372,7 +268,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
             </div>
             <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Account & Smart Meter Settings</h1>
             <p className="text-white/70 text-sm mt-1 max-w-2xl">
-              Configure alert thresholds, Lifeline mode automation, physical hardware PINs, and notification preferences.
+              Configure alert thresholds, Lifeline mode automation, notification channels, and account security.
             </p>
           </div>
 
@@ -410,19 +306,6 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
           >
             <Sliders className="h-4 w-4" />
             Smart Alerts & Thresholds
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("hardware")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-              activeTab === "hardware"
-                ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
-                : "bg-black/30 text-white/70 hover:bg-black/50 hover:text-white"
-            }`}
-          >
-            <Cpu className="h-4 w-4" />
-            Meter Hardware & PIN
           </button>
 
           <button
@@ -653,175 +536,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
             </div>
           )}
 
-          {/* TAB 2: Meter Hardware & PIN */}
-          {activeTab === "hardware" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Meter Alias & Details */}
-              <Card className="bg-gradient-to-br from-[#181818] via-[#121212] to-[#0a0a0a] border-white/10 shadow-2xl text-white">
-                <CardHeader className="border-b border-white/10 pb-4">
-                  <CardTitle className="text-lg font-bold flex items-center gap-2">
-                    <Cpu className="h-5 w-5 text-yellow-400" />
-                    Smart Meter Identity & Alias
-                  </CardTitle>
-                  <CardDescription className="text-white/60 text-xs">
-                    Manage display name and hardware association
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-5">
-                  {meters.length > 0 ? (
-                    <>
-                      {/* Meter Selector if multiple */}
-                      <div className="space-y-1.5">
-                        <Label htmlFor="active-meter-select" className="text-xs font-semibold text-white uppercase tracking-wider">
-                          Select Meter to Configure
-                        </Label>
-                        <select
-                          id="active-meter-select"
-                          value={selectedMeterId || ""}
-                          onChange={(e) => setSelectedMeterId(parseInt(e.target.value, 10))}
-                          className="w-full bg-black/40 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-yellow-400"
-                        >
-                          {meters.map((m) => (
-                            <option key={m.id} value={m.id} className="bg-[#1a1a1a] text-white">
-                              {m.meter_number} — {m.name || "Home"} (Rs. {parseFloat(String(m.balance)).toFixed(2)})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Meter Custom Alias Input */}
-                      <div className="space-y-1.5">
-                        <Label htmlFor="meter-alias-input" className="text-xs font-semibold text-white uppercase tracking-wider">
-                          Custom Meter Name
-                        </Label>
-                        <div className="flex gap-2">
-                          <Input
-                            id="meter-alias-input"
-                            value={meterName}
-                            onChange={(e) => setMeterName(e.target.value)}
-                            placeholder="e.g. Main House, Annex, Upstairs"
-                            className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl"
-                          />
-                          <Button
-                            type="button"
-                            onClick={handleSaveMeterName}
-                            disabled={savingMeterName}
-                            className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold px-4 h-10 rounded-xl text-xs shrink-0"
-                          >
-                            {savingMeterName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Update"}
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Technical Specs Card */}
-                      <div className="bg-black/30 border border-white/10 rounded-xl p-4 space-y-2 text-xs">
-                        <span className="text-[10px] text-white/50 uppercase font-semibold block mb-1">
-                          Regulatory Specifications
-                        </span>
-                        <div className="flex justify-between">
-                          <span className="text-white/50">Meter Serial Number:</span>
-                          <span className="font-mono text-yellow-400 font-semibold">{selectedMeter?.meter_number}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-white/50">CEB/LECO Account:</span>
-                          <span className="font-mono text-white">{selectedMeter?.account_number}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-white/50">Tariff Category:</span>
-                          <span className="text-emerald-400 font-medium">Domestic D-1 (30-Day Block)</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-white/50">Hardware Firmware:</span>
-                          <span className="text-white/70">AMI-ESP32-v2.4 (Bi-directional)</span>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-8 text-white/50 text-xs">
-                      No smart meter currently linked to this account.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Update 4-Digit Hardware PIN */}
-              <Card className="bg-gradient-to-br from-[#181818] via-[#121212] to-[#0a0a0a] border-white/10 shadow-2xl text-white">
-                <CardHeader className="border-b border-white/10 pb-4">
-                  <CardTitle className="text-lg font-bold flex items-center gap-2">
-                    <KeyRound className="h-5 w-5 text-yellow-400" />
-                    Smart Meter Hardware PIN
-                  </CardTitle>
-                  <CardDescription className="text-white/60 text-xs">
-                    4-digit PIN used to authorize meter commands and manual emergency credit
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <form onSubmit={handleSaveMeterPin} className="space-y-4">
-                    <div className="bg-yellow-400/10 border border-yellow-400/20 rounded-xl p-3 text-xs text-yellow-200 space-y-1">
-                      <div className="flex items-center gap-1.5 font-bold text-yellow-300">
-                        <Shield className="h-4 w-4" />
-                        Phase 2 Cryptographic PIN Hashing Active
-                      </div>
-                      <p className="text-[11px] text-white/70 leading-relaxed">
-                        Your meter PIN is salted and hashed using bcrypt. Plaintext PINs are never stored on our database.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="new-meter-pin" className="text-xs text-white">
-                          New 4-Digit PIN
-                        </Label>
-                        <Input
-                          id="new-meter-pin"
-                          type="password"
-                          maxLength={4}
-                          value={newMeterPin}
-                          onChange={(e) => setNewMeterPin(e.target.value)}
-                          placeholder="e.g. 1234"
-                          className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl text-center font-mono tracking-widest text-base"
-                          required
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label htmlFor="confirm-meter-pin" className="text-xs text-white">
-                          Confirm PIN
-                        </Label>
-                        <Input
-                          id="confirm-meter-pin"
-                          type="password"
-                          maxLength={4}
-                          value={confirmMeterPin}
-                          onChange={(e) => setConfirmMeterPin(e.target.value)}
-                          placeholder="e.g. 1234"
-                          className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl text-center font-mono tracking-widest text-base"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <Button
-                      type="submit"
-                      disabled={savingMeterPin || !newMeterPin}
-                      className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-10 rounded-xl text-xs shadow-lg"
-                    >
-                      {savingMeterPin ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Hashing & Updating PIN...
-                        </>
-                      ) : (
-                        "Update Hardware PIN"
-                      )}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* TAB 3: Alert Channels & Notifications */}
+          {/* TAB 2: Alert Channels & Notifications */}
           {activeTab === "notifications" && (
             <Card className="bg-gradient-to-br from-[#181818] via-[#121212] to-[#0a0a0a] border-white/10 shadow-2xl text-white max-w-3xl mx-auto">
               <CardHeader className="border-b border-white/10 pb-4">
