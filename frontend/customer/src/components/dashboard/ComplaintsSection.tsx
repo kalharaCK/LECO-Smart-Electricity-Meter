@@ -121,10 +121,21 @@ export default function ComplaintsSection() {
   const [submittedTicket, setSubmittedTicket] = useState<Complaint | null>(null)
   const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: "success" | "error" } | null>(null)
 
+  // Helper to ensure both httpOnly cookies and Bearer tokens are attached
+  const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
+    const token = localStorage.getItem("token")
+    const headers: Record<string, string> = { ...extraHeaders }
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
+    }
+    return headers
+  }
+
   // Fetch Complaints from Backend
   const fetchComplaints = useCallback(async () => {
     try {
       const res = await fetch("http://localhost:3000/api/complaints/my", {
+        headers: getAuthHeaders(),
         credentials: "include"
       })
       if (res.ok) {
@@ -149,6 +160,7 @@ export default function ComplaintsSection() {
   const fetchMeters = useCallback(async () => {
     try {
       const res = await fetch("http://localhost:3000/api/meters", {
+        headers: getAuthHeaders(),
         credentials: "include"
       })
       if (res.ok) {
@@ -208,9 +220,9 @@ export default function ComplaintsSection() {
       const selectedTypeObj = COMPLAINT_TYPES.find((t) => t.id === complaintType)
       const res = await fetch("http://localhost:3000/api/complaints", {
         method: "POST",
-        headers: {
+        headers: getAuthHeaders({
           "Content-Type": "application/json"
-        },
+        }),
         credentials: "include",
         body: JSON.stringify({
           complaint_type: selectedTypeObj?.label || complaintType,
@@ -253,7 +265,7 @@ export default function ComplaintsSection() {
     try {
       const res = await fetch(`http://localhost:3000/api/complaints/${complaintId}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         credentials: "include",
         body: JSON.stringify({
           status: nextStatus,
