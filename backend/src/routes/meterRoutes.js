@@ -1,6 +1,7 @@
 const express = require('express');
 const { getUserMeters, addMeter, getMeterConsumption, getMeterPrediction, rechargeMeter, getPaymentHistory } = require('../controllers/meterController');
 const { requireAuth } = require('../middlewares/authMiddleware');
+const { meterLinkRateLimiter } = require('../middlewares/rateLimiter');
 
 const router = express.Router();
 
@@ -8,7 +9,7 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.get('/', getUserMeters);
-router.post('/add', addMeter);
+router.post('/add', meterLinkRateLimiter, addMeter);
 router.get('/payments/history', getPaymentHistory);
 router.get('/:meterId/consumption', getMeterConsumption);
 router.get('/:meterId/prediction', getMeterPrediction);

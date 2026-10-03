@@ -499,6 +499,15 @@ npm run dev -- --port 5174
   - Dedicated `/api/logout` endpoint invalidates and clears the session cookie immediately.
   - Protected backend routes authenticate via `req.cookies.token` with seamless fallback for non-browser API clients.
 
+### Phase 4: Automated Brute-Force Defense (Strict Rate Limiting)
+- **Threat**: Attackers using automated bot scripts to rapidly brute-force credentials (`/api/auth/login`) or guess 4-digit physical smart meter PINs (`/api/meters/add`).
+- **Solution**:
+  - Implemented IP-based strict sliding rate limiters via `express-rate-limit`.
+  - Threshold: Maximum **5 attempts per IP address every 15 minutes**.
+  - Applied to authentication (`/api/login`, `/api/auth/login`, `/api/signup`) and hardware verification (`/api/meters/add`).
+  - Excess requests are immediately blocked with HTTP `429 Too Many Requests` containing standard `RateLimit-*` draft headers and `Retry-After`.
+  - Optimized database telemetry insertion using PostgreSQL `UNNEST` to execute batch mock seeds in a single network roundtrip (<50ms).
+
 ---
 
 ## 🔮 Future Roadmap

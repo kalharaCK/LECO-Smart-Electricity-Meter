@@ -85,6 +85,7 @@ const addMeter = async (req, res) => {
     try {
       await client.query('BEGIN');
       const today = new Date();
+      const rows = [];
       for (let i = 0; i < 30; i++) {
         const d = new Date(today);
         d.setDate(d.getDate() - i);
@@ -94,17 +95,26 @@ const addMeter = async (req, res) => {
         for (let h = 0; h < 24; h++) {
           const baseHour = (h >= 23 || h < 6) ? 0.08 : (h >= 18 && h <= 22) ? 0.28 : 0.18;
           const consumption = Math.max(0.02, baseHour + (Math.random() * 0.1 - 0.05)).toFixed(2);
-          // Solar export during sunny daytime (9 AM to 4 PM)
           let energyExport = '0.00';
           if (h >= 9 && h <= 16) {
             energyExport = (Math.random() * 0.25 + 0.10).toFixed(2);
           }
-          await client.query(
-            `INSERT INTO consumption_logs (meter_id, reading_date, reading_hour, consumption, energy_export) VALUES ($1, $2, $3, $4, $5)`,
-            [newMeter.id, dateStr, h, consumption, energyExport]
-          );
+          rows.push({ dateStr, h, consumption, energyExport });
         }
       }
+
+      // Ultra-fast single-roundtrip batch insert via PostgreSQL UNNEST
+      await client.query(
+        `INSERT INTO consumption_logs (meter_id, reading_date, reading_hour, consumption, energy_export)
+         SELECT $1, unnest($2::date[]), unnest($3::int[]), unnest($4::numeric[]), unnest($5::numeric[])`,
+        [
+          newMeter.id,
+          rows.map(r => r.dateStr),
+          rows.map(r => r.h),
+          rows.map(r => r.consumption),
+          rows.map(r => r.energyExport)
+        ]
+      );
       await client.query('COMMIT');
 
       // Seed mock notifications
