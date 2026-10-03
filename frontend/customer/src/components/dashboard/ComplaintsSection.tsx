@@ -23,7 +23,6 @@ import {
   ArrowRight,
   Sliders,
   Check,
-  ChevronRight,
   ChevronDown,
   HelpCircle,
   CreditCard,
@@ -902,7 +901,6 @@ export default function ComplaintsSection() {
                             const currentIdx = getStepIndex(selectedComplaint.status)
                             const isCompleted = idx < currentIdx
                             const isCurrent = idx === currentIdx
-                            const isPending = idx > currentIdx
 
                             return (
                               <div key={step.key} className="relative group">

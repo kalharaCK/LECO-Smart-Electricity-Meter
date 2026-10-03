@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import React, { useEffect, useState, Component, type ErrorInfo } from "react"
 import { useNavigate } from "react-router-dom"
 import { 
   LayoutDashboard, 
@@ -9,8 +9,11 @@ import {
   Settings,
   LogOut,
   User,
-  Bell
+  Bell,
+  AlertTriangle,
+  RotateCcw
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 import OverviewSection from "../components/dashboard/OverviewSection"
 import AddMeterSection from "../components/dashboard/AddMeterSection"
@@ -20,7 +23,6 @@ import PaymentHistorySection from "../components/dashboard/PaymentHistorySection
 import SettingsSection from "../components/dashboard/SettingsSection"
 import EnergyAssistantBot from "../components/chat/EnergyAssistantBot"
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import {
   Sidebar,
   SidebarContent,
@@ -45,6 +47,56 @@ const navItems = [
   { id: "complaints", title: "Complaints", icon: MessageSquareWarning },
   { id: "settings", title: "Settings", icon: Settings },
 ]
+
+interface ErrorBoundaryProps {
+  children: React.ReactNode
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean
+  error: Error | null
+}
+
+class SectionErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Dashboard section crashed:", error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 rounded-2xl bg-[#180806] border border-red-500/30 text-white space-y-4 max-w-2xl mx-auto mt-6 shadow-2xl">
+          <div className="flex items-center gap-3 text-red-400">
+            <AlertTriangle className="h-6 w-6" />
+            <h3 className="text-lg font-bold">Failed to display this section</h3>
+          </div>
+          <p className="text-xs text-white/70 leading-relaxed">
+            {this.state.error?.message || "An unexpected error occurred while rendering this section."}
+          </p>
+          <div className="pt-2">
+            <Button
+              onClick={() => this.setState({ hasError: false, error: null })}
+              className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-2"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reload Section
+            </Button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -260,7 +312,9 @@ export default function Dashboard() {
               </h1>
             </div>
             <div key={activeSection} className="animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500 fill-mode-both">
-              {renderContent()}
+              <SectionErrorBoundary key={activeSection}>
+                {renderContent()}
+              </SectionErrorBoundary>
             </div>
           </main>
         </SidebarInset>

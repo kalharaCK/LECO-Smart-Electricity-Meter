@@ -9,25 +9,16 @@ import {
   Bell,
   Sliders,
   Shield,
-  Zap,
   Phone,
   Mail,
-  KeyRound,
   CheckCircle2,
   AlertTriangle,
   Loader2,
   Save,
-  Moon,
   LifeBuoy,
-  Flame,
   Radio,
-  Clock,
-  Eye,
-  EyeOff,
-  RefreshCw,
   LogOut,
-  Building2,
-  Cpu
+  Building2
 } from "lucide-react"
 
 interface Meter {
@@ -48,7 +39,7 @@ interface UserProfile {
   created_at: string
 }
 
-interface UserSettings {
+export interface UserSettings {
   phone_number: string
   low_balance_threshold: number
   daily_kwh_budget: number
@@ -230,8 +221,6 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
       setSavingPassword(false)
     }
   }
-
-  const selectedMeter = meters.find((m) => m.id === selectedMeterId) || meters[0]
 
   return (
     <div className="space-y-6">
@@ -766,6 +755,10 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                     <div className="flex justify-between items-center">
                       <span className="text-white/50">Linked Meters Count:</span>
                       <span className="font-semibold text-white">{meters.length} smart meters</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-white/50">Active Tariff Schedule:</span>
+                      <span className="font-semibold text-yellow-400">{tariffType}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-white/50">Account Member Since:</span>
