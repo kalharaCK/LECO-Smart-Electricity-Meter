@@ -194,18 +194,18 @@ export default function MetersManagement({
 
       {/* Metric Cards Banner */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <div className="bg-[#120403] border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-white/50 text-xs">
-            <span>Fleet Fleet Size</span>
-            <Cpu className="h-4 w-4 text-[#F5E00B]" />
+        <div className="bg-gradient-to-br from-[#992511] to-[#3a0b04] border-0 shadow-xl rounded-2xl p-4 flex flex-col justify-between text-white">
+          <div className="flex items-center justify-between text-white/80 text-xs font-medium">
+            <span>Fleet Total</span>
+            <Cpu className="h-4 w-4 text-yellow-300" />
           </div>
           <div className="mt-2">
-            <span className="text-2xl font-bold text-white">{totalMetersCount}</span>
-            <span className="text-[11px] text-white/40 block">Smart Meters</span>
+            <span className="text-3xl font-extrabold text-white">{totalMetersCount}</span>
+            <span className="text-[11px] text-white/70 block font-medium">Active Smart Meters</span>
           </div>
         </div>
 
-        <div className="bg-[#120403] border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+        <div className="bg-[#0f0f11] border border-white/5 shadow-xl rounded-2xl p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between text-white/50 text-xs">
             <span>Grid Connected</span>
             <Zap className="h-4 w-4 text-emerald-400" />
@@ -216,7 +216,7 @@ export default function MetersManagement({
           </div>
         </div>
 
-        <div className="bg-[#120403] border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+        <div className="bg-[#0f0f11] border border-white/5 shadow-xl rounded-2xl p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between text-white/50 text-xs">
             <span>Disconnected</span>
             <ZapOff className="h-4 w-4 text-rose-400" />
@@ -227,7 +227,7 @@ export default function MetersManagement({
           </div>
         </div>
 
-        <div className="bg-[#120403] border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+        <div className="bg-[#0f0f11] border border-white/5 shadow-xl rounded-2xl p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between text-white/50 text-xs">
             <span>Lifeline Active</span>
             <Power className="h-4 w-4 text-amber-400" />
@@ -238,10 +238,10 @@ export default function MetersManagement({
           </div>
         </div>
 
-        <div className="bg-[#120403] border border-white/10 rounded-2xl p-4 flex flex-col justify-between col-span-2 lg:col-span-1">
+        <div className="bg-[#0f0f11] border border-white/5 shadow-xl rounded-2xl p-4 flex flex-col justify-between col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between text-white/50 text-xs">
             <span>Today's Grid Load</span>
-            <TrendingUp className="h-4 w-4 text-[#F5E00B]" />
+            <TrendingUp className="h-4 w-4 text-yellow-400" />
           </div>
           <div className="mt-2">
             <span className="text-2xl font-bold text-white">{totalTodayKwh.toFixed(2)}</span>
@@ -251,7 +251,7 @@ export default function MetersManagement({
       </div>
 
       {/* Controls & Filter Bar */}
-      <div className="bg-[#120403] border border-white/10 rounded-2xl p-4 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+      <div className="bg-[#0f0f11] border border-white/5 rounded-2xl p-4 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 shadow-xl">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
@@ -259,7 +259,7 @@ export default function MetersManagement({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by Meter #, Account #, Email, Phone..."
-            className="pl-10 bg-black/40 border-white/15 text-white text-xs h-10 rounded-xl focus-visible:border-[#F5E00B]"
+            className="pl-10 bg-black/40 border-white/10 text-white placeholder:text-white/40 text-xs h-10 rounded-xl focus-visible:border-yellow-400"
           />
         </div>
 
@@ -270,8 +270,8 @@ export default function MetersManagement({
             onClick={() => setStatusFilter("all")}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               statusFilter === "all"
-                ? "bg-[#F5E00B] text-black shadow-md shadow-[#F5E00B]/20"
-                : "bg-black/40 text-white/60 hover:text-white"
+                ? "bg-yellow-400 text-black shadow-md shadow-yellow-400/20 font-bold"
+                : "bg-white/5 text-white/60 hover:text-white hover:bg-white/10"
             }`}
           >
             All ({meters.length})
@@ -281,8 +281,8 @@ export default function MetersManagement({
             onClick={() => setStatusFilter("connected")}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               statusFilter === "connected"
-                ? "bg-emerald-500 text-black shadow-md shadow-emerald-500/20"
-                : "bg-black/40 text-white/60 hover:text-white"
+                ? "bg-emerald-500 text-black shadow-md shadow-emerald-500/20 font-bold"
+                : "bg-white/5 text-white/60 hover:text-white hover:bg-white/10"
             }`}
           >
             Connected ({connectedCount})
@@ -292,8 +292,8 @@ export default function MetersManagement({
             onClick={() => setStatusFilter("disconnected")}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               statusFilter === "disconnected"
-                ? "bg-rose-500 text-white shadow-md shadow-rose-500/20"
-                : "bg-black/40 text-white/60 hover:text-white"
+                ? "bg-rose-500 text-white shadow-md shadow-rose-500/20 font-bold"
+                : "bg-white/5 text-white/60 hover:text-white hover:bg-white/10"
             }`}
           >
             Disconnected ({disconnectedCount})
@@ -303,8 +303,8 @@ export default function MetersManagement({
             onClick={() => setStatusFilter("lifeline")}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               statusFilter === "lifeline"
-                ? "bg-amber-400 text-black shadow-md shadow-amber-400/20"
-                : "bg-black/40 text-white/60 hover:text-white"
+                ? "bg-amber-400 text-black shadow-md shadow-amber-400/20 font-bold"
+                : "bg-white/5 text-white/60 hover:text-white hover:bg-white/10"
             }`}
           >
             Lifeline Active ({lifelineCount})
@@ -313,26 +313,26 @@ export default function MetersManagement({
 
         {/* Actions & Sort */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-black/40 border border-white/10 px-3 py-1.5 rounded-xl text-xs text-white/70">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-[#F5E00B]" />
+          <div className="flex items-center gap-1.5 bg-black/40 border border-white/5 px-3 py-1.5 rounded-xl text-xs text-white/70">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-yellow-400" />
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
               className="bg-transparent text-white text-xs border-none outline-none cursor-pointer"
             >
-              <option value="id" className="bg-[#120403] text-white">Default Sort</option>
-              <option value="balance_asc" className="bg-[#120403] text-white">Balance: Low to High</option>
-              <option value="balance_desc" className="bg-[#120403] text-white">Balance: High to Low</option>
-              <option value="today_kwh" className="bg-[#120403] text-white">Today's Usage</option>
+              <option value="id" className="bg-[#0f0f11] text-white">Default Sort</option>
+              <option value="balance_asc" className="bg-[#0f0f11] text-white">Balance: Low to High</option>
+              <option value="balance_desc" className="bg-[#0f0f11] text-white">Balance: High to Low</option>
+              <option value="today_kwh" className="bg-[#0f0f11] text-white">Today's Usage</option>
             </select>
           </div>
 
           <Button
             onClick={onRefresh}
             variant="outline"
-            className="bg-black/40 border-white/10 hover:bg-white/10 text-white h-9 px-3 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
+            className="bg-black/40 border-white/5 hover:bg-white/10 text-white h-9 px-3 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-[#F5E00B]" : ""}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-yellow-400" : ""}`} />
             Refresh
           </Button>
         </div>
@@ -340,20 +340,20 @@ export default function MetersManagement({
 
       {/* METERS LIST VIEW */}
       {loading ? (
-        <div className="py-20 text-center text-white/50 flex flex-col items-center justify-center gap-3 bg-[#120403] border border-white/10 rounded-2xl">
-          <Loader2 className="h-8 w-8 animate-spin text-[#F5E00B]" />
+        <div className="py-20 text-center text-white/50 flex flex-col items-center justify-center gap-3 bg-[#0f0f11] border border-white/5 rounded-2xl">
+          <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
           <span className="text-xs">Loading complete fleet telemetry...</span>
         </div>
       ) : filteredMeters.length === 0 ? (
-        <div className="p-12 text-center bg-[#120403] border border-white/10 rounded-2xl text-white/50 space-y-2">
+        <div className="p-12 text-center bg-[#0f0f11] border border-white/5 rounded-2xl text-white/50 space-y-2">
           <Cpu className="h-8 w-8 mx-auto text-white/30" />
           <p className="text-sm font-semibold text-white">No smart meters match your search/filter.</p>
           <p className="text-xs text-white/40">Try adjusting your filters or search keywords.</p>
         </div>
       ) : (
-        <div className="bg-[#120403] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+        <div className="bg-[#0f0f11] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
           {/* List Header Bar */}
-          <div className="grid grid-cols-12 gap-3 px-5 py-3.5 border-b border-white/10 text-[11px] font-bold uppercase tracking-wider text-white/50 bg-black/30">
+          <div className="grid grid-cols-12 gap-3 px-5 py-3.5 border-b border-white/5 text-[11px] font-bold uppercase tracking-wider text-white/50 bg-black/40">
             <div className="col-span-3">Smart Meter & Account</div>
             <div className="col-span-3">Customer & Contact</div>
             <div className="col-span-2">Wallet Balance</div>
@@ -373,12 +373,12 @@ export default function MetersManagement({
                 <div
                   key={meter.id}
                   onClick={() => setActiveMeterDetail(meter)}
-                  className="grid grid-cols-12 gap-3 px-5 py-4 items-center hover:bg-[#1f0704] transition-all cursor-pointer group text-xs text-white"
+                  className="grid grid-cols-12 gap-3 px-5 py-4 items-center hover:bg-white/[0.04] transition-all cursor-pointer group text-xs text-white"
                 >
                   {/* Col 1: Meter # & Account */}
                   <div className="col-span-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-bold text-white group-hover:text-[#F5E00B] transition-colors">
+                      <span className="font-mono text-sm font-bold text-white group-hover:text-yellow-400 transition-colors">
                         {meter.meter_number}
                       </span>
                       {meter.open_complaints_count > 0 && (
@@ -388,7 +388,7 @@ export default function MetersManagement({
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 text-white/50 text-[11px] mt-0.5">
-                      <Building2 className="h-3 w-3 text-[#F5E00B]" />
+                      <Building2 className="h-3 w-3 text-yellow-400" />
                       <span className="truncate">{meter.name || "Main Meter"}</span>
                       <span className="text-white/20">•</span>
                       <span className="font-mono text-white/40">Acc #{meter.account_number}</span>
@@ -455,7 +455,7 @@ export default function MetersManagement({
                       variant="outline"
                       title="Adjust credit"
                       onClick={() => setTopupModalMeter(meter)}
-                      className="bg-[#F5E00B]/10 hover:bg-[#F5E00B]/20 border-[#F5E00B]/30 text-[#F5E00B] text-xs h-7 px-2.5 rounded-lg flex items-center gap-1 cursor-pointer"
+                      className="bg-yellow-400/10 hover:bg-yellow-400/20 border-yellow-400/30 text-yellow-300 text-xs h-7 px-2.5 rounded-lg flex items-center gap-1 cursor-pointer"
                     >
                       <CreditCard className="h-3 w-3" />
                       Credit
@@ -494,13 +494,13 @@ export default function MetersManagement({
       {/* WHOLE DETAILS MODAL / INSPECTOR (When Clicked, Whole Details Appear) */}
       {activeMeterDetail && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-[#160604] via-[#100302] to-[#070707] border border-white/20 rounded-3xl max-w-3xl w-full p-6 text-white space-y-6 shadow-2xl relative animate-in fade-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+          <div className="bg-[#0f0f11] border border-white/10 rounded-3xl max-w-3xl w-full p-6 text-white space-y-6 shadow-2xl relative animate-in fade-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             {/* Header Strip */}
             <div className="flex items-start justify-between border-b border-white/10 pb-5">
               <div>
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#992511] to-[#120403] border border-[#F5E00B]/30 flex items-center justify-center shadow-lg shadow-[#F5E00B]/10">
-                    <Zap className="h-6 w-6 text-[#F5E00B]" />
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#992511] to-[#3a0b04] border border-white/10 flex items-center justify-center shadow-lg shadow-[#992511]/20">
+                    <Zap className="h-6 w-6 text-yellow-400" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
@@ -529,7 +529,7 @@ export default function MetersManagement({
                       <span>•</span>
                       <span>Label: {activeMeterDetail.name}</span>
                       <span>•</span>
-                      <span className="text-[#F5E00B]">{activeMeterDetail.tariff_type}</span>
+                      <span className="text-yellow-400">{activeMeterDetail.tariff_type}</span>
                     </p>
                   </div>
                 </div>
@@ -548,7 +548,7 @@ export default function MetersManagement({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               {/* Quadrant 1: Customer & Account Profile */}
               <div className="bg-black/40 border border-white/10 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center gap-2 text-[#F5E00B] font-bold uppercase text-[11px] tracking-wider pb-1 border-b border-white/5">
+                <div className="flex items-center gap-2 text-yellow-400 font-bold uppercase text-[11px] tracking-wider pb-1 border-b border-white/5">
                   <User className="h-4 w-4" />
                   Customer Dossier & Contact
                 </div>
@@ -594,7 +594,7 @@ export default function MetersManagement({
 
               {/* Quadrant 2: Financials & Balance State */}
               <div className="bg-black/40 border border-white/10 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center gap-2 text-[#F5E00B] font-bold uppercase text-[11px] tracking-wider pb-1 border-b border-white/5">
+                <div className="flex items-center gap-2 text-yellow-400 font-bold uppercase text-[11px] tracking-wider pb-1 border-b border-white/5">
                   <CreditCard className="h-4 w-4" />
                   Prepaid Balance & Automation
                 </div>
@@ -654,7 +654,7 @@ export default function MetersManagement({
 
               {/* Quadrant 3: Telemetry & Consumption Metrics */}
               <div className="bg-black/40 border border-white/10 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center gap-2 text-[#F5E00B] font-bold uppercase text-[11px] tracking-wider pb-1 border-b border-white/5">
+                <div className="flex items-center gap-2 text-yellow-400 font-bold uppercase text-[11px] tracking-wider pb-1 border-b border-white/5">
                   <Activity className="h-4 w-4" />
                   Grid Telemetry & Load
                 </div>
@@ -686,7 +686,7 @@ export default function MetersManagement({
 
               {/* Quadrant 4: Complaint Status & Support */}
               <div className="bg-black/40 border border-white/10 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center gap-2 text-[#F5E00B] font-bold uppercase text-[11px] tracking-wider pb-1 border-b border-white/5">
+                <div className="flex items-center gap-2 text-yellow-400 font-bold uppercase text-[11px] tracking-wider pb-1 border-b border-white/5">
                   <Layers className="h-4 w-4" />
                   Active Support & Complaints
                 </div>
@@ -726,7 +726,7 @@ export default function MetersManagement({
               <div className="flex items-center gap-2">
                 <Button
                   onClick={() => setTopupModalMeter(activeMeterDetail)}
-                  className="bg-[#F5E00B] hover:bg-[#F5E00B]/90 text-black font-bold text-xs h-9 px-4 rounded-xl shadow-lg shadow-[#F5E00B]/20 flex items-center gap-2 cursor-pointer"
+                  className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-xs h-9 px-4 rounded-xl shadow-lg shadow-yellow-400/20 flex items-center gap-2 cursor-pointer"
                 >
                   <CreditCard className="h-4 w-4" />
                   Grant Relief Credit
@@ -762,7 +762,7 @@ export default function MetersManagement({
       {/* MODAL 2: Remote Relay Toggle Confirmation */}
       {relayModalMeter && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#120403] border border-white/20 rounded-3xl max-w-md w-full p-6 text-white space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95">
+          <div className="bg-[#0f0f11] border border-white/10 rounded-3xl max-w-md w-full p-6 text-white space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95">
             <div className="flex items-center gap-3">
               <div
                 className={`p-3 rounded-2xl ${
@@ -841,9 +841,9 @@ export default function MetersManagement({
       {/* MODAL 3: Staff Credit Relief / Top-up */}
       {topupModalMeter && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#120403] border border-white/20 rounded-3xl max-w-md w-full p-6 text-white space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95">
+          <div className="bg-[#0f0f11] border border-white/10 rounded-3xl max-w-md w-full p-6 text-white space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-[#F5E00B]/20 text-[#F5E00B]">
+              <div className="p-3 rounded-2xl bg-yellow-400/20 text-yellow-400">
                 <CreditCard className="h-6 w-6" />
               </div>
               <div>
@@ -866,7 +866,7 @@ export default function MetersManagement({
                     onClick={() => setTopupAmount(amt)}
                     className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                       topupAmount === amt
-                        ? "bg-[#F5E00B] text-black border-[#F5E00B]"
+                        ? "bg-yellow-400 text-black border-yellow-400"
                         : "bg-black/40 border-white/10 text-white/70 hover:text-white"
                     }`}
                   >
@@ -908,7 +908,7 @@ export default function MetersManagement({
               <Button
                 disabled={actionLoading}
                 onClick={handleStaffTopup}
-                className="bg-[#F5E00B] hover:bg-[#F5E00B]/90 text-black font-bold text-xs h-9 px-4 rounded-xl shadow-lg shadow-[#F5E00B]/20 flex items-center gap-2 cursor-pointer"
+                className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-xs h-9 px-4 rounded-xl shadow-lg shadow-yellow-400/20 flex items-center gap-2 cursor-pointer"
               >
                 {actionLoading ? (
                   <>

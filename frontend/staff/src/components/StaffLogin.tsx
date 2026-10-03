@@ -61,33 +61,33 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#070707] flex items-center justify-center p-4 relative overflow-hidden text-white font-sans">
+    <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4 relative overflow-hidden text-white font-sans selection:bg-[#992511]/30">
       {/* Background glow effects */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#992511]/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#F5E00B]/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
 
-      <Card className="w-full max-w-md bg-[#120403] border-white/10 shadow-2xl relative z-10 rounded-2xl overflow-hidden backdrop-blur-xl">
-        <div className="h-1.5 w-full bg-gradient-to-r from-[#992511] via-[#F5E00B] to-[#992511]" />
+      <Card className="w-full max-w-md bg-gradient-to-br from-[#992511] to-[#3a0b04] border-0 shadow-2xl relative z-10 rounded-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-700">
+        <div className="h-1.5 w-full bg-gradient-to-r from-yellow-400 via-amber-200 to-yellow-400" />
 
         <CardHeader className="text-center pt-8 pb-4">
-          <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-[#992511] to-[#120403] border border-[#F5E00B]/30 flex items-center justify-center shadow-lg shadow-[#F5E00B]/10 mb-3">
-            <Zap className="h-7 w-7 text-[#F5E00B]" />
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-black/40 border border-yellow-400/30 flex items-center justify-center shadow-lg shadow-black/40 mb-3">
+            <Zap className="h-7 w-7 text-yellow-400" />
           </div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5E00B]/10 border border-[#F5E00B]/20 text-[#F5E00B] text-xs font-bold uppercase tracking-wider mx-auto mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-400/20 border border-yellow-400/30 text-yellow-300 text-xs font-bold uppercase tracking-wider mx-auto mb-2">
             <ShieldCheck className="h-3.5 w-3.5" />
             LECO AMI Staff Terminal
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight text-white">
             Operations & Grid Control
           </CardTitle>
-          <CardDescription className="text-white/60 text-xs">
+          <CardDescription className="text-white/70 text-xs">
             Lanka Electricity Company (Pvt) Ltd. Advanced Metering Infrastructure
           </CardDescription>
         </CardHeader>
 
         <CardContent className="pt-2 pb-8 px-6 space-y-5">
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-red-950/80 border border-red-500/40 text-red-200 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-black/60 border border-red-500/40 text-red-200 text-xs flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
               <span>{errorMsg}</span>
             </div>
@@ -95,8 +95,8 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
 
           <form onSubmit={(e) => handleLogin(e)} className="space-y-4">
             <div className="space-y-1.5">
-              <Label className="text-xs text-white/80 font-semibold flex items-center gap-1.5">
-                <Mail className="h-3.5 w-3.5 text-[#F5E00B]" />
+              <Label className="text-xs text-white/90 font-semibold flex items-center gap-1.5">
+                <Mail className="h-3.5 w-3.5 text-yellow-400" />
                 Staff Email ID
               </Label>
               <Input
@@ -105,13 +105,13 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="staff@leco.lk"
                 required
-                className="bg-black/40 border-white/15 text-white text-xs h-10 rounded-xl focus-visible:border-[#F5E00B]"
+                className="bg-black/30 border-white/15 text-white placeholder:text-white/40 text-xs h-10 rounded-xl focus-visible:border-yellow-400"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs text-white/80 font-semibold flex items-center gap-1.5">
-                <Lock className="h-3.5 w-3.5 text-[#F5E00B]" />
+              <Label className="text-xs text-white/90 font-semibold flex items-center gap-1.5">
+                <Lock className="h-3.5 w-3.5 text-yellow-400" />
                 Security Password
               </Label>
               <Input
@@ -120,14 +120,14 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="bg-black/40 border-white/15 text-white text-xs h-10 rounded-xl focus-visible:border-[#F5E00B]"
+                className="bg-black/30 border-white/15 text-white placeholder:text-white/40 text-xs h-10 rounded-xl focus-visible:border-yellow-400"
               />
             </div>
 
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#F5E00B] hover:bg-[#F5E00B]/90 text-black font-bold h-11 rounded-xl text-xs shadow-lg shadow-[#F5E00B]/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full bg-yellow-400 hover:bg-yellow-300 text-black font-bold h-11 rounded-xl text-xs shadow-lg shadow-black/20 transition-transform hover:scale-[1.02] flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <>
@@ -145,15 +145,15 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
 
           {/* Quick Demo Access */}
           <div className="pt-3 border-t border-white/10 text-center space-y-2">
-            <span className="text-[11px] text-white/40 block">One-Click Demonstration Access</span>
+            <span className="text-[11px] text-white/60 block">One-Click Demonstration Access</span>
             <Button
               type="button"
               variant="outline"
               onClick={fillQuickAccess}
               disabled={loading}
-              className="w-full bg-[#992511]/30 hover:bg-[#992511]/50 border-[#992511]/60 text-white text-xs h-9 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
+              className="w-full bg-black/40 hover:bg-black/60 border-white/20 text-white text-xs h-9 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
             >
-              <ShieldCheck className="h-3.5 w-3.5 text-[#F5E00B]" />
+              <ShieldCheck className="h-3.5 w-3.5 text-yellow-400" />
               Quick Login as Field Operations Staff (staff@leco.lk)
             </Button>
           </div>

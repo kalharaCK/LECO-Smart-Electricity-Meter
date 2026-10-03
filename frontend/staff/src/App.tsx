@@ -186,22 +186,22 @@ export function App() {
   ).length
 
   return (
-    <div className="min-h-screen bg-[#070707] text-white font-sans flex flex-col selection:bg-[#F5E00B] selection:text-black">
+    <div className="min-h-screen bg-[#09090b] text-white font-sans flex flex-col selection:bg-[#992511]/30 selection:text-white">
       {/* Top Operations Header */}
-      <header className="sticky top-0 z-40 bg-[#0d0302]/90 backdrop-blur-xl border-b border-white/10 px-4 lg:px-8 py-3.5">
+      <header className="sticky top-0 z-40 bg-[#09090b]/80 backdrop-blur-md border-b border-white/5 px-4 lg:px-8 py-3.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           {/* Logo & Terminal Identity */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#992511] to-[#120403] border border-[#F5E00B]/30 flex items-center justify-center shadow-lg shadow-[#F5E00B]/10 shrink-0">
-              <Zap className="h-5 w-5 text-[#F5E00B]" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#992511] to-[#3a0b04] border border-white/10 flex items-center justify-center shadow-lg shadow-[#992511]/20 shrink-0">
+              <Zap className="h-5 w-5 text-yellow-400" />
             </div>
 
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-base lg:text-lg tracking-tight text-white">
-                  LECO <span className="text-[#F5E00B]">OPERATIONS</span>
+                  LECO <span className="text-yellow-400">OPERATIONS</span>
                 </span>
-                <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#F5E00B]/20 text-[#F5E00B] border border-[#F5E00B]/30">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-400/10 text-yellow-400 border border-yellow-400/20">
                   STAFF TERMINAL
                 </span>
               </div>
@@ -214,7 +214,7 @@ export function App() {
           {/* Right Header Status & Profile Controls */}
           <div className="flex items-center gap-3">
             {/* Live Socket Status */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-white/10 text-xs">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-white/5 text-xs">
               <span
                 className={`h-2 w-2 rounded-full ${
                   socketConnected ? "bg-emerald-400 animate-pulse" : "bg-rose-500"
@@ -226,7 +226,7 @@ export function App() {
             </div>
 
             {/* Staff Profile Badge */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#120403] border border-white/10 text-xs">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0f0f11] border border-white/5 text-xs">
               <div className="w-6 h-6 rounded-full bg-[#992511] text-white flex items-center justify-center font-bold text-[10px]">
                 {user.email.charAt(0).toUpperCase()}
               </div>
@@ -234,7 +234,7 @@ export function App() {
                 <span className="font-semibold text-white block text-xs leading-none">
                   {user.email}
                 </span>
-                <span className="text-[10px] text-[#F5E00B] font-bold uppercase tracking-wider block mt-0.5">
+                <span className="text-[10px] text-yellow-400 font-bold uppercase tracking-wider block mt-0.5">
                   LECO Operations Staff
                 </span>
               </div>
@@ -245,7 +245,7 @@ export function App() {
               variant="outline"
               size="sm"
               onClick={handleLogout}
-              className="bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/30 text-xs h-9 px-3 rounded-xl flex items-center gap-1.5 cursor-pointer"
+              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/20 text-xs h-9 px-3 rounded-xl flex items-center gap-1.5 cursor-pointer"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Logout</span>
@@ -255,7 +255,7 @@ export function App() {
       </header>
 
       {/* Hero Subheader & Tab Switcher */}
-      <div className="bg-gradient-to-r from-[#180806] via-[#100302] to-[#070707] border-b border-white/10 px-4 lg:px-8 py-5">
+      <div className="bg-[#0f0f11] border-b border-white/5 px-4 lg:px-8 py-5">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
@@ -269,13 +269,13 @@ export function App() {
           </div>
 
           {/* Executive Tab Switcher */}
-          <div className="flex items-center gap-2 bg-black/60 p-1.5 rounded-2xl border border-white/10 self-start md:self-auto">
+          <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5 self-start md:self-auto">
             <button
               type="button"
               onClick={() => setActiveTab("meters")}
               className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === "meters"
-                  ? "bg-[#F5E00B] text-black shadow-lg shadow-[#F5E00B]/20"
+                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
                   : "text-white/60 hover:text-white hover:bg-white/5"
               }`}
             >
@@ -291,7 +291,7 @@ export function App() {
               }}
               className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === "complaints"
-                  ? "bg-[#F5E00B] text-black shadow-lg shadow-[#F5E00B]/20"
+                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
                   : "text-white/60 hover:text-white hover:bg-white/5"
               }`}
             >

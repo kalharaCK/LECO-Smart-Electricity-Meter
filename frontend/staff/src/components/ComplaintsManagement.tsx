@@ -167,18 +167,18 @@ export default function ComplaintsManagement({
 
       {/* Summary Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <div className="bg-[#120403] border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-white/50 text-xs">
+        <div className="bg-gradient-to-br from-[#992511] to-[#3a0b04] border-0 shadow-xl rounded-2xl p-4 flex flex-col justify-between text-white">
+          <div className="flex items-center justify-between text-white/80 text-xs font-medium">
             <span>Total Tickets</span>
-            <FileText className="h-4 w-4 text-[#F5E00B]" />
+            <FileText className="h-4 w-4 text-yellow-300" />
           </div>
           <div className="mt-2">
-            <span className="text-2xl font-bold text-white">{totalCount}</span>
-            <span className="text-[11px] text-white/40 block">Customer Complaints</span>
+            <span className="text-3xl font-extrabold text-white">{totalCount}</span>
+            <span className="text-[11px] text-white/70 block font-medium">Customer Complaints</span>
           </div>
         </div>
 
-        <div className="bg-[#120403] border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+        <div className="bg-[#0f0f11] border border-white/5 shadow-xl rounded-2xl p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between text-white/50 text-xs">
             <span>Triage Queue</span>
             <Clock className="h-4 w-4 text-blue-400" />
@@ -189,7 +189,7 @@ export default function ComplaintsManagement({
           </div>
         </div>
 
-        <div className="bg-[#120403] border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+        <div className="bg-[#0f0f11] border border-white/5 shadow-xl rounded-2xl p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between text-white/50 text-xs">
             <span>In Engineering Review</span>
             <Search className="h-4 w-4 text-yellow-400" />
@@ -200,7 +200,7 @@ export default function ComplaintsManagement({
           </div>
         </div>
 
-        <div className="bg-[#120403] border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+        <div className="bg-[#0f0f11] border border-white/5 shadow-xl rounded-2xl p-4 flex flex-col justify-between">
           <div className="flex items-center justify-between text-white/50 text-xs">
             <span>Field Dispatched</span>
             <Zap className="h-4 w-4 text-orange-400" />
@@ -211,7 +211,7 @@ export default function ComplaintsManagement({
           </div>
         </div>
 
-        <div className="bg-[#120403] border border-white/10 rounded-2xl p-4 flex flex-col justify-between col-span-2 lg:col-span-1">
+        <div className="bg-[#0f0f11] border border-white/5 shadow-xl rounded-2xl p-4 flex flex-col justify-between col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between text-white/50 text-xs">
             <span>Resolved</span>
             <CheckCircle2 className="h-4 w-4 text-emerald-400" />
@@ -224,56 +224,56 @@ export default function ComplaintsManagement({
       </div>
 
       {/* Search and Filters Bar */}
-      <div className="bg-[#120403] border border-white/10 rounded-2xl p-4 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+      <div className="bg-[#0f0f11] border border-white/5 rounded-2xl p-4 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 shadow-xl">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
           <Input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by Ticket #, Email, Meter #, Subject..."
-            className="pl-10 bg-black/40 border-white/15 text-white text-xs h-10 rounded-xl focus-visible:border-[#F5E00B]"
+            className="pl-10 bg-black/40 border-white/10 text-white placeholder:text-white/40 text-xs h-10 rounded-xl focus-visible:border-yellow-400"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Status Filter */}
-          <div className="flex items-center gap-1.5 bg-black/40 border border-white/10 px-3 py-1.5 rounded-xl text-xs text-white/70">
-            <Filter className="h-3.5 w-3.5 text-[#F5E00B]" />
+          <div className="flex items-center gap-1.5 bg-black/40 border border-white/5 px-3 py-1.5 rounded-xl text-xs text-white/70">
+            <Filter className="h-3.5 w-3.5 text-yellow-400" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="bg-transparent text-white text-xs border-none outline-none cursor-pointer"
             >
-              <option value="all" className="bg-[#120403] text-white">All Statuses</option>
-              <option value="submitted" className="bg-[#120403] text-white">Submitted</option>
-              <option value="in_review" className="bg-[#120403] text-white">In Review</option>
-              <option value="investigating" className="bg-[#120403] text-white">Investigating</option>
-              <option value="resolved" className="bg-[#120403] text-white">Resolved</option>
+              <option value="all" className="bg-[#0f0f11] text-white">All Statuses</option>
+              <option value="submitted" className="bg-[#0f0f11] text-white">Submitted</option>
+              <option value="in_review" className="bg-[#0f0f11] text-white">In Review</option>
+              <option value="investigating" className="bg-[#0f0f11] text-white">Investigating</option>
+              <option value="resolved" className="bg-[#0f0f11] text-white">Resolved</option>
             </select>
           </div>
 
           {/* Priority Filter */}
-          <div className="flex items-center gap-1.5 bg-black/40 border border-white/10 px-3 py-1.5 rounded-xl text-xs text-white/70">
+          <div className="flex items-center gap-1.5 bg-black/40 border border-white/5 px-3 py-1.5 rounded-xl text-xs text-white/70">
             <Flame className="h-3.5 w-3.5 text-orange-400" />
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
               className="bg-transparent text-white text-xs border-none outline-none cursor-pointer"
             >
-              <option value="all" className="bg-[#120403] text-white">All Priorities</option>
-              <option value="critical" className="bg-[#120403] text-white">Critical</option>
-              <option value="high" className="bg-[#120403] text-white">High</option>
-              <option value="medium" className="bg-[#120403] text-white">Medium</option>
-              <option value="low" className="bg-[#120403] text-white">Low</option>
+              <option value="all" className="bg-[#0f0f11] text-white">All Priorities</option>
+              <option value="critical" className="bg-[#0f0f11] text-white">Critical</option>
+              <option value="high" className="bg-[#0f0f11] text-white">High</option>
+              <option value="medium" className="bg-[#0f0f11] text-white">Medium</option>
+              <option value="low" className="bg-[#0f0f11] text-white">Low</option>
             </select>
           </div>
 
           <Button
             onClick={onRefresh}
             variant="outline"
-            className="bg-black/40 border-white/10 hover:bg-white/10 text-white h-9 px-3 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
+            className="bg-black/40 border-white/5 hover:bg-white/10 text-white h-9 px-3 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-[#F5E00B]" : ""}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-yellow-400" : ""}`} />
             Refresh
           </Button>
         </div>
@@ -289,12 +289,12 @@ export default function ComplaintsManagement({
           </div>
 
           {loading ? (
-            <div className="py-20 text-center text-white/50 flex flex-col items-center justify-center gap-3 bg-[#120403] border border-white/10 rounded-2xl">
-              <Loader2 className="h-8 w-8 animate-spin text-[#F5E00B]" />
+            <div className="py-20 text-center text-white/50 flex flex-col items-center justify-center gap-3 bg-[#0f0f11] border border-white/5 rounded-2xl">
+              <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
               <span className="text-xs">Loading complaints queue...</span>
             </div>
           ) : filteredComplaints.length === 0 ? (
-            <div className="p-8 text-center bg-[#120403] border border-white/10 rounded-2xl text-white/50 space-y-2">
+            <div className="p-8 text-center bg-[#0f0f11] border border-white/5 rounded-2xl text-white/50 space-y-2">
               <MessageSquareWarning className="h-8 w-8 mx-auto text-white/30" />
               <p className="text-sm font-semibold text-white">No complaints found.</p>
               <p className="text-xs text-white/40">Queue is clear or no tickets match the selected filters.</p>
@@ -315,8 +315,8 @@ export default function ComplaintsManagement({
                     }}
                     className={`p-4 rounded-2xl border transition-all cursor-pointer text-left relative overflow-hidden ${
                       isSelected
-                        ? "bg-[#1f0704] border-[#F5E00B]/50 shadow-xl shadow-[#F5E00B]/5"
-                        : "bg-[#120403] border-white/10 hover:border-white/20 hover:bg-[#160604]"
+                        ? "bg-[#992511]/15 border-yellow-400/50 shadow-xl shadow-yellow-400/5"
+                        : "bg-[#0f0f11] border-white/5 hover:border-white/20 hover:bg-white/[0.03]"
                     }`}
                   >
                     {/* Status side bar */}
@@ -393,12 +393,12 @@ export default function ComplaintsManagement({
         {/* Right Column: Active Complaint Resolution Console (7 cols) */}
         <div className="lg:col-span-7">
           {activeComplaint ? (
-            <Card className="bg-[#120403] border-white/15 rounded-2xl shadow-2xl text-white overflow-hidden sticky top-24">
+            <Card className="bg-[#0f0f11] border-white/10 rounded-2xl shadow-2xl text-white overflow-hidden sticky top-24">
               {/* Header */}
-              <div className="p-6 border-b border-white/10 bg-gradient-to-r from-[#1c0604] to-[#120403]">
+              <div className="p-6 border-b border-white/5 bg-gradient-to-r from-[#992511]/30 via-[#0f0f11] to-[#0f0f11]">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xl font-bold font-mono text-[#F5E00B]">
+                    <span className="text-xl font-bold font-mono text-yellow-400">
                       {activeComplaint.ticket_number}
                     </span>
                     <Badge
@@ -419,12 +419,12 @@ export default function ComplaintsManagement({
                 <h2 className="text-lg font-bold text-white">{activeComplaint.subject}</h2>
                 <div className="flex items-center gap-4 text-xs text-white/60 mt-1">
                   <span className="flex items-center gap-1.5">
-                    <User className="h-3.5 w-3.5 text-[#F5E00B]" />
+                    <User className="h-3.5 w-3.5 text-yellow-400" />
                     {activeComplaint.customer_email}
                   </span>
                   {activeComplaint.meter_number && (
                     <span className="flex items-center gap-1.5 font-mono">
-                      <Zap className="h-3.5 w-3.5 text-[#F5E00B]" />
+                      <Zap className="h-3.5 w-3.5 text-yellow-400" />
                       Meter: {activeComplaint.meter_number}
                     </span>
                   )}
@@ -450,7 +450,7 @@ export default function ComplaintsManagement({
                               isCompleted
                                 ? "bg-emerald-500 text-black shadow-md shadow-emerald-500/20"
                                 : isCurrent
-                                ? "bg-[#F5E00B] text-black ring-4 ring-[#F5E00B]/20 animate-pulse font-bold"
+                                ? "bg-yellow-400 text-black ring-4 ring-yellow-400/20 animate-pulse font-bold"
                                 : "bg-white/10 text-white/40 border border-white/10"
                             }`}
                           >
@@ -459,7 +459,7 @@ export default function ComplaintsManagement({
                           <span
                             className={`text-xs block font-bold truncate ${
                               isCurrent
-                                ? "text-[#F5E00B]"
+                                ? "text-yellow-400"
                                 : isCompleted
                                 ? "text-emerald-400"
                                 : "text-white/40"
@@ -505,8 +505,8 @@ export default function ComplaintsManagement({
                 )}
 
                 {/* Interactive Resolution & Dispatch Form */}
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-[#180806] to-[#0f0302] border border-[#F5E00B]/20 space-y-4 shadow-xl">
-                  <div className="flex items-center gap-2 text-sm font-bold text-[#F5E00B]">
+                <div className="p-5 rounded-2xl bg-gradient-to-br from-[#181818] via-[#121212] to-[#0a0a0a] border border-yellow-400/25 space-y-4 shadow-xl">
+                  <div className="flex items-center gap-2 text-sm font-bold text-yellow-400">
                     <Send className="h-4 w-4" />
                     Take Operations Action & Push Real-Time Update to Customer
                   </div>
@@ -533,7 +533,7 @@ export default function ComplaintsManagement({
                         onClick={() => setTargetStatus("in_review")}
                         className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                           targetStatus === "in_review"
-                            ? "bg-yellow-400 text-black border-yellow-400"
+                            ? "bg-yellow-400 text-black border-yellow-400 font-bold"
                             : "bg-black/40 border-white/10 text-white/60 hover:text-white"
                         }`}
                       >
@@ -544,7 +544,7 @@ export default function ComplaintsManagement({
                         onClick={() => setTargetStatus("investigating")}
                         className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                           targetStatus === "investigating"
-                            ? "bg-orange-500 text-white border-orange-500"
+                            ? "bg-orange-500 text-white border-orange-500 font-bold"
                             : "bg-black/40 border-white/10 text-white/60 hover:text-white"
                         }`}
                       >
@@ -555,7 +555,7 @@ export default function ComplaintsManagement({
                         onClick={() => setTargetStatus("resolved")}
                         className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                           targetStatus === "resolved"
-                            ? "bg-emerald-500 text-black border-emerald-500"
+                            ? "bg-emerald-500 text-black border-emerald-500 font-bold"
                             : "bg-black/40 border-white/10 text-white/60 hover:text-white"
                         }`}
                       >
@@ -574,21 +574,21 @@ export default function ComplaintsManagement({
                       value={resolutionNotes}
                       onChange={(e) => setResolutionNotes(e.target.value)}
                       placeholder="e.g. Dispatched technician to check line voltage. Feeder contact tightened and meter rebooted. Power verified normal."
-                      className="w-full bg-black/50 border border-white/15 text-white text-xs p-3 rounded-xl outline-none focus:border-[#F5E00B] leading-relaxed resize-none"
+                      className="w-full bg-black/50 border border-white/15 text-white placeholder:text-white/40 text-xs p-3 rounded-xl outline-none focus:border-yellow-400 leading-relaxed resize-none"
                     />
                   </div>
 
                   {/* Submit Button */}
                   <div className="pt-1 flex items-center justify-between gap-3">
                     <span className="text-[11px] text-white/40 flex items-center gap-1">
-                      <Zap className="h-3 w-3 text-[#F5E00B]" />
+                      <Zap className="h-3 w-3 text-yellow-400" />
                       Broadcasts live update to customer portal (:5173) via WebSocket
                     </span>
 
                     <Button
                       disabled={updating}
                       onClick={() => handleUpdateStatus(activeComplaint.id, targetStatus, resolutionNotes)}
-                      className="bg-[#F5E00B] hover:bg-[#F5E00B]/90 text-black font-bold text-xs h-10 px-5 rounded-xl shadow-lg shadow-[#F5E00B]/20 flex items-center gap-2 cursor-pointer transition-all"
+                      className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-xs h-10 px-5 rounded-xl shadow-lg shadow-yellow-400/20 flex items-center gap-2 cursor-pointer transition-transform hover:scale-[1.01]"
                     >
                       {updating ? (
                         <>
@@ -607,7 +607,7 @@ export default function ComplaintsManagement({
               </CardContent>
             </Card>
           ) : (
-            <div className="p-12 text-center bg-[#120403] border border-white/10 rounded-2xl text-white/50">
+            <div className="p-12 text-center bg-[#0f0f11] border border-white/5 rounded-2xl text-white/50">
               Select a complaint ticket on the left to inspect and take action.
             </div>
           )}
