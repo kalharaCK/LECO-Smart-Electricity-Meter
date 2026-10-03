@@ -1,8 +1,6 @@
 import { useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import {
   Zap,
   ZapOff,
@@ -10,10 +8,8 @@ import {
   RefreshCw,
   Power,
   CreditCard,
-  Eye,
   SlidersHorizontal,
   Building2,
-  Phone,
   User,
   AlertTriangle,
   CheckCircle2,
@@ -21,7 +17,9 @@ import {
   Cpu,
   Loader2,
   X,
-  FileText
+  ChevronRight,
+  Activity,
+  Layers
 } from "lucide-react"
 import type { StaffMeter } from "../types"
 
@@ -117,6 +115,9 @@ export default function MetersManagement({
       const data = await res.json()
       if (res.ok && data.success) {
         showToast(`Meter ${relayModalMeter.meter_number} relay set to ${newTargetStatus}`, "success")
+        if (activeMeterDetail && activeMeterDetail.id === relayModalMeter.id) {
+          setActiveMeterDetail({ ...activeMeterDetail, status: newTargetStatus })
+        }
         setRelayModalMeter(null)
         setActionReason("")
         onRefresh()
@@ -150,6 +151,13 @@ export default function MetersManagement({
       const data = await res.json()
       if (res.ok && data.success) {
         showToast(`Successfully credited Rs. ${topupAmount.toFixed(2)} to ${topupModalMeter.meter_number}`, "success")
+        if (activeMeterDetail && activeMeterDetail.id === topupModalMeter.id) {
+          setActiveMeterDetail({
+            ...activeMeterDetail,
+            balance: data.newBalance ?? (parseFloat(String(activeMeterDetail.balance)) + topupAmount),
+            status: data.status ?? activeMeterDetail.status
+          })
+        }
         setTopupModalMeter(null)
         setActionReason("")
         onRefresh()
@@ -330,9 +338,9 @@ export default function MetersManagement({
         </div>
       </div>
 
-      {/* Meters Fleet Cards Grid */}
+      {/* METERS LIST VIEW */}
       {loading ? (
-        <div className="py-20 text-center text-white/50 flex flex-col items-center justify-center gap-3">
+        <div className="py-20 text-center text-white/50 flex flex-col items-center justify-center gap-3 bg-[#120403] border border-white/10 rounded-2xl">
           <Loader2 className="h-8 w-8 animate-spin text-[#F5E00B]" />
           <span className="text-xs">Loading complete fleet telemetry...</span>
         </div>
@@ -343,340 +351,408 @@ export default function MetersManagement({
           <p className="text-xs text-white/40">Try adjusting your filters or search keywords.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filteredMeters.map((meter) => {
-            const balanceNum = parseFloat(String(meter.balance))
-            const isConnected = meter.status === "Connected"
-            const isLifeline = meter.emergency_credit_active
-            const isLowBalance = balanceNum <= meter.low_balance_threshold
+        <div className="bg-[#120403] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+          {/* List Header Bar */}
+          <div className="grid grid-cols-12 gap-3 px-5 py-3.5 border-b border-white/10 text-[11px] font-bold uppercase tracking-wider text-white/50 bg-black/30">
+            <div className="col-span-3">Smart Meter & Account</div>
+            <div className="col-span-3">Customer & Contact</div>
+            <div className="col-span-2">Wallet Balance</div>
+            <div className="col-span-2">Relay State</div>
+            <div className="col-span-2 text-right">Operational Actions</div>
+          </div>
 
-            return (
-              <Card
-                key={meter.id}
-                className="bg-gradient-to-br from-[#120403] via-[#0d0302] to-[#070707] border-white/10 hover:border-white/20 transition-all rounded-2xl shadow-xl text-white overflow-hidden relative group"
-              >
-                {/* Top status indicator strip */}
+          {/* List Rows */}
+          <div className="divide-y divide-white/5">
+            {filteredMeters.map((meter) => {
+              const balanceNum = parseFloat(String(meter.balance))
+              const isConnected = meter.status === "Connected"
+              const isLifeline = meter.emergency_credit_active
+              const isLowBalance = balanceNum <= meter.low_balance_threshold
+
+              return (
                 <div
-                  className={`h-1.5 w-full ${
-                    !isConnected
-                      ? "bg-rose-500"
-                      : isLifeline
-                      ? "bg-amber-400"
-                      : isLowBalance
-                      ? "bg-yellow-400"
-                      : "bg-emerald-500"
-                  }`}
-                />
-
-                <CardContent className="p-5 space-y-4">
-                  {/* Header Row: Meter # & Relay State */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-base font-bold text-white tracking-wide">
-                          {meter.meter_number}
+                  key={meter.id}
+                  onClick={() => setActiveMeterDetail(meter)}
+                  className="grid grid-cols-12 gap-3 px-5 py-4 items-center hover:bg-[#1f0704] transition-all cursor-pointer group text-xs text-white"
+                >
+                  {/* Col 1: Meter # & Account */}
+                  <div className="col-span-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-bold text-white group-hover:text-[#F5E00B] transition-colors">
+                        {meter.meter_number}
+                      </span>
+                      {meter.open_complaints_count > 0 && (
+                        <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/40">
+                          {meter.open_complaints_count} ticket
                         </span>
-                        <Badge
-                          variant="outline"
-                          className="bg-white/5 border-white/10 text-white/60 text-[10px] font-mono px-2 py-0"
-                        >
-                          Acc: {meter.account_number}
-                        </Badge>
-                      </div>
-                      <div className="text-xs text-white/60 mt-0.5 flex items-center gap-1.5">
-                        <Building2 className="h-3 w-3 text-[#F5E00B]" />
-                        <span>{meter.name || "Default Meter"}</span>
-                      </div>
+                      )}
                     </div>
+                    <div className="flex items-center gap-1.5 text-white/50 text-[11px] mt-0.5">
+                      <Building2 className="h-3 w-3 text-[#F5E00B]" />
+                      <span className="truncate">{meter.name || "Main Meter"}</span>
+                      <span className="text-white/20">•</span>
+                      <span className="font-mono text-white/40">Acc #{meter.account_number}</span>
+                    </div>
+                  </div>
 
-                    <div className="flex flex-col items-end gap-1">
+                  {/* Col 2: Customer Email & Phone */}
+                  <div className="col-span-3">
+                    <div className="font-medium text-white truncate max-w-[220px]">
+                      {meter.customer_email}
+                    </div>
+                    <div className="text-[11px] text-white/50 font-mono mt-0.5">
+                      {meter.phone_number || "+94 77 123 4567"}
+                    </div>
+                  </div>
+
+                  {/* Col 3: Balance & Lifeline */}
+                  <div className="col-span-2">
+                    <div
+                      className={`font-bold font-mono text-sm ${
+                        balanceNum < 0
+                          ? "text-rose-400"
+                          : isLowBalance
+                          ? "text-amber-400"
+                          : "text-emerald-400"
+                      }`}
+                    >
+                      Rs. {balanceNum.toFixed(2)}
+                    </div>
+                    <div className="text-[10px] text-white/40 mt-0.5">
+                      {isLifeline ? (
+                        <span className="text-amber-400 font-bold">Lifeline Buffer Active</span>
+                      ) : (
+                        <span>Today: {parseFloat(String(meter.today_kwh)).toFixed(1)} kWh</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Col 4: Relay Status */}
+                  <div className="col-span-2">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                        isConnected
+                          ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-300"
+                          : "bg-rose-500/15 border border-rose-500/30 text-rose-300"
+                      }`}
+                    >
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                          isConnected
-                            ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-300"
-                            : "bg-rose-500/15 border border-rose-500/30 text-rose-300"
+                        className={`h-2 w-2 rounded-full ${
+                          isConnected ? "bg-emerald-400 animate-pulse" : "bg-rose-500"
+                        }`}
+                      />
+                      {isConnected ? "Connected" : "Disconnected"}
+                    </span>
+                  </div>
+
+                  {/* Col 5: Actions */}
+                  <div
+                    className="col-span-2 flex items-center justify-end gap-1.5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      title="Adjust credit"
+                      onClick={() => setTopupModalMeter(meter)}
+                      className="bg-[#F5E00B]/10 hover:bg-[#F5E00B]/20 border-[#F5E00B]/30 text-[#F5E00B] text-xs h-7 px-2.5 rounded-lg flex items-center gap-1 cursor-pointer"
+                    >
+                      <CreditCard className="h-3 w-3" />
+                      Credit
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      title={isConnected ? "Cutoff supply" : "Restore supply"}
+                      onClick={() => setRelayModalMeter(meter)}
+                      className={`text-xs h-7 px-2.5 rounded-lg font-bold flex items-center gap-1 cursor-pointer ${
+                        isConnected
+                          ? "bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40"
+                          : "bg-emerald-500 hover:bg-emerald-600 text-black shadow-md"
+                      }`}
+                    >
+                      <Power className="h-3 w-3" />
+                      {isConnected ? "Cutoff" : "Restore"}
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setActiveMeterDetail(meter)}
+                      className="text-white/40 hover:text-white p-1 h-7 w-7 rounded-lg cursor-pointer"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* WHOLE DETAILS MODAL / INSPECTOR (When Clicked, Whole Details Appear) */}
+      {activeMeterDetail && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-[#160604] via-[#100302] to-[#070707] border border-white/20 rounded-3xl max-w-3xl w-full p-6 text-white space-y-6 shadow-2xl relative animate-in fade-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+            {/* Header Strip */}
+            <div className="flex items-start justify-between border-b border-white/10 pb-5">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#992511] to-[#120403] border border-[#F5E00B]/30 flex items-center justify-center shadow-lg shadow-[#F5E00B]/10">
+                    <Zap className="h-6 w-6 text-[#F5E00B]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-2xl font-bold font-mono text-white tracking-wide">
+                        {activeMeterDetail.meter_number}
+                      </h2>
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                          activeMeterDetail.status === "Connected"
+                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                            : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
                         }`}
                       >
                         <span
                           className={`h-2 w-2 rounded-full ${
-                            isConnected ? "bg-emerald-400 animate-pulse" : "bg-rose-500"
+                            activeMeterDetail.status === "Connected"
+                              ? "bg-emerald-400 animate-pulse"
+                              : "bg-rose-500"
                           }`}
                         />
-                        {isConnected ? "Relay Connected" : "Cutoff Disconnected"}
+                        {activeMeterDetail.status === "Connected" ? "Live Relay Connected" : "Cutoff Relay Disconnected"}
                       </span>
-
-                      {isLifeline && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                          <Power className="h-3 w-3" />
-                          Lifeline Buffer Active
-                        </span>
-                      )}
                     </div>
+                    <p className="text-xs text-white/60 mt-0.5 flex items-center gap-2">
+                      <span>Account #{activeMeterDetail.account_number}</span>
+                      <span>•</span>
+                      <span>Label: {activeMeterDetail.name}</span>
+                      <span>•</span>
+                      <span className="text-[#F5E00B]">{activeMeterDetail.tariff_type}</span>
+                    </p>
                   </div>
-
-                  {/* Customer Information Block */}
-                  <div className="p-3 bg-black/40 border border-white/5 rounded-xl space-y-1.5 text-xs">
-                    <div className="flex items-center justify-between text-white/80">
-                      <span className="flex items-center gap-1.5 text-white/50">
-                        <User className="h-3.5 w-3.5 text-[#F5E00B]" />
-                        Customer:
-                      </span>
-                      <span className="font-medium text-white truncate max-w-[180px]">
-                        {meter.customer_email}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-white/80">
-                      <span className="flex items-center gap-1.5 text-white/50">
-                        <Phone className="h-3.5 w-3.5 text-white/40" />
-                        Phone:
-                      </span>
-                      <span className="font-mono text-white/80">{meter.phone_number}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-white/80">
-                      <span className="flex items-center gap-1.5 text-white/50">
-                        <FileText className="h-3.5 w-3.5 text-white/40" />
-                        Tariff Schedule:
-                      </span>
-                      <span className="text-[11px] text-[#F5E00B] font-semibold truncate max-w-[180px]">
-                        {meter.tariff_type}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Telemetry Numbers Grid */}
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    {/* Wallet Balance */}
-                    <div className="p-2.5 rounded-xl bg-black/30 border border-white/5">
-                      <span className="text-[10px] text-white/40 uppercase block">Wallet Balance</span>
-                      <span
-                        className={`text-sm font-bold block mt-0.5 ${
-                          balanceNum < 0
-                            ? "text-rose-400"
-                            : balanceNum <= meter.low_balance_threshold
-                            ? "text-amber-400"
-                            : "text-emerald-400"
-                        }`}
-                      >
-                        Rs. {balanceNum.toFixed(2)}
-                      </span>
-                    </div>
-
-                    {/* Today Usage */}
-                    <div className="p-2.5 rounded-xl bg-black/30 border border-white/5">
-                      <span className="text-[10px] text-white/40 uppercase block">Today (kWh)</span>
-                      <span className="text-sm font-bold text-white block mt-0.5">
-                        {parseFloat(String(meter.today_kwh)).toFixed(2)}
-                      </span>
-                    </div>
-
-                    {/* Total Lifetime */}
-                    <div className="p-2.5 rounded-xl bg-black/30 border border-white/5">
-                      <span className="text-[10px] text-white/40 uppercase block">Total (kWh)</span>
-                      <span className="text-sm font-bold text-white/80 block mt-0.5">
-                        {parseFloat(String(meter.total_kwh)).toFixed(1)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Open Complaints Indicator */}
-                  {meter.open_complaints_count > 0 && (
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-red-950/40 border border-red-500/20 text-xs text-red-200">
-                      <div className="flex items-center gap-1.5">
-                        <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
-                        <span>{meter.open_complaints_count} Open Customer Complaint(s)</span>
-                      </div>
-                      {onSelectComplaintTabWithMeter && (
-                        <button
-                          type="button"
-                          onClick={() => onSelectComplaintTabWithMeter(meter.meter_number)}
-                          className="text-[11px] underline font-bold text-yellow-300 hover:text-white cursor-pointer"
-                        >
-                          View Tickets
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Staff Action Buttons Strip */}
-                  <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setActiveMeterDetail(meter)}
-                      className="bg-black/30 border-white/15 text-white/80 hover:text-white hover:bg-black/60 text-xs h-8 rounded-lg flex items-center gap-1 cursor-pointer flex-1"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      Details
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setTopupModalMeter(meter)}
-                      className="bg-[#F5E00B]/10 border-[#F5E00B]/30 hover:bg-[#F5E00B]/20 text-[#F5E00B] text-xs h-8 rounded-lg flex items-center gap-1 cursor-pointer flex-1"
-                    >
-                      <CreditCard className="h-3.5 w-3.5" />
-                      Credit Relief
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      onClick={() => setRelayModalMeter(meter)}
-                      className={`text-xs h-8 rounded-lg font-bold flex items-center gap-1 cursor-pointer flex-1 ${
-                        isConnected
-                          ? "bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40"
-                          : "bg-emerald-500 hover:bg-emerald-600 text-black font-bold shadow-md shadow-emerald-500/20"
-                      }`}
-                    >
-                      <Power className="h-3.5 w-3.5" />
-                      {isConnected ? "Cutoff Relay" : "Restore Power"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
-
-      {/* MODAL 1: Full Meter Details Inspector */}
-      {activeMeterDetail && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#120403] border border-white/15 rounded-2xl max-w-2xl w-full p-6 text-white space-y-6 shadow-2xl relative animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-bold text-white font-mono">
-                    Meter {activeMeterDetail.meter_number}
-                  </h3>
-                  <Badge
-                    className={
-                      activeMeterDetail.status === "Connected"
-                        ? "bg-emerald-500 text-black font-bold"
-                        : "bg-rose-500 text-white font-bold"
-                    }
-                  >
-                    {activeMeterDetail.status}
-                  </Badge>
                 </div>
-                <p className="text-xs text-white/50 mt-0.5">
-                  Account #{activeMeterDetail.account_number} • Label: {activeMeterDetail.name}
-                </p>
               </div>
+
               <button
                 type="button"
                 onClick={() => setActiveMeterDetail(null)}
-                className="text-white/40 hover:text-white p-1 rounded-lg cursor-pointer"
+                className="text-white/40 hover:text-white p-2 rounded-xl bg-black/40 border border-white/10 cursor-pointer transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div className="space-y-3 bg-black/40 p-4 rounded-xl border border-white/5">
-                <span className="font-bold text-[#F5E00B] uppercase text-[10px] tracking-wider block">
-                  Customer Profile
-                </span>
-                <div>
-                  <span className="text-white/40 block">Email Address</span>
-                  <span className="font-semibold text-white">{activeMeterDetail.customer_email}</span>
+            {/* Whole Details 4-Quadrant Matrix */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              {/* Quadrant 1: Customer & Account Profile */}
+              <div className="bg-black/40 border border-white/10 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-[#F5E00B] font-bold uppercase text-[11px] tracking-wider pb-1 border-b border-white/5">
+                  <User className="h-4 w-4" />
+                  Customer Dossier & Contact
                 </div>
-                <div>
-                  <span className="text-white/40 block">Mobile Phone</span>
-                  <span className="font-semibold text-white">{activeMeterDetail.phone_number}</span>
-                </div>
-                <div>
-                  <span className="text-white/40 block">Member Registered</span>
-                  <span className="text-white/70">
-                    {new Date(activeMeterDetail.customer_since).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric"
-                    })}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3 bg-black/40 p-4 rounded-xl border border-white/5">
-                <span className="font-bold text-[#F5E00B] uppercase text-[10px] tracking-wider block">
-                  Tariff & Automation Rules
-                </span>
-                <div>
-                  <span className="text-white/40 block">PUCSL Tariff Tier</span>
-                  <span className="font-semibold text-[#F5E00B]">{activeMeterDetail.tariff_type}</span>
-                </div>
-                <div>
-                  <span className="text-white/40 block">Low Balance Trigger</span>
-                  <span className="text-white font-semibold">
-                    Rs. {activeMeterDetail.low_balance_threshold}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-white/40 block">Daily Energy Quota</span>
-                  <span className="text-white font-semibold">
-                    {activeMeterDetail.daily_kwh_budget} kWh / day
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3 bg-black/40 p-4 rounded-xl border border-white/5">
-                <span className="font-bold text-[#F5E00B] uppercase text-[10px] tracking-wider block">
-                  Lifeline Mode Status
-                </span>
-                <div>
-                  <span className="text-white/40 block">Emergency Buffer Allowed</span>
-                  <span className="font-semibold text-white">
-                    Rs. {parseFloat(String(activeMeterDetail.emergency_credit_limit)).toFixed(2)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-white/40 block">Lifeline State</span>
-                  <span
-                    className={
-                      activeMeterDetail.emergency_credit_active
-                        ? "text-amber-400 font-bold"
-                        : "text-white/60"
-                    }
-                  >
-                    {activeMeterDetail.emergency_credit_active ? "ACTIVATED & CONSUMING" : "Standby / Available"}
-                  </span>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Registered Email:</span>
+                    <span className="font-semibold text-white truncate max-w-[200px]">
+                      {activeMeterDetail.customer_email}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">SMS Alert Phone:</span>
+                    <span className="font-mono text-white font-semibold">
+                      {activeMeterDetail.phone_number || "+94 77 123 4567"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Customer System ID:</span>
+                    <span className="font-mono text-white/70">USR-{activeMeterDetail.customer_id}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Member Registered:</span>
+                    <span className="text-white/70">
+                      {new Date(activeMeterDetail.customer_since).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric"
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Meter Install Date:</span>
+                    <span className="text-white/70">
+                      {new Date(activeMeterDetail.created_at).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric"
+                      })}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-3 bg-black/40 p-4 rounded-xl border border-white/5">
-                <span className="font-bold text-[#F5E00B] uppercase text-[10px] tracking-wider block">
-                  Consumption & Payment History
-                </span>
-                <div>
-                  <span className="text-white/40 block">Today's Consumption</span>
-                  <span className="font-semibold text-white">{activeMeterDetail.today_kwh} kWh</span>
+              {/* Quadrant 2: Financials & Balance State */}
+              <div className="bg-black/40 border border-white/10 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-[#F5E00B] font-bold uppercase text-[11px] tracking-wider pb-1 border-b border-white/5">
+                  <CreditCard className="h-4 w-4" />
+                  Prepaid Balance & Automation
                 </div>
-                <div>
-                  <span className="text-white/40 block">Lifetime Total Consumption</span>
-                  <span className="font-semibold text-white">{activeMeterDetail.total_kwh} kWh</span>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Live Wallet Balance:</span>
+                    <span
+                      className={`text-base font-bold font-mono ${
+                        parseFloat(String(activeMeterDetail.balance)) < 0
+                          ? "text-rose-400"
+                          : parseFloat(String(activeMeterDetail.balance)) <= activeMeterDetail.low_balance_threshold
+                          ? "text-amber-400"
+                          : "text-emerald-400"
+                      }`}
+                    >
+                      Rs. {parseFloat(String(activeMeterDetail.balance)).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Low Balance Alert Point:</span>
+                    <span className="font-semibold text-white">
+                      Rs. {activeMeterDetail.low_balance_threshold}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Daily Energy Quota:</span>
+                    <span className="font-semibold text-white">
+                      {activeMeterDetail.daily_kwh_budget} kWh / day
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Lifeline Emergency Credit:</span>
+                    <span
+                      className={
+                        activeMeterDetail.emergency_credit_active
+                          ? "text-amber-400 font-bold"
+                          : "text-white/70 font-semibold"
+                      }
+                    >
+                      {activeMeterDetail.emergency_credit_active
+                        ? "Active (-Rs. 500 Buffer In Use)"
+                        : `Permitted (Rs. ${parseFloat(String(activeMeterDetail.emergency_credit_limit)).toFixed(2)} buffer)`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Last Payment:</span>
+                    <span className="text-white/70">
+                      {activeMeterDetail.last_payment_date
+                        ? `Rs. ${parseFloat(String(activeMeterDetail.last_payment_amount)).toFixed(2)} on ${new Date(
+                            activeMeterDetail.last_payment_date
+                          ).toLocaleDateString()}`
+                        : "No recorded transactions"}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-white/40 block">Last Recharge</span>
-                  <span className="text-white/70">
-                    {activeMeterDetail.last_payment_date
-                      ? `Rs. ${parseFloat(String(activeMeterDetail.last_payment_amount)).toFixed(2)} on ${new Date(
-                          activeMeterDetail.last_payment_date
-                        ).toLocaleDateString()}`
-                      : "None recorded"}
-                  </span>
+              </div>
+
+              {/* Quadrant 3: Telemetry & Consumption Metrics */}
+              <div className="bg-black/40 border border-white/10 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-[#F5E00B] font-bold uppercase text-[11px] tracking-wider pb-1 border-b border-white/5">
+                  <Activity className="h-4 w-4" />
+                  Grid Telemetry & Load
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Today's Consumption:</span>
+                    <span className="font-bold text-white text-sm">
+                      {parseFloat(String(activeMeterDetail.today_kwh)).toFixed(2)} kWh
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Lifetime Net Import:</span>
+                    <span className="font-bold text-white text-sm">
+                      {parseFloat(String(activeMeterDetail.total_kwh)).toFixed(1)} kWh
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Tariff Class:</span>
+                    <span className="font-semibold text-yellow-300">
+                      {activeMeterDetail.tariff_type}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">AMI Ping Interval:</span>
+                    <span className="text-emerald-400 font-mono">15s Live Telemetry</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quadrant 4: Complaint Status & Support */}
+              <div className="bg-black/40 border border-white/10 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-[#F5E00B] font-bold uppercase text-[11px] tracking-wider pb-1 border-b border-white/5">
+                  <Layers className="h-4 w-4" />
+                  Active Support & Complaints
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Pending Customer Tickets:</span>
+                    <span
+                      className={`font-bold ${
+                        activeMeterDetail.open_complaints_count > 0 ? "text-rose-400" : "text-emerald-400"
+                      }`}
+                    >
+                      {activeMeterDetail.open_complaints_count} Open Issue(s)
+                    </span>
+                  </div>
+                  {activeMeterDetail.open_complaints_count > 0 && onSelectComplaintTabWithMeter && (
+                    <div className="pt-2">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          const num = activeMeterDetail.meter_number
+                          setActiveMeterDetail(null)
+                          onSelectComplaintTabWithMeter(num)
+                        }}
+                        className="w-full bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/40 text-xs h-8 rounded-xl font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Jump to Complaints Queue for this Meter
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="pt-2 flex justify-end gap-3 border-t border-white/10">
+            {/* Direct Operational Controls Inside Details */}
+            <div className="pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => setTopupModalMeter(activeMeterDetail)}
+                  className="bg-[#F5E00B] hover:bg-[#F5E00B]/90 text-black font-bold text-xs h-9 px-4 rounded-xl shadow-lg shadow-[#F5E00B]/20 flex items-center gap-2 cursor-pointer"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Grant Relief Credit
+                </Button>
+
+                <Button
+                  onClick={() => setRelayModalMeter(activeMeterDetail)}
+                  className={`text-xs h-9 px-4 rounded-xl font-bold flex items-center gap-2 cursor-pointer ${
+                    activeMeterDetail.status === "Connected"
+                      ? "bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/20"
+                      : "bg-emerald-500 hover:bg-emerald-600 text-black shadow-lg shadow-emerald-500/20"
+                  }`}
+                >
+                  <Power className="h-4 w-4" />
+                  {activeMeterDetail.status === "Connected"
+                    ? "Cutoff Relay Override"
+                    : "Restore Power Override"}
+                </Button>
+              </div>
+
               <Button
                 variant="outline"
                 onClick={() => setActiveMeterDetail(null)}
-                className="bg-white/10 text-white border-white/20 text-xs h-9 rounded-xl cursor-pointer"
+                className="bg-white/10 text-white border-white/20 text-xs h-9 px-4 rounded-xl cursor-pointer"
               >
-                Close Inspector
+                Close Details
               </Button>
             </div>
           </div>
@@ -685,8 +761,8 @@ export default function MetersManagement({
 
       {/* MODAL 2: Remote Relay Toggle Confirmation */}
       {relayModalMeter && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#120403] border border-white/15 rounded-2xl max-w-md w-full p-6 text-white space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#120403] border border-white/20 rounded-3xl max-w-md w-full p-6 text-white space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95">
             <div className="flex items-center gap-3">
               <div
                 className={`p-3 rounded-2xl ${
@@ -764,8 +840,8 @@ export default function MetersManagement({
 
       {/* MODAL 3: Staff Credit Relief / Top-up */}
       {topupModalMeter && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#120403] border border-white/15 rounded-2xl max-w-md w-full p-6 text-white space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#120403] border border-white/20 rounded-3xl max-w-md w-full p-6 text-white space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-2xl bg-[#F5E00B]/20 text-[#F5E00B]">
                 <CreditCard className="h-6 w-6" />

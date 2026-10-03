@@ -116,7 +116,6 @@ export default function ComplaintsSection() {
   // UI state
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [actionLoading, setActionLoading] = useState(false)
   const [submittedTicket, setSubmittedTicket] = useState<Complaint | null>(null)
   const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: "success" | "error" } | null>(null)
 
@@ -255,33 +254,6 @@ export default function ComplaintsSection() {
       setFeedbackMsg({ text: "Network error submitting complaint.", type: "error" })
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  // Simulate Status Progression (Demo feature for testing queue workflow)
-  const handleUpdateStatus = async (complaintId: number, nextStatus: Complaint["status"], notes: string) => {
-    setActionLoading(true)
-    try {
-      const res = await fetch(`http://localhost:3000/api/complaints/${complaintId}/status`, {
-        method: "PATCH",
-        headers: getAuthHeaders({ "Content-Type": "application/json" }),
-        credentials: "include",
-        body: JSON.stringify({
-          status: nextStatus,
-          resolution_notes: notes
-        })
-      })
-
-      const data = await res.json()
-      if (res.ok && data.success) {
-        setComplaints((prev) =>
-          prev.map((c) => (c.id === complaintId ? { ...c, ...data.complaint } : c))
-        )
-      }
-    } catch (err) {
-      console.error("Error updating status:", err)
-    } finally {
-      setActionLoading(false)
     }
   }
 
@@ -965,65 +937,6 @@ export default function ComplaintsSection() {
                           )}
                         </div>
                       )}
-
-                      {/* Quick Testing Progression Bar (Simulates Support Staff moving the queue) */}
-                      <div className="border-t border-white/10 pt-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-yellow-300 font-semibold flex items-center gap-1.5">
-                            <Sliders className="h-3.5 w-3.5" />
-                            Simulate Queue Progression (Demo)
-                          </span>
-                          {actionLoading && <Loader2 className="h-3 w-3 animate-spin text-yellow-400" />}
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={actionLoading || selectedComplaint.status === "in_review"}
-                            onClick={() =>
-                              handleUpdateStatus(
-                                selectedComplaint.id,
-                                "in_review",
-                                "Assigned to Technical Officer Bandara for initial verification."
-                              )
-                            }
-                            className="bg-black/40 hover:bg-yellow-400 hover:text-black border border-white/15 text-[10px] font-semibold text-white h-8 rounded-lg transition-all"
-                          >
-                            Set In Review
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={actionLoading || selectedComplaint.status === "investigating"}
-                            onClick={() =>
-                              handleUpdateStatus(
-                                selectedComplaint.id,
-                                "investigating",
-                                "Telemetry meter logs inspected. Line technician dispatched."
-                              )
-                            }
-                            className="bg-black/40 hover:bg-orange-400 hover:text-black border border-white/15 text-[10px] font-semibold text-white h-8 rounded-lg transition-all"
-                          >
-                            Set Investigating
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={actionLoading || selectedComplaint.status === "resolved"}
-                            onClick={() =>
-                              handleUpdateStatus(
-                                selectedComplaint.id,
-                                "resolved",
-                                "Balance credit packet synchronized with smart meter. Issue resolved."
-                              )
-                            }
-                            className="bg-black/40 hover:bg-green-500 hover:text-black border border-white/15 text-[10px] font-semibold text-white h-8 rounded-lg transition-all"
-                          >
-                            Set Resolved
-                          </Button>
-                        </div>
-                      </div>
                     </div>
                   )}
                 </div>
