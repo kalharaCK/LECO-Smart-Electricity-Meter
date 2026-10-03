@@ -45,8 +45,12 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
     const fetchMeters = async () => {
       try {
         const token = localStorage.getItem("token")
+        const headers: Record<string, string> = {}
+        if (token) headers["Authorization"] = `Bearer ${token}`
+
         const res = await fetch("http://localhost:3000/api/meters", {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+          headers,
         })
         if (res.ok) {
           const data: Meter[] = await res.json()
@@ -72,13 +76,16 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
     setStep("processing")
     try {
       const token = localStorage.getItem("token")
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      }
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
       const res = await fetch(`http://localhost:3000/api/meters/${selectedMeterId}/recharge`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          "Idempotency-Key": idempotencyKey,
-        },
+        credentials: "include",
+        headers,
         body: JSON.stringify({
           amount: parseFloat(selectedAmount),
           paymentMethod,

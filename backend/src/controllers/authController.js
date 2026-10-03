@@ -2,6 +2,17 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/db');
 
+// Phase 3 Step 3: Flag the cookie as httpOnly, Secure (over HTTPS), and SameSite=Strict
+const getCookieOptions = () => {
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true, // Prevents JavaScript from reading the cookie (immune to XSS)
+    secure: isProd, // Transmit only over HTTPS in production
+    sameSite: isProd ? 'strict' : 'lax', // Strict CSRF protection (lax fallback for multi-port local dev)
+    maxAge: 24 * 60 * 60 * 1000 // 1 day in milliseconds
+  };
+};
+
 const signup = async (req, res) => {
   try {
     const { email, password, role } = req.body;
@@ -30,7 +41,14 @@ const signup = async (req, res) => {
       { expiresIn: '1d' }
     );
 
-    res.status(201).json({ user: newUser.rows[0], token });
+    // Issue secure httpOnly cookie
+    res.cookie('token', token, getCookieOptions());
+
+    // Do NOT send token in JSON body to prevent XSS exfiltration
+    res.status(201).json({
+      message: 'Account created successfully',
+      user: newUser.rows[0]
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -61,9 +79,13 @@ const login = async (req, res) => {
       { expiresIn: '1d' }
     );
 
+    // Step 3: Flag the cookie as httpOnly, Secure (HTTPS), and SameSite=Strict
+    res.cookie('token', token, getCookieOptions());
+
+    // Send user profile only — no token in response JSON body
     res.json({
-      user: { id: user.id, email: user.email, role: user.role },
-      token
+      message: 'Login successful',
+      user: { id: user.id, email: user.email, role: user.role }
     });
   } catch (err) {
     console.error(err);
@@ -71,4 +93,27 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { signup, login };
+const logout = (req, res) => {
+  const isProd = process.env.NODE_ENV === 'production';
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'strict' : 'lax'
+  });
+  res.json({ message: 'Logged out successfully' });
+};
+
+const getMe = async (req, res) => {
+  try {
+    const userResult = await pool.query('SELECT id, email, role, created_at FROM users WHERE id = $1', [req.user.id]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ user: userResult.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+module.exports = { signup, login, logout, getMe };

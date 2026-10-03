@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Battery, Zap, AlertTriangle, Activity, Clock, CheckCircle, History as HistoryIcon, Loader2, TrendingUp, Info, Sparkles, ShieldCheck } from "lucide-react"
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts"
+import { Battery, Zap, AlertTriangle, Activity, Clock, History as HistoryIcon, Loader2, TrendingUp, Sparkles } from "lucide-react"
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 
 export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey?: number; onNavigate?: (section: string) => void }) {
   const [meter, setMeter] = useState<any>(null)
@@ -26,8 +26,12 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
       setConsumption(null);
       try {
         const token = localStorage.getItem('token');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const res = await fetch('http://localhost:3000/api/meters', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include',
+          headers
         });
         if (res.ok) {
           const data = await res.json();
@@ -36,14 +40,16 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
             
             // Fetch consumption stats for this meter
             const consRes = await fetch(`http://localhost:3000/api/meters/${data[0].id}/consumption`, {
-              headers: { 'Authorization': `Bearer ${token}` }
+              credentials: 'include',
+              headers
             });
             if (consRes.ok) {
               setConsumption(await consRes.json());
             }
             // Fetch notifications
             const notifRes = await fetch("http://localhost:3000/api/notifications", {
-              headers: { 'Authorization': `Bearer ${token}` }
+              credentials: 'include',
+              headers
             });
             if (notifRes.ok) {
               setNotifications(await notifRes.json());
@@ -386,7 +392,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
                     contentStyle={{ backgroundColor: '#1a1a1a', borderColor: '#333', borderRadius: '8px' }}
                     itemStyle={{ fontSize: '13px', fontWeight: 'bold' }}
                     labelStyle={{ color: '#aaa', marginBottom: '4px' }}
-                    formatter={(value: number) => [`${Number(value).toFixed(2)} kWh`]}
+                    formatter={((value: any) => [`${Number(value || 0).toFixed(2)} kWh`]) as any}
                   />
                   <Area type="monotone" dataKey="import" name="In (from grid)" stroke="#f87171" strokeWidth={2.5} fillOpacity={1} fill="url(#colorImport)" dot={false} />
                   <Area type="monotone" dataKey="export" name="Out (to grid)" stroke="#4ade80" strokeWidth={2.5} fillOpacity={1} fill="url(#colorExport)" dot={false} />

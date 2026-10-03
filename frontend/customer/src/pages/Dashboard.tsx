@@ -18,7 +18,6 @@ import PaymentsSection from "../components/dashboard/PaymentsSection"
 import ComplaintsSection from "../components/dashboard/ComplaintsSection"
 import PaymentHistorySection from "../components/dashboard/PaymentHistorySection"
 
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import {
   Sidebar,
@@ -54,11 +53,10 @@ export default function Dashboard() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem("token")
+    // Check if user session data exists
     const userData = localStorage.getItem("user")
     
-    if (!token || !userData) {
+    if (!userData) {
       navigate("/")
       return
     }
@@ -69,7 +67,7 @@ export default function Dashboard() {
       const fetchNotifications = async () => {
         try {
           const res = await fetch("http://localhost:3000/api/notifications", {
-            headers: { "Authorization": `Bearer ${token}` }
+            credentials: "include"
           })
           if (res.ok) {
             setNotifications(await res.json())
@@ -87,10 +85,9 @@ export default function Dashboard() {
 
   const markAsRead = async (id: number) => {
     try {
-      const token = localStorage.getItem("token")
-      await fetch(`http://localhost:5000/api/notifications/${id}/read`, {
+      await fetch(`http://localhost:3000/api/notifications/${id}/read`, {
         method: "PUT",
-        headers: { "Authorization": `Bearer ${token}` }
+        credentials: "include"
       })
       setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n))
     } catch (e) {
@@ -100,10 +97,19 @@ export default function Dashboard() {
 
   const unreadCount = notifications.filter(n => !n.is_read).length
 
-  const handleLogout = () => {
-    localStorage.removeItem("token")
-    localStorage.removeItem("user")
-    navigate("/")
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:3000/api/logout", {
+        method: "POST",
+        credentials: "include"
+      })
+    } catch (e) {
+      console.error(e)
+    } finally {
+      localStorage.removeItem("token")
+      localStorage.removeItem("user")
+      navigate("/")
+    }
   }
 
   if (!user) return null

@@ -34,6 +34,7 @@ export default function AuthPage() {
       const res = await fetch(`http://localhost:3000${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(body),
       })
       const data = await res.json()
@@ -43,9 +44,9 @@ export default function AuthPage() {
       }
       
       if (isLogin) {
-        // Store token in localStorage
-        localStorage.setItem("token", data.token)
+        // Store user in localStorage (token is secured in httpOnly cookie)
         localStorage.setItem("user", JSON.stringify(data.user))
+        localStorage.removeItem("token")
         
         setMessage({ type: "success", text: "Login successful! Redirecting..." })
         

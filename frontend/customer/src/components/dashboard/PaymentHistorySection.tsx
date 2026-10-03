@@ -56,8 +56,12 @@ export default function PaymentHistorySection({
     try {
       setLoading(true)
       const token = localStorage.getItem("token")
+      const headers: Record<string, string> = {}
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
       const res = await fetch("http://localhost:3000/api/meters/payments/history", {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+        headers,
       })
       if (res.ok) {
         const data = await res.json()

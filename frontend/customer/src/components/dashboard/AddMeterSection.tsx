@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -21,8 +21,12 @@ export default function AddMeterSection({
   const fetchMeters = async () => {
     try {
       const token = localStorage.getItem("token");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const res = await fetch("http://localhost:3000/api/meters", {
-        headers: { "Authorization": `Bearer ${token}` }
+        credentials: "include",
+        headers
       });
       if (res.ok) {
         const data = await res.json();
@@ -48,12 +52,15 @@ export default function AddMeterSection({
   const handleAdd = async () => {
     try {
       const token = localStorage.getItem("token");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const res = await fetch("http://localhost:3000/api/meters/add", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
+        credentials: "include",
+        headers,
         body: JSON.stringify(meterData)
       });
       

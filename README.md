@@ -486,6 +486,19 @@ npm run dev -- --port 5174
   - Verification on linking (`/api/meters/add`) executes constant-time `bcrypt.compare(pin, meter.pin)` rather than raw equality.
   - All public meter queries (`getUserMeters`, `addMeter`) explicitly omit the `pin` column from database `SELECT` and `RETURNING` clauses.
 
+### Phase 3: Session Security & Anti-XSS (httpOnly Cookies)
+- **Threat**: Malicious scripts (XSS attacks or compromised third-party NPM packages) reading `localStorage` to steal JWT bearer tokens and impersonate customers or staff.
+- **Solution**:
+  - Deprecated token storage in browser `localStorage`.
+  - JWT tokens are issued via `Set-Cookie` HTTP response headers upon login/signup.
+  - Cookie flags configured for enterprise defense-in-depth:
+    - `HttpOnly`: Completely blocks JavaScript access via `document.cookie`, neutralizing token exfiltration via XSS.
+    - `Secure`: Ensures tokens are strictly encrypted in transit over HTTPS.
+    - `SameSite=Strict`: Protects against Cross-Site Request Forgery (CSRF).
+  - CORS configured with explicit allowed origins and `credentials: true`.
+  - Dedicated `/api/logout` endpoint invalidates and clears the session cookie immediately.
+  - Protected backend routes authenticate via `req.cookies.token` with seamless fallback for non-browser API clients.
+
 ---
 
 ## 🔮 Future Roadmap
