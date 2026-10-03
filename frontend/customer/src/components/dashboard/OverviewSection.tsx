@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Battery, Zap, AlertTriangle, Activity, Clock, CheckCircle, History as HistoryIcon, Loader2, TrendingUp } from "lucide-react"
+import { Battery, Zap, AlertTriangle, Activity, Clock, CheckCircle, History as HistoryIcon, Loader2, TrendingUp, Info, Sparkles, ShieldCheck } from "lucide-react"
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts"
 
 export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey?: number; onNavigate?: (section: string) => void }) {
@@ -107,25 +107,53 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
             <Zap size={120} />
           </div>
           <CardHeader>
-            <CardTitle className="text-white/80">Available Prepaid Balance</CardTitle>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-white/80">Available Prepaid Balance</CardTitle>
+              {consumption?.prediction && (
+                <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/30 text-[11px] font-normal flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  {consumption.prediction.currentTariffGroup}
+                </Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <div className="text-5xl font-bold mb-2">
                 {meter ? `Rs. ${Number(meter.balance).toLocaleString('en-US', {minimumFractionDigits: 2})}` : 'Rs. 0.00'}
               </div>
-              <div className="flex items-center gap-2 text-white/80">
-                <Clock className="h-4 w-4" />
-                <span>≈ {meter && meter.daily_average > 0 ? Math.floor(meter.balance / meter.daily_average) : 0} days remaining</span>
+              <div className="flex flex-wrap items-center gap-2 text-white/80">
+                <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1 rounded-full border border-white/10 text-xs text-white">
+                  <Clock className="h-3.5 w-3.5 text-yellow-400" />
+                  <span>
+                    {consumption?.prediction
+                      ? `≈ ~${consumption.prediction.estimatedDaysRemaining} days remaining`
+                      : meter && meter.daily_average > 0
+                      ? `≈ ${Math.floor(meter.balance / meter.daily_average)} days remaining`
+                      : 'Calculating...'}
+                  </span>
+                </div>
+                {consumption?.prediction && (
+                  <span className="text-xs text-white/60">
+                    ({consumption.prediction.estimatedMinDays}–{consumption.prediction.estimatedMaxDays} days range)
+                  </span>
+                )}
               </div>
             </div>
-            <div className="flex flex-col gap-2 min-w-[200px]">
-              <div className="text-sm text-white/70">
-                Daily average: {meter ? `Rs. ${meter.daily_average}` : 'Rs. 0.00'}
+            <div className="flex flex-col gap-2 min-w-[210px] bg-black/20 p-3 rounded-xl border border-white/5">
+              <div className="text-xs text-white/70 flex justify-between">
+                <span>Avg Daily Usage:</span>
+                <span className="font-semibold text-white">
+                  {consumption?.prediction ? `${consumption.prediction.averageDailyUsageKwh} kWh/day` : '0.0 kWh'}
+                </span>
+              </div>
+              <div className="text-xs text-white/70 flex justify-between">
+                <span>Tariff System:</span>
+                <span className="font-semibold text-yellow-300">PUCSL Block</span>
               </div>
               <Button
                 onClick={() => onNavigate?.("payments")}
-                className="w-full bg-yellow-400 text-black hover:bg-yellow-500 font-bold shadow-lg hover:scale-105 transition-transform"
+                className="w-full bg-yellow-400 text-black hover:bg-yellow-500 font-bold shadow-lg hover:scale-105 transition-transform mt-1 h-9 text-xs"
               >
                 Recharge Now
               </Button>
@@ -146,15 +174,20 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
               </Badge>
             </div>
             <div className="flex justify-between items-center">
+              <span className="text-white/60">Tariff Plan</span>
+              <span className="text-xs font-semibold text-yellow-400">Domestic Block</span>
+            </div>
+            <div className="flex justify-between items-center">
               <span className="text-white/60">Meter No.</span>
-              <span className="font-mono">{meter ? meter.meter_number : 'N/A'}</span>
+              <span className="font-mono text-sm">{meter ? meter.meter_number : 'N/A'}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-white/60">Account No.</span>
-              <span className="font-mono">{meter ? meter.account_number : 'N/A'}</span>
+              <span className="font-mono text-sm">{meter ? meter.account_number : 'N/A'}</span>
             </div>
-            <div className="flex justify-between items-center mt-2 pt-2 border-t border-white/10 text-xs text-white/40">
-              <span>Last updated: Just now</span>
+            <div className="flex justify-between items-center mt-1 pt-2 border-t border-white/10 text-xs text-white/40">
+              <span>Billing Cycle: 30-day</span>
+              <span className="text-green-400">PUCSL Standard</span>
             </div>
           </CardContent>
         </Card>
@@ -250,9 +283,70 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
                   )}
                 </span>
               </div>
-              <div className="mt-4 p-4 bg-yellow-400/10 border border-yellow-400/20 rounded-lg text-sm text-yellow-200 flex gap-3 items-start">
-                <Battery className="h-5 w-5 shrink-0 mt-0.5" />
-                <p>At your current consumption rate, your balance may last approximately <strong>{meter && meter.daily_average > 0 ? Math.floor(meter.balance / meter.daily_average) : 0} days</strong>.</p>
+              <div className="mt-4 p-5 bg-[#121214] border border-yellow-400/20 rounded-xl text-white">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-yellow-400/10 text-yellow-400">
+                      <Battery className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                        PUCSL Tariff-Aware Wallet Lifetime Prediction
+                        {consumption?.prediction && (
+                          <Badge className={`text-[10px] uppercase font-semibold ${
+                            consumption.prediction.predictionConfidence === 'HIGH' 
+                              ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                              : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                          }`}>
+                            {consumption.prediction.predictionConfidence} Confidence
+                          </Badge>
+                        )}
+                      </h4>
+                      <p className="text-xs text-white/50">Nonlinear day-by-day simulation under official Sri Lankan domestic electricity tariffs</p>
+                    </div>
+                  </div>
+                  {consumption?.prediction && (
+                    <div className="text-right sm:text-right">
+                      <span className="text-xs text-white/50 uppercase tracking-wider block">Estimated Days</span>
+                      <span className="text-2xl font-black text-yellow-400">
+                        ~{consumption.prediction.estimatedDaysRemaining} Days
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {consumption?.prediction ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 text-xs">
+                    <div className="bg-black/30 p-2.5 rounded-lg border border-white/5">
+                      <span className="text-white/50 block">Expected Range</span>
+                      <span className="font-bold text-white mt-0.5 block">
+                        {consumption.prediction.estimatedMinDays} to {consumption.prediction.estimatedMaxDays} Days
+                      </span>
+                    </div>
+                    <div className="bg-black/30 p-2.5 rounded-lg border border-white/5">
+                      <span className="text-white/50 block">Current Tariff Slab</span>
+                      <span className="font-bold text-yellow-300 mt-0.5 block">
+                        {consumption.prediction.currentTariffGroup}
+                      </span>
+                    </div>
+                    <div className="bg-black/30 p-2.5 rounded-lg border border-white/5">
+                      <span className="text-white/50 block">Cycle Usage</span>
+                      <span className="font-bold text-white mt-0.5 block">
+                        {consumption.prediction.billingCycleConsumptionKwh} kWh / 30d
+                      </span>
+                    </div>
+                    <div className="bg-black/30 p-2.5 rounded-lg border border-white/5">
+                      <span className="text-white/50 block">Avg Burn Rate</span>
+                      <span className="font-bold text-white mt-0.5 block">
+                        {consumption.prediction.averageDailyUsageKwh} kWh/day
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-white/60 pt-2">
+                    Calculating non-linear tariff simulation...
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>

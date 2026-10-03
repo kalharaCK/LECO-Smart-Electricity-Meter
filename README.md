@@ -311,7 +311,12 @@ All protected endpoints require an `Authorization: Bearer <JWT>` header.
 |---|---|---|---|
 | `GET` | `/api/meters` | Get user's linked meters | `Array<Meter>` |
 | `POST` | `/api/meters/add` | Link a smart meter | `{ meterNumber, accountNumber, pin }` |
-| `GET` | `/api/meters/:meterId/consumption` | Fetch 7-day & today consumption | `{ today: { net, import, export }, chartData: [...] }` |
+| Method | Endpoint | Description | Response / Payload |
+|---|---|---|---|
+| `GET` | `/api/meters` | Get user's linked meters | `Array<Meter>` |
+| `POST` | `/api/meters/add` | Link a smart meter | `{ meterNumber, accountNumber, pin }` |
+| `GET` | `/api/meters/:meterId/consumption` | Fetch consumption stats & prediction | `{ today, chartData, prediction: {...} }` |
+| `GET` | `/api/meters/:meterId/prediction` | Fetch standalone wallet prediction | `{ walletBalance, estimatedDaysRemaining, ... }` |
 | `POST` | `/api/meters/:meterId/recharge` | Top up prepaid credit | `{ amount: number, paymentMethod: string }` |
 | `GET` | `/api/meters/payments/history` | Get user payment transaction ledger | `Array<PaymentRecord>` (supports `?meterId=`) |
 
@@ -323,28 +328,78 @@ All protected endpoints require an `Authorization: Bearer <JWT>` header.
 
 ---
 
-## 🧮 Calculation Logic & Algorithms
+## 🧮 Calculation Logic & Tariff Prediction Engine
 
-### 1. Net Energy Calculation
-$$\text{Net Energy (kWh)} = \sum \text{Consumption (Import)} - \sum \text{Energy Export}$$
-- If $\text{Net} > 0$: The prosumer consumed more energy than generated.
-- If $\text{Net} < 0$: The prosumer exported excess solar power to the grid.
+### 1. PUCSL-Approved Domestic Block Tariff (Official 2026 Structure)
 
-### 2. Days Remaining Estimation
-$$\text{Days Remaining} = \left\lfloor \frac{\text{Current Balance (Rs.)}}{\text{Daily Average Burn Rate (Rs.)}} \right\rfloor$$
-- If $\text{Daily Average} \le 0$ or balance is depleted, defaults safely to $0$ days.
+> **Key Implementation Principle**: The tariff structure is selected from **TOTAL 30-day billing-period consumption first**. Rows are **NOT** treated as one progressive continuous slab table.
 
-### 3. Daily Telemetry Aggregation
-```sql
-SELECT 
-  reading_date,
-  SUM(consumption) AS total_import,
-  SUM(energy_export) AS total_export,
-  SUM(consumption - energy_export) AS net_consumption
-FROM consumption_logs
-WHERE meter_id = $1 AND reading_date >= CURRENT_DATE - INTERVAL '7 days'
-GROUP BY reading_date
-ORDER BY reading_date ASC;
+| Consumption Group | Billing Block | Energy Rate (LKR/kWh) | Fixed Charge (LKR/month) | Application Criteria |
+|---|---|---|---|---|
+| **Group A: Total 0–60 kWh** | 0–30 kWh | 5.00 | 80.00 | Total usage $\le 30\text{ kWh}$ |
+| **Group A: Total 0–60 kWh** | 31–60 kWh | 9.00 | 210.00 | Total usage is $31–60\text{ kWh}$ |
+| **Group B: Total 61–180 kWh** | 0–60 kWh | 14.00 | — | First 60 units once total exceeds 60 |
+| **Group B: Total 61–180 kWh** | 61–90 kWh | 20.00 | 400.00 | Total usage is $61–90\text{ kWh}$ |
+| **Group B: Total 61–180 kWh** | 91–120 kWh | 28.00 | 1,000.00 | Total usage is $91–120\text{ kWh}$ |
+| **Group B: Total 61–180 kWh** | 121–180 kWh | 44.00 | 1,500.00 | Total usage is $121–180\text{ kWh}$ |
+| **Group C: Total > 180 kWh** | 0–180 kWh | 32.50 | — | First 180 units once total exceeds 180 |
+| **Group C: Total > 180 kWh** | Above 180 kWh | 100.00 | 2,500.00 | Total usage $> 180\text{ kWh}$ |
+
+#### Exact Calculation Formulas:
+* **Group A ($0 \le \text{kWh} \le 30$)**:
+  $$\text{Bill} = (\text{kWh} \times 5.00) + 80.00$$
+* **Group A ($31 \le \text{kWh} \le 60$)**:
+  $$\text{Bill} = (30 \times 5.00) + ((\text{kWh} - 30) \times 9.00) + 210.00$$
+* **Group B ($61 \le \text{kWh} \le 90$)**:
+  $$\text{Bill} = (60 \times 14.00) + ((\text{kWh} - 60) \times 20.00) + 400.00$$
+* **Group B ($91 \le \text{kWh} \le 120$)**:
+  $$\text{Bill} = (60 \times 14.00) + (30 \times 20.00) + ((\text{kWh} - 90) \times 28.00) + 1,000.00$$
+* **Group B ($121 \le \text{kWh} \le 180$)**:
+  $$\text{Bill} = (60 \times 14.00) + (30 \times 20.00) + (30 \times 28.00) + ((\text{kWh} - 120) \times 44.00) + 1,500.00$$
+* **Group C ($\text{kWh} > 180$)**:
+  $$\text{Bill} = (180 \times 32.50) + ((\text{kWh} - 180) \times 100.00) + 2,500.00$$
+
+#### Boundary Transition Repricing:
+At **61 kWh** and **181 kWh**, earlier units are retroactively repriced under the new structure and fixed charges shift:
+- Crossing $60 \to 61\text{ kWh}$: Bill jumps from LKR 630 to LKR 1,260 (+$630\text{ LKR}$).
+- Crossing $180 \to 181\text{ kWh}$: Bill jumps from LKR 6,420 to LKR 8,450 (+$2,030\text{ LKR}$).
+
+---
+
+### 2. LECO Wallet Lifetime Estimation Algorithm
+
+> Simple division ($\text{Days} = \frac{\text{Balance}}{\text{Daily kWh} \times \text{Rate}}$) fails under nonlinear block tariffs because marginal rates jump and cycle rollovers occur.
+
+Our prediction engine (`backend/src/services/predictionEngine.js`) implements the official **LECO 3-step pipeline**:
+
+#### Step 1: Explainable Historical kWh Usage Predictor
+$$\text{recentAverage} = (0.50 \times \text{Avg}_{7d}) + (0.30 \times \text{Avg}_{14d}) + (0.20 \times \text{Avg}_{30d})$$
+$$\text{predictedDailyKWh} = (0.60 \times \text{recentAverage}) + (0.40 \times \text{sameWeekdayAverage})$$
+* **Confidence Rating**:
+  - $\ge 30$ historical days $\implies$ **HIGH** confidence
+  - $7–29$ historical days $\implies$ **MEDIUM** confidence
+  - $< 7$ historical days $\implies$ **LOW** confidence
+
+#### Step 2: Day-by-Day Nonlinear Wallet Simulation
+1. Advance simulation date day-by-day ($t = 1, 2, \dots$):
+2. If billing cycle exceeds 30 days $\implies$ reset cumulative $\text{cycleKWh} = 0$, $\text{chargedLiability} = 0$.
+3. Compute cumulative cycle usage: $\text{projectedKWh} = \text{cycleKWh} + \text{predictedKWh}_t$.
+4. Calculate new bill liability: $\text{newLiability} = \text{tariffEngine.calculateDomesticBill}(\text{projectedKWh})$.
+5. Deduct only the incremental delta:
+   $$\text{incrementalDebit} = \text{newLiability} - \text{chargedLiability}$$
+   $$\text{balance} \leftarrow \text{balance} - \text{incrementalDebit}$$
+6. Stop when $\text{balance} \le 0$; return accumulated days with fractional final day interpolation.
+
+#### Step 3: Multi-Scenario Uncertainty Range
+The simulation is executed under 3 usage scenarios:
+* **Low Usage Scenario ($0.85 \times \text{prediction}$)** $\implies$ yields **Maximum Days Remaining**
+* **Normal Usage Scenario ($1.00 \times \text{prediction}$)** $\implies$ yields **Main Estimated Days**
+* **High Usage Scenario ($1.15 \times \text{prediction}$)** $\implies$ yields **Minimum Days Remaining**
+
+```
+Wallet Balance: LKR 3,970.00
+Current Cycle Usage: 82.0 kWh (Group B)
+Estimated Remaining: ~26 Days (Range: 22 - 30 days)
 ```
 
 ---

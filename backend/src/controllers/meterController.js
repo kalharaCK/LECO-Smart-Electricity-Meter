@@ -1,4 +1,6 @@
 const { pool } = require('../config/db');
+const { getWalletLifetimePrediction } = require('../services/predictionEngine');
+const { calculateDomesticBill } = require('../services/tariffEngine');
 
 const getUserMeters = async (req, res) => {
   try {
@@ -141,6 +143,42 @@ const getMeterConsumption = async (req, res) => {
     const currentPower = (Math.random() * 1.5 + 0.5).toFixed(2); // Mock current kW draw
     const currentExport = (new Date().getHours() >= 8 && new Date().getHours() <= 17) ? (Math.random() * 2.0).toFixed(2) : '0.00';
 
+    // Fetch daily history for LECO wallet lifetime prediction
+    const historyResult = await pool.query(
+      `SELECT 
+         reading_date::text as date,
+         SUM(consumption) as consumption,
+         EXTRACT(DOW FROM reading_date)::int as day_of_week
+       FROM consumption_logs
+       WHERE meter_id = $1
+       GROUP BY reading_date
+       ORDER BY reading_date DESC
+       LIMIT 60`,
+      [meterId]
+    );
+
+    // Fetch cycle consumption (last 30 days)
+    const cycleResult = await pool.query(
+      `SELECT COALESCE(SUM(consumption), 0) as cycle_import 
+       FROM consumption_logs 
+       WHERE meter_id = $1 AND reading_date >= CURRENT_DATE - INTERVAL '29 days'`,
+      [meterId]
+    );
+
+    const meterRow = await pool.query('SELECT balance FROM meters WHERE id = $1', [meterId]);
+    const balance = parseFloat(meterRow.rows[0]?.balance || 0);
+
+    const prediction = getWalletLifetimePrediction({
+      walletBalance: balance,
+      currentCycleKWh: parseFloat(cycleResult.rows[0]?.cycle_import || 0),
+      currentCycleDay: new Date().getDate(),
+      dailyHistory: historyResult.rows.map(r => ({
+        date: r.date,
+        consumption: parseFloat(r.consumption || 0),
+        dayOfWeek: r.day_of_week
+      }))
+    });
+
     res.json({
       today: parseFloat(todayResult.rows[0].total_import || 0).toFixed(1),
       yesterday: parseFloat(yesterdayResult.rows[0].total_import || 0).toFixed(1),
@@ -157,6 +195,8 @@ const getMeterConsumption = async (req, res) => {
       currentPower: currentPower,
       currentExport: currentExport,
       
+      prediction: prediction,
+
       chartData: chartResult.rows.map(row => ({
         date: row.date,
         import: parseFloat(row.import || 0).toFixed(1),
@@ -167,6 +207,52 @@ const getMeterConsumption = async (req, res) => {
   } catch (error) {
     console.error('Error fetching consumption:', error);
     res.status(500).json({ message: 'Server error fetching consumption' });
+  }
+};
+
+const getMeterPrediction = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const meterCheck = await pool.query('SELECT id, balance FROM meters WHERE id = $1 AND user_id = $2', [meterId, req.user.id]);
+    if (meterCheck.rows.length === 0) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const historyResult = await pool.query(
+      `SELECT 
+         reading_date::text as date,
+         SUM(consumption) as consumption,
+         EXTRACT(DOW FROM reading_date)::int as day_of_week
+       FROM consumption_logs
+       WHERE meter_id = $1
+       GROUP BY reading_date
+       ORDER BY reading_date DESC
+       LIMIT 60`,
+      [meterId]
+    );
+
+    const cycleResult = await pool.query(
+      `SELECT COALESCE(SUM(consumption), 0) as cycle_import 
+       FROM consumption_logs 
+       WHERE meter_id = $1 AND reading_date >= CURRENT_DATE - INTERVAL '29 days'`,
+      [meterId]
+    );
+
+    const prediction = getWalletLifetimePrediction({
+      walletBalance: parseFloat(meterCheck.rows[0].balance || 0),
+      currentCycleKWh: parseFloat(cycleResult.rows[0]?.cycle_import || 0),
+      currentCycleDay: new Date().getDate(),
+      dailyHistory: historyResult.rows.map(r => ({
+        date: r.date,
+        consumption: parseFloat(r.consumption || 0),
+        dayOfWeek: r.day_of_week
+      }))
+    });
+
+    res.json(prediction);
+  } catch (error) {
+    console.error('Error calculating meter prediction:', error);
+    res.status(500).json({ message: 'Server error calculating prediction' });
   }
 };
 
@@ -264,4 +350,4 @@ const getPaymentHistory = async (req, res) => {
   }
 };
 
-module.exports = { getUserMeters, addMeter, getMeterConsumption, rechargeMeter, getPaymentHistory };
+module.exports = { getUserMeters, addMeter, getMeterConsumption, getMeterPrediction, rechargeMeter, getPaymentHistory };
