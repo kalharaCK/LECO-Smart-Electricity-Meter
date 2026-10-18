@@ -756,25 +756,125 @@ const simulateConsumption = async (req, res) => {
     const prevBalance = parseFloat(meter.balance);
     const limit = parseFloat(meter.emergency_credit_limit || 500);
 
-    // Calculate energy cost using official PUCSL block tariff for current month
+    // Record consumption telemetry for current hour
+    const currentHour = new Date().getHours();
+    await pool.query(
+      `INSERT INTO consumption_logs (meter_id, reading_date, reading_hour, consumption, energy_export)
+       VALUES ($1, CURRENT_DATE, $2, $3, $4)`,
+      [meterId, currentHour, kwh, exportKwh]
+    );
+
+    // Calculate accrued monthly usage & PUCSL bill after this consumption (do NOT deduct from prepaid balance)
     const monthResult = await pool.query(
-      `SELECT COALESCE(SUM(consumption), 0) as month_kwh 
+      `SELECT COALESCE(SUM(consumption), 0) as month_kwh,
+              COALESCE(SUM(energy_export), 0) as month_export
        FROM consumption_logs 
        WHERE meter_id = $1 AND reading_date >= date_trunc('month', CURRENT_DATE)`,
       [meterId]
     );
-    const currentMonthKwh = parseFloat(monthResult.rows[0]?.month_kwh || 0);
-    const billBefore = calculateDomesticBill(currentMonthKwh);
-    const billAfter = calculateDomesticBill(currentMonthKwh + kwh);
-    let energyCost = Math.round((billAfter.energyCharge - billBefore.energyCharge) * 100) / 100;
-    if (energyCost <= 0) {
-      energyCost = Math.round(kwh * 9.0 * 100) / 100; // fallback base energy rate
+    const currentMonthKwh = Math.max(0, parseFloat(monthResult.rows[0]?.month_kwh || 0) - parseFloat(monthResult.rows[0]?.month_export || 0));
+    const bill = calculateDomesticBill(currentMonthKwh);
+    const projectedNet = Math.round((prevBalance - bill.totalCharge) * 100) / 100;
+
+    // Check low balance warnings based on projected net balance (Prepaid Balance - Accrued Monthly Bill)
+    if (projectedNet <= 100 && !meter.emergency_credit_active) {
+      const recentAlert = await pool.query(
+        `SELECT id FROM notifications 
+         WHERE meter_id = $1 AND type = 'alert' AND title = 'Low Balance Warning' 
+           AND created_at >= NOW() - INTERVAL '1 hour'`,
+        [meterId]
+      );
+      if (recentAlert.rows.length === 0) {
+        await pool.query(
+          `INSERT INTO notifications (user_id, meter_id, type, title, message)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            userId,
+            meterId,
+            'alert',
+            'Low Balance Warning',
+            `Current monthly usage has reached Rs. ${bill.totalCharge.toFixed(2)} (${currentMonthKwh.toFixed(1)} kWh). Your projected net remaining credit is Rs. ${projectedNet.toFixed(2)}. Please recharge or activate Lifeline Emergency Credit before cycle settlement.`
+          ]
+        );
+      }
     }
 
-    // Deduct cost from balance
-    const newBalance = Math.round((prevBalance - energyCost) * 100) / 100;
+    // Real-time WebSocket Broadcast (instantly notifies frontend without full page reload)
+    const livePayload = await broadcastMeterState(meterId);
 
-    // Evaluate connection status and lifeline protection
+    res.json({
+      message: `Simulated ${kwh} kWh consumed. Accrued monthly usage: ${currentMonthKwh.toFixed(1)} kWh (Rs. ${bill.totalCharge.toFixed(2)} - ${bill.group}). Prepaid balance retained at Rs. ${prevBalance.toFixed(2)} until cycle settlement.`,
+      kwhAdded: kwh,
+      currentMonthKwh,
+      currentMonthBill: bill.totalCharge,
+      tariffGroup: bill.group,
+      energyCharge: bill.energyCharge,
+      fixedCharge: bill.fixedCharge,
+      prepaidBalance: prevBalance,
+      projectedNet,
+      status: meter.status,
+      isLifelineActive: meter.emergency_credit_active,
+      livePayload
+    });
+  } catch (error) {
+    console.error('Error simulating consumption:', error);
+    res.status(500).json({ message: 'Server error simulating consumption' });
+  }
+};
+
+/**
+ * End-of-Monthly-Cycle Settlement:
+ * Deducts the total accrued monthly bill from the prepaid balance.
+ * If balance goes negative, checks Lifeline Mode (Emergency Credit buffer).
+ * Records a formal settlement transaction in the payments table.
+ */
+const settleMonthlyCycle = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { meterId } = req.params;
+    const userId = req.user.id;
+    const isStaff = req.user.role === 'staff';
+
+    await client.query('BEGIN');
+
+    // Fetch meter with row-level lock
+    const meterQuery = await client.query(
+      `SELECT id, user_id, meter_number, account_number, balance, status, emergency_credit_limit, emergency_credit_active
+       FROM meters WHERE id = $1 ${isStaff ? '' : 'AND user_id = $2'} FOR UPDATE`,
+      isStaff ? [meterId] : [meterId, userId]
+    );
+
+    if (meterQuery.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Meter not found or access denied' });
+    }
+
+    const meter = meterQuery.rows[0];
+    const prevBalance = parseFloat(meter.balance);
+    const limit = parseFloat(meter.emergency_credit_limit || 500);
+
+    // Calculate total net consumption for the current billing cycle
+    const cycleQuery = await client.query(
+      `SELECT 
+         COALESCE(SUM(consumption), 0) as total_import,
+         COALESCE(SUM(energy_export), 0) as total_export
+       FROM consumption_logs
+       WHERE meter_id = $1 AND reading_date >= date_trunc('month', CURRENT_DATE)`,
+      [meterId]
+    );
+
+    const totalImport = parseFloat(cycleQuery.rows[0]?.total_import || 0);
+    const totalExport = parseFloat(cycleQuery.rows[0]?.total_export || 0);
+    const netKwh = Math.max(0, totalImport - totalExport);
+
+    // Calculate official PUCSL domestic bill
+    const bill = calculateDomesticBill(netKwh);
+    const deductionAmount = bill.totalCharge;
+
+    // Deduct from prepaid balance
+    const newBalance = Math.round((prevBalance - deductionAmount) * 100) / 100;
+
+    // Evaluate connection status
     let newStatus = meter.status;
     let disconnected = false;
 
@@ -794,66 +894,87 @@ const simulateConsumption = async (req, res) => {
       newStatus = 'Connected';
     }
 
-    // Record consumption telemetry for current hour
-    const currentHour = new Date().getHours();
-    await pool.query(
-      `INSERT INTO consumption_logs (meter_id, reading_date, reading_hour, consumption, energy_export)
-       VALUES ($1, CURRENT_DATE, $2, $3, $4)`,
-      [meterId, currentHour, kwh, exportKwh]
-    );
-
-    // Update meter balance & status
-    await pool.query(
+    // Update meter balance and status
+    await client.query(
       `UPDATE meters SET balance = $1, status = $2 WHERE id = $3`,
       [newBalance, newStatus, meterId]
     );
 
-    // Notification alerts
-    if (disconnected && meter.status !== 'Disconnected') {
-      await pool.query(
-        `INSERT INTO notifications (user_id, meter_id, type, title, message)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [
-          userId,
-          meterId,
-          'alert',
-          'Power Disconnected (Zero Balance)',
-          meter.emergency_credit_active
-            ? `Emergency credit buffer of Rs. ${limit.toFixed(2)} has been exhausted (Balance: Rs. ${newBalance.toFixed(2)}). Power disconnected. Please recharge immediately.`
-            : `Prepaid balance exhausted (Rs. ${newBalance.toFixed(2)}). Power disconnected. Please recharge or activate Lifeline Emergency Credit.`
-        ]
-      );
-    } else if (newBalance <= 100 && prevBalance > 100 && !meter.emergency_credit_active) {
-      await pool.query(
-        `INSERT INTO notifications (user_id, meter_id, type, title, message)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [
-          userId,
-          meterId,
-          'alert',
-          'Low Balance Alert',
-          `Your balance has dropped to Rs. ${newBalance.toFixed(2)}. You are now eligible to activate Emergency Credit (Lifeline Mode).`
-        ]
-      );
+    // Month identifier for reference (e.g., "OCT-2026")
+    const now = new Date();
+    const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+    const cycleLabel = `${monthNames[now.getMonth()]}-${now.getFullYear()}`;
+    const txnId = `BILL-${cycleLabel}-${Date.now().toString().slice(-4)}`;
+
+    // Record formal settlement in payments ledger
+    await client.query(
+      `INSERT INTO payments (
+         user_id, meter_id, amount, payment_method, transaction_id, previous_balance, new_balance, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        meter.user_id,
+        meterId,
+        deductionAmount,
+        'Monthly Cycle Settlement',
+        txnId,
+        prevBalance.toFixed(2),
+        newBalance.toFixed(2),
+        'Success'
+      ]
+    );
+
+    // Create detailed notification
+    let notificationMsg = `Monthly Billing Cycle (${cycleLabel}) settled: Rs. ${deductionAmount.toFixed(2)} deducted for ${netKwh.toFixed(1)} kWh (${bill.group}). New Prepaid Balance: Rs. ${newBalance.toFixed(2)}. Ref: ${txnId}`;
+    if (disconnected) {
+      notificationMsg += ` Prepaid balance exhausted. Power disconnected. Please recharge immediately to reconnect.`;
+    } else if (newBalance < 0 && meter.emergency_credit_active) {
+      notificationMsg += ` Covered by Lifeline Emergency Credit buffer (Buffer remaining: Rs. ${(limit + newBalance).toFixed(2)}).`;
     }
 
-    // Real-time WebSocket Broadcast (instantly notifies frontend without full page reload)
-    const livePayload = await broadcastMeterState(meterId);
+    await client.query(
+      `INSERT INTO notifications (user_id, meter_id, type, title, message)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        meter.user_id,
+        meterId,
+        disconnected ? 'alert' : 'info',
+        `Monthly Cycle Settled (${cycleLabel})`,
+        notificationMsg
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    // Real-time WebSocket Broadcast
+    broadcastMeterState(meterId).catch(e => console.error('WS broadcast error:', e));
 
     res.json({
-      message: `Simulated ${kwh} kWh consumed. Deducted Rs. ${energyCost.toFixed(2)} from prepaid balance.`,
-      kwhAdded: kwh,
-      costDeducted: energyCost,
+      success: true,
+      message: `Monthly cycle settled successfully. Rs. ${deductionAmount.toFixed(2)} deducted from prepaid balance.`,
+      cycle: cycleLabel,
+      netKwh,
+      totalImport,
+      totalExport,
+      bill: {
+        totalCharge: bill.totalCharge,
+        energyCharge: bill.energyCharge,
+        fixedCharge: bill.fixedCharge,
+        tariffGroup: bill.group,
+        effectiveRate: bill.effectiveRate
+      },
       prevBalance,
       newBalance,
       status: newStatus,
-      isLifelineActive: meter.emergency_credit_active,
       disconnected,
-      livePayload
+      isLifelineActive: meter.emergency_credit_active,
+      txnId
     });
   } catch (error) {
-    console.error('Error simulating consumption:', error);
-    res.status(500).json({ message: 'Server error simulating consumption' });
+    await client.query('ROLLBACK');
+    console.error('Error settling monthly cycle:', error);
+    res.status(500).json({ message: 'Server error during monthly cycle settlement' });
+  } finally {
+    client.release();
   }
 };
 
@@ -1092,6 +1213,7 @@ module.exports = {
   updateMeterName,
   activateEmergencyCredit,
   simulateConsumption,
+  settleMonthlyCycle,
   setMeterBalance,
   getAllMetersForStaff,
   toggleMeterRelay,
