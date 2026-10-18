@@ -9,6 +9,7 @@ const {
   updateMeterName,
   activateEmergencyCredit,
   simulateConsumption,
+  settleMonthlyCycle,
   setMeterBalance,
   getAllMetersForStaff,
   toggleMeterRelay,
@@ -31,6 +32,7 @@ router.post('/:meterId/toggle-relay', toggleMeterRelay);
 router.post('/:meterId/staff-topup', staffTopupMeter);
 router.post('/:meterId/emergency-credit', activateEmergencyCredit);
 router.post('/:meterId/simulate-consumption', simulateConsumption);
+router.post('/:meterId/settle-cycle', settleMonthlyCycle);
 router.post('/:meterId/set-balance', setMeterBalance);
 router.get('/payments/history', getPaymentHistory);
 router.get('/:meterId/consumption', getMeterConsumption);
