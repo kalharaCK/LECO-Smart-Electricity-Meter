@@ -299,47 +299,47 @@ export default function ComplaintsSection() {
   const resolvedCount = complaints.filter((c) => c.status === "resolved" || c.status === "closed").length
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       {/* Top Banner & Stats */}
-      <div className="bg-gradient-to-r from-[#1f0704] via-[#3a0b04] to-[#120302] border border-white/10 rounded-2xl p-6 text-white shadow-2xl relative overflow-hidden">
+      <div className="bg-gradient-to-r from-[#1f0704] via-[#3a0b04] to-[#120302] border border-white/10 rounded-2xl p-4 sm:p-6 text-white shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
-        <div className="relative z-10 flex flex-col lg:flex-row justify-between lg:items-center gap-6">
+        <div className="relative z-10 flex flex-col lg:flex-row justify-between lg:items-center gap-4 sm:gap-6">
           <div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-400/20 text-yellow-300 border border-yellow-400/30">
                 <ShieldAlert className="h-3.5 w-3.5 mr-1" />
-                Customer Support Desk
+                Support Desk
               </span>
               <span className="text-white/40 text-sm">•</span>
               <span className="text-white/60 text-xs">LECO 24/7 Service Guarantee</span>
             </div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Support Tickets & Queue Tracking</h1>
-            <p className="text-white/70 text-sm mt-1 max-w-2xl">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight">Support Tickets & Queue Tracking</h1>
+            <p className="text-white/70 text-xs sm:text-sm mt-1 max-w-2xl">
               Submit issues regarding meter hardware, balance discrepancies, or power interruptions. Track real-time progress through our engineering resolution queue.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="bg-black/40 border border-white/10 px-4 py-2.5 rounded-xl text-center min-w-[90px]">
-              <div className="text-xs text-white/50 uppercase font-medium">In Queue</div>
-              <div className="text-xl font-bold text-yellow-400 flex items-center justify-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <div className="bg-black/40 border border-white/10 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-center flex-1 sm:flex-initial min-w-[70px] sm:min-w-[90px]">
+              <div className="text-[10px] sm:text-xs text-white/50 uppercase font-medium">In Queue</div>
+              <div className="text-lg sm:text-xl font-bold text-yellow-400 flex items-center justify-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
                 {activeCount}
               </div>
             </div>
-            <div className="bg-black/40 border border-white/10 px-4 py-2.5 rounded-xl text-center min-w-[90px]">
-              <div className="text-xs text-white/50 uppercase font-medium">Resolved</div>
-              <div className="text-xl font-bold text-green-400">{resolvedCount}</div>
+            <div className="bg-black/40 border border-white/10 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-center flex-1 sm:flex-initial min-w-[70px] sm:min-w-[90px]">
+              <div className="text-[10px] sm:text-xs text-white/50 uppercase font-medium">Resolved</div>
+              <div className="text-lg sm:text-xl font-bold text-green-400">{resolvedCount}</div>
             </div>
-            <div className="bg-black/40 border border-white/10 px-4 py-2.5 rounded-xl text-center min-w-[90px]">
-              <div className="text-xs text-white/50 uppercase font-medium">Total Filed</div>
-              <div className="text-xl font-bold text-white">{complaints.length}</div>
+            <div className="bg-black/40 border border-white/10 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-center flex-1 sm:flex-initial min-w-[70px] sm:min-w-[90px]">
+              <div className="text-[10px] sm:text-xs text-white/50 uppercase font-medium">Total</div>
+              <div className="text-lg sm:text-xl font-bold text-white">{complaints.length}</div>
             </div>
             <Button
               onClick={fetchComplaints}
               variant="outline"
               size="icon"
-              className="bg-black/30 border-white/10 text-white hover:bg-white/10 h-11 w-11 rounded-xl"
+              className="bg-black/30 border-white/10 text-white hover:bg-white/10 h-10 w-10 sm:h-11 sm:w-11 rounded-xl cursor-pointer shrink-0"
               title="Refresh Complaints Queue"
             >
               <RefreshCw className="h-4 w-4" />
@@ -476,7 +476,7 @@ export default function ComplaintsSection() {
 
                     {/* Category Popover Menu */}
                     {isCategoryOpen && (
-                      <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-[#1e0703]/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-[#1e0703]/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150 max-h-60 overflow-y-auto">
                         {COMPLAINT_TYPES.map((t) => {
                           const IconComp = t.icon
                           const isSelected = complaintType === t.id
@@ -583,7 +583,7 @@ export default function ComplaintsSection() {
 
                       {/* Priority Dropdown Menu */}
                       {isPriorityOpen && (
-                        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-[#1e0703]/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-[#1e0703]/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150 max-h-60 overflow-y-auto">
                           {PRIORITIES.map((p) => {
                             const isSelected = priority === p.id
                             return (
@@ -789,7 +789,14 @@ export default function ComplaintsSection() {
                       return (
                         <div
                           key={c.id}
-                          onClick={() => setSelectedComplaintId(c.id)}
+                          onClick={() => {
+                            setSelectedComplaintId(c.id)
+                            if (window.innerWidth < 768) {
+                              setTimeout(() => {
+                                document.getElementById("selected-ticket-detail")?.scrollIntoView({ behavior: "smooth" })
+                              }, 100)
+                            }
+                          }}
                           className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
                             isSelected
                               ? "bg-gradient-to-r from-yellow-400/20 to-black/40 border-yellow-400/70 shadow-lg shadow-yellow-400/5 ring-1 ring-yellow-400/30"
@@ -830,7 +837,7 @@ export default function ComplaintsSection() {
 
                   {/* Right sub-column: Selected Ticket Detailed Stepper (7 cols on md) */}
                   {selectedComplaint && (
-                    <div className="md:col-span-7 bg-black/40 border border-white/10 rounded-2xl p-5 space-y-5">
+                    <div id="selected-ticket-detail" className="md:col-span-7 bg-black/40 border border-white/10 rounded-2xl p-5 space-y-5 scroll-mt-20">
                       {/* Ticket Header */}
                       <div className="flex justify-between items-start border-b border-white/10 pb-4">
                         <div>

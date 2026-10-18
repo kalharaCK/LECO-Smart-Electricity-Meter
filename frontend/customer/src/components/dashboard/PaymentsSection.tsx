@@ -198,20 +198,20 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
           {/* Multiple Meters Selector if user has > 1 */}
           {meters.length > 1 && step === "amount" && (
             <div className="mb-6 space-y-2">
-              <Label className="text-white text-sm">Select Meter to Recharge</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <Label className="text-white text-xs sm:text-sm">Select Meter to Recharge</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {meters.map((m) => (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => setSelectedMeterId(m.id)}
-                    className={`p-3 rounded-lg border text-left text-xs transition-all ${
+                    className={`p-3 rounded-xl border text-left text-xs transition-all cursor-pointer ${
                       selectedMeterId === m.id
-                        ? "bg-yellow-400/10 border-yellow-400 text-white font-medium"
+                        ? "bg-yellow-400/15 border-yellow-400 text-white font-medium shadow-sm"
                         : "bg-black/20 border-white/10 text-white/70 hover:bg-black/40"
                     }`}
                   >
-                    <div className="font-mono">{m.meter_number}</div>
+                    <div className="font-mono font-semibold">{m.meter_number}</div>
                     <div className="text-white/50 mt-1">Rs. {Number(m.balance).toFixed(2)}</div>
                   </button>
                 ))}
@@ -221,18 +221,18 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
 
           {/* STEP 1: Choose Amount */}
           {step === "amount" && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="space-y-4">
-                <Label className="text-white">Choose Recharge Amount</Label>
-                <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-5 sm:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="space-y-3 sm:space-y-4">
+                <Label className="text-white text-xs sm:text-sm font-semibold uppercase tracking-wider">Choose Recharge Amount</Label>
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
                   {["500", "1000", "2000", "5000"].map((val) => (
                     <div
                       key={val}
                       onClick={() => { setAmount(val); setCustomAmount("") }}
-                      className={`p-4 rounded-xl border text-center cursor-pointer transition-all ${
+                      className={`p-3.5 sm:p-4 rounded-xl border text-center cursor-pointer transition-all min-h-[50px] flex items-center justify-center font-bold text-sm sm:text-base ${
                         amount === val
-                          ? "bg-yellow-400 border-yellow-400 text-black font-bold shadow-[0_0_15px_rgba(250,204,21,0.5)] scale-[1.02]"
-                          : "bg-black/20 border-white/20 text-white hover:bg-black/40"
+                          ? "bg-yellow-400 border-yellow-400 text-black shadow-[0_0_15px_rgba(250,204,21,0.4)] scale-[1.01]"
+                          : "bg-black/20 border-white/20 text-white hover:bg-black/40 active:scale-95"
                       }`}
                     >
                       Rs. {val}
@@ -241,7 +241,7 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
                 </div>
 
                 <div className="pt-2">
-                  <Label className="text-white/80 mb-2 block">Or Enter Custom Amount</Label>
+                  <Label className="text-white/80 text-xs sm:text-sm mb-1.5 block">Or Enter Custom Amount</Label>
                   <div
                     onClick={() => setAmount("custom")}
                     className={`flex items-center p-1 rounded-xl border transition-all ${
@@ -250,11 +250,11 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
                         : "bg-black/20 border-white/20 hover:bg-black/40"
                     }`}
                   >
-                    <span className="pl-4 text-white/60">Rs.</span>
+                    <span className="pl-3.5 text-white/60 text-sm sm:text-base font-semibold">Rs.</span>
                     <Input
                       type="number"
                       placeholder="e.g. 1500"
-                      className="border-0 bg-transparent text-white focus-visible:ring-0 shadow-none text-lg"
+                      className="border-0 bg-transparent text-white focus-visible:ring-0 shadow-none text-base sm:text-lg h-10"
                       value={customAmount}
                       onChange={(e) => { setAmount("custom"); setCustomAmount(e.target.value) }}
                     />
@@ -264,7 +264,7 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
 
               <Button
                 onClick={() => setStep("payment")}
-                className="w-full bg-white text-[#992511] hover:bg-white/90 font-bold mt-4 shadow-lg text-lg h-12 hover:scale-[1.02] transition-transform"
+                className="w-full bg-white text-[#992511] hover:bg-white/90 font-bold mt-2 sm:mt-4 shadow-lg text-base sm:text-lg h-12 hover:scale-[1.01] active:scale-98 transition-all cursor-pointer"
                 disabled={amount === "custom" && (!customAmount || parseInt(customAmount) < 100)}
               >
                 Continue to Payment
@@ -275,44 +275,51 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
 
           {/* STEP 2: Payment Method */}
           {step === "payment" && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="p-4 bg-black/20 rounded-xl border border-white/10 flex justify-between items-center">
-                <span className="text-white/80">Total to Pay</span>
-                <span className="text-2xl font-bold text-yellow-400">Rs. {parseFloat(selectedAmount || "0").toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+            <div className="space-y-5 sm:space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="p-3.5 sm:p-4 bg-black/30 rounded-xl border border-white/10 flex justify-between items-center">
+                <span className="text-white/80 text-xs sm:text-sm">Total to Pay</span>
+                <span className="text-xl sm:text-2xl font-bold text-yellow-400">Rs. {parseFloat(selectedAmount || "0").toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
               </div>
 
-              <div className="space-y-4">
-                <Label className="text-white">Payment Method</Label>
-                <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid gap-3">
+              <div className="space-y-3 sm:space-y-4">
+                <Label className="text-white text-xs sm:text-sm font-semibold uppercase tracking-wider">Payment Method</Label>
+                <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid gap-2.5 sm:gap-3">
                   {[
-                    { value: "card", icon: <CreditCard className="h-5 w-5 text-yellow-400" />, label: "Credit / Debit Card (Visa, Mastercard)" },
-                    { value: "wallet", icon: <Smartphone className="h-5 w-5 text-yellow-400" />, label: "Mobile Wallet / QR Payment" },
-                    { value: "bank", icon: <span className="font-serif font-bold text-lg px-1 text-yellow-400">B</span>, label: "Online Bank Transfer" },
+                    { value: "card", icon: <CreditCard className="h-5 w-5 text-yellow-400 shrink-0" />, label: "Credit / Debit Card (Visa, Mastercard)" },
+                    { value: "wallet", icon: <Smartphone className="h-5 w-5 text-yellow-400 shrink-0" />, label: "Mobile Wallet / QR Payment" },
+                    { value: "bank", icon: <span className="font-serif font-bold text-base px-1 text-yellow-400 shrink-0">B</span>, label: "Online Bank Transfer" },
                   ].map(({ value, icon, label }) => (
                     <div
                       key={value}
                       onClick={() => setPaymentMethod(value)}
-                      className={`flex items-center space-x-2 border p-4 rounded-xl cursor-pointer transition-all ${
+                      className={`flex items-center space-x-2.5 border p-3.5 sm:p-4 rounded-xl cursor-pointer transition-all min-h-[52px] ${
                         paymentMethod === value
-                          ? "border-yellow-400/60 bg-yellow-400/10"
+                          ? "border-yellow-400/60 bg-yellow-400/10 shadow-sm"
                           : "border-white/20 bg-black/20 hover:bg-black/40"
                       }`}
                     >
-                      <RadioGroupItem value={value} id={value} className="border-white/50 text-yellow-400" />
-                      <Label htmlFor={value} className="flex flex-1 items-center gap-2 cursor-pointer text-sm">
+                      <RadioGroupItem value={value} id={value} className="border-white/50 text-yellow-400 shrink-0" />
+                      <Label htmlFor={value} className="flex flex-1 items-center gap-2 cursor-pointer text-xs sm:text-sm">
                         {icon}
-                        {label}
+                        <span className="text-white font-medium">{label}</span>
                       </Label>
                     </div>
                   ))}
                 </RadioGroup>
               </div>
 
-              <div className="flex gap-4">
-                <Button variant="outline" className="w-1/3 bg-transparent border-white/20 text-white hover:bg-white/10" onClick={() => setStep("amount")}>
+              <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full sm:w-1/3 bg-transparent border-white/20 text-white hover:bg-white/10 h-11 text-xs sm:text-sm cursor-pointer" 
+                  onClick={() => setStep("amount")}
+                >
                   Back
                 </Button>
-                <Button onClick={handlePay} className="flex-1 bg-yellow-400 text-black hover:bg-yellow-500 font-bold shadow-lg h-10 hover:scale-[1.02] transition-transform">
+                <Button 
+                  onClick={handlePay} 
+                  className="w-full sm:flex-1 bg-yellow-400 text-black hover:bg-yellow-500 font-bold shadow-lg h-11 text-xs sm:text-sm hover:scale-[1.01] active:scale-98 transition-all cursor-pointer"
+                >
                   Confirm & Pay Rs. {parseFloat(selectedAmount || "0").toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </Button>
               </div>
@@ -323,44 +330,44 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
           {step === "processing" && (
             <div className="py-12 flex flex-col items-center justify-center animate-in fade-in duration-500">
               <Loader2 className="h-12 w-12 text-yellow-400 animate-spin mb-4" />
-              <h3 className="text-xl font-bold mb-2">Crediting Your Smart Meter...</h3>
-              <p className="text-white/70 text-center">Contacting payment gateway. Please wait a moment.</p>
+              <h3 className="text-lg sm:text-xl font-bold mb-2 text-center">Crediting Your Smart Meter...</h3>
+              <p className="text-white/70 text-center text-xs sm:text-sm">Contacting payment gateway. Please wait a moment.</p>
             </div>
           )}
 
           {/* STEP 4: Success */}
           {step === "success" && result && (
             <div className="animate-in zoom-in-95 duration-500">
-              <div className="bg-black/20 rounded-xl p-6 border border-green-500/30">
-                <div className="flex items-center gap-3 mb-6 border-b border-white/10 pb-4">
-                  <div className="bg-green-500/20 p-2 rounded-full">
-                    <CheckCircle2 className="h-8 w-8 text-green-400" />
+              <div className="bg-black/20 rounded-2xl p-4 sm:p-6 border border-green-500/30">
+                <div className="flex items-center gap-3 mb-5 border-b border-white/10 pb-4">
+                  <div className="bg-green-500/20 p-2 sm:p-2.5 rounded-full shrink-0">
+                    <CheckCircle2 className="h-7 w-7 sm:h-8 sm:w-8 text-green-400" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-xl text-green-400">Recharge Successful!</h3>
-                    <p className="text-sm text-white/60">Your meter has been credited immediately</p>
+                    <h3 className="font-bold text-lg sm:text-xl text-green-400">Recharge Successful!</h3>
+                    <p className="text-xs sm:text-sm text-white/60">Your meter has been credited immediately</p>
                   </div>
                 </div>
 
-                <div className="space-y-3 mb-6 border-b border-white/10 pb-6">
+                <div className="space-y-3 mb-5 border-b border-white/10 pb-5">
                   {selectedMeter && (
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-white/60">Meter Number</span>
-                      <span className="font-mono text-white">{selectedMeter.meter_number}</span>
+                      <span className="font-mono text-white font-semibold">{selectedMeter.meter_number}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-xs sm:text-sm">
                     <span className="text-white/60">Amount Added</span>
                     <span className="font-medium text-white">Rs. {parseFloat(result.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-xs sm:text-sm">
                     <span className="text-white/60">Previous Balance</span>
                     <span className={`font-medium ${Number(result.prevBalance) < 0 ? 'text-amber-400 font-bold' : 'text-white/80'}`}>
                       Rs. {parseFloat(result.prevBalance).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                   {result.debtRecovered && Number(result.debtRecovered) > 0 && (
-                    <div className="flex justify-between text-sm text-amber-300 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                    <div className="flex justify-between text-xs text-amber-300 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
                       <span className="flex items-center gap-1">
                         <LifeBuoy className="h-3.5 w-3.5" /> Emergency Debt Cleared
                       </span>
@@ -369,10 +376,6 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm text-green-400">
-                    <span className="text-green-400/80">Recharge Amount</span>
-                    <span className="font-medium">+ Rs. {parseFloat(result.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                  </div>
                   {result.lifelineReplenished && (
                     <div className="flex justify-between text-xs text-green-300 bg-green-500/10 px-2.5 py-1.5 rounded border border-green-500/20">
                       <span className="flex items-center gap-1">
@@ -381,31 +384,31 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
                       <span>Full Rs. 500.00 Limit Available</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-base pt-2 border-t border-white/10">
+                  <div className="flex justify-between text-sm sm:text-base pt-2 border-t border-white/10 items-baseline">
                     <span className="font-semibold text-white/80">New Available Balance</span>
-                    <span className="font-bold text-2xl text-yellow-400">
+                    <span className="font-bold text-xl sm:text-2xl text-yellow-400">
                       Rs. {parseFloat(result.newBalance).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="bg-[#1a1a1a]/50 p-3 rounded-lg flex justify-between items-center text-sm">
+                <div className="space-y-2 mb-6 text-xs sm:text-sm">
+                  <div className="bg-[#1a1a1a]/50 p-2.5 sm:p-3 rounded-xl flex justify-between items-center">
                     <span className="text-white/50">Transaction ID</span>
-                    <span className="font-mono text-xs text-white/80">{result.txnId}</span>
+                    <span className="font-mono text-xs text-yellow-300 font-semibold">{result.txnId}</span>
                   </div>
-                  <div className="bg-green-500/10 border border-green-500/20 p-3 rounded-lg flex justify-between items-center text-sm text-green-400">
+                  <div className="bg-green-500/10 border border-green-500/20 p-2.5 sm:p-3 rounded-xl flex justify-between items-center text-green-400 text-xs">
                     <span>Meter Status</span>
                     <span className="font-medium flex items-center gap-1">
-                      Updated & Active <CheckCircle2 className="h-4 w-4" />
+                      Updated & Active <CheckCircle2 className="h-3.5 w-3.5" />
                     </span>
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
                   <Button
                     variant="outline"
-                    className="flex-1 bg-transparent border-white/20 text-white hover:bg-white/10"
+                    className="flex-1 bg-transparent border-white/20 text-white hover:bg-white/10 h-11 text-xs cursor-pointer"
                     onClick={() => {
                       setStep("amount");
                       setResult(null);
@@ -414,14 +417,14 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
                       setIdempotencyKey(crypto.randomUUID());
                     }}
                   >
-                    <RefreshCw className="mr-2 h-4 w-4" />
+                    <RefreshCw className="mr-2 h-3.5 w-3.5" />
                     New Recharge
                   </Button>
                   {onNavigateHistory && (
                     <Button
                       variant="outline"
                       onClick={onNavigateHistory}
-                      className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/15"
+                      className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/15 h-11 text-xs cursor-pointer"
                     >
                       Payment History
                     </Button>
@@ -429,10 +432,10 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
                   {onNavigateOverview && (
                     <Button
                       onClick={onNavigateOverview}
-                      className="flex-1 bg-yellow-400 text-black hover:bg-yellow-500 font-bold shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform"
+                      className="flex-1 bg-yellow-400 text-black hover:bg-yellow-500 font-bold shadow-lg flex items-center justify-center gap-1.5 h-11 text-xs cursor-pointer"
                     >
-                      View in Overview
-                      <ArrowRight className="h-4 w-4" />
+                      Overview
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </Button>
                   )}
                 </div>

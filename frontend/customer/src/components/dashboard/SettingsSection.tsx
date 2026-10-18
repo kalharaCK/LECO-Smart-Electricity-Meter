@@ -261,11 +261,11 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
             <Button
               onClick={handleSavePreferences}
               disabled={savingPreferences}
-              className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-11 px-5 rounded-xl shadow-lg hover:shadow-yellow-400/20 transition-all flex items-center gap-2"
+              className="w-full sm:w-auto bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-11 px-5 rounded-xl shadow-lg hover:shadow-yellow-400/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               {savingPreferences ? (
                 <>
@@ -283,11 +283,11 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
         </div>
 
         {/* Tab Navigation Strip */}
-        <div className="flex flex-wrap gap-2 mt-6 pt-5 border-t border-white/10">
+        <div className="flex items-center gap-2 mt-6 pt-5 border-t border-white/10 overflow-x-auto pb-1.5 -mx-1 px-1 scrollbar-none">
           <button
             type="button"
             onClick={() => setActiveTab("alerts")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === "alerts"
                 ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
                 : "bg-black/30 text-white/70 hover:bg-black/50 hover:text-white"
@@ -300,7 +300,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
           <button
             type="button"
             onClick={() => setActiveTab("notifications")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === "notifications"
                 ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
                 : "bg-black/30 text-white/70 hover:bg-black/50 hover:text-white"
@@ -313,7 +313,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
           <button
             type="button"
             onClick={() => setActiveTab("security")}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
               activeTab === "security"
                 ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
                 : "bg-black/30 text-white/70 hover:bg-black/50 hover:text-white"
@@ -356,7 +356,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                       <span className="text-sm font-bold text-yellow-400">Rs. {lowBalanceThreshold.toLocaleString()}</span>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3">
                       <Input
                         id="low-balance-input"
                         type="number"
@@ -365,15 +365,15 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                         step="50"
                         value={lowBalanceThreshold}
                         onChange={(e) => setLowBalanceThreshold(parseFloat(e.target.value) || 0)}
-                        className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl w-36"
+                        className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl w-full sm:w-36"
                       />
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-4 sm:flex gap-1.5 sm:gap-2">
                         {[200, 300, 500, 1000].map((preset) => (
                           <button
                             key={preset}
                             type="button"
                             onClick={() => setLowBalanceThreshold(preset)}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                            className={`px-2 py-1.5 rounded-lg text-xs font-semibold border transition-all text-center cursor-pointer ${
                               lowBalanceThreshold === preset
                                 ? "bg-yellow-400 text-black border-yellow-400 shadow-md shadow-yellow-400/20"
                                 : "bg-black/30 border-white/10 text-white/70 hover:bg-black/50 hover:text-white"
@@ -398,7 +398,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                       <span className="text-sm font-bold text-yellow-400">{dailyKwhBudget} kWh / day</span>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3">
                       <Input
                         id="kwh-quota-input"
                         type="number"
@@ -407,15 +407,15 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                         step="1"
                         value={dailyKwhBudget}
                         onChange={(e) => setDailyKwhBudget(parseFloat(e.target.value) || 1)}
-                        className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl w-36"
+                        className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl w-full sm:w-36"
                       />
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-4 sm:flex gap-1.5 sm:gap-2">
                         {[8, 12, 18, 25].map((preset) => (
                           <button
                             key={preset}
                             type="button"
                             onClick={() => setDailyKwhBudget(preset)}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                            className={`px-2 py-1.5 rounded-lg text-xs font-semibold border transition-all text-center cursor-pointer ${
                               dailyKwhBudget === preset
                                 ? "bg-yellow-400 text-black border-yellow-400 shadow-md shadow-yellow-400/20"
                                 : "bg-black/30 border-white/10 text-white/70 hover:bg-black/50 hover:text-white"
