@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Battery, Zap, AlertTriangle, Activity, Clock, History as HistoryIcon, Loader2, TrendingUp, Sparkles, LifeBuoy, HeartPulse, CheckCircle2, Flame, Sliders, RotateCcw, ChevronDown, ChevronUp, Play, ArrowDownRight, Wifi, WifiOff } from "lucide-react"
+import { Battery, Zap, AlertTriangle, Activity, Clock, History as HistoryIcon, Loader2, TrendingUp, Sparkles, LifeBuoy, HeartPulse, CheckCircle2, Flame, Sliders, RotateCcw, ChevronDown, ChevronUp, Play, ArrowDownRight, Wifi, WifiOff, Calendar, Receipt } from "lucide-react"
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 import { getSocket } from "@/lib/socket"
 
@@ -16,6 +16,8 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
   const [currentTime, setCurrentTime] = useState(new Date())
   const [activatingEmergency, setActivatingEmergency] = useState(false)
   const [emergencySuccessMsg, setEmergencySuccessMsg] = useState<string | null>(null)
+  const [settlingCycle, setSettlingCycle] = useState(false)
+  const [settleSuccessMsg, setSettleSuccessMsg] = useState<string | null>(null)
   const [simulating, setSimulating] = useState(false)
   const [simulationLog, setSimulationLog] = useState<string | null>(null)
   const [customKwh, setCustomKwh] = useState("2.5")
@@ -237,7 +239,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
       });
       const data = await res.json();
       if (res.ok) {
-        setSimulationLog(`⚡ Burned +${data.kwhAdded} kWh (Deducted Rs. ${Number(data.costDeducted).toFixed(2)} via PUCSL tariff). Balance: Rs. ${Number(data.newBalance).toFixed(2)}.`);
+        setSimulationLog(`⚡ Recorded +${data.kwhAdded} kWh. Accrued Month Bill: Rs. ${Number(data.currentMonthBill || 0).toFixed(2)} (${data.tariffGroup || 'PUCSL'}). Prepaid Balance retained at Rs. ${Number(data.prepaidBalance || meter.balance).toFixed(2)}.`);
         // Backend already emitted 'meter_update' via WebSocket; apply surgical fallback if needed
         if (data.livePayload) {
           setMeter((prev: any) => prev ? {
@@ -261,6 +263,39 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
       alert('Network error during consumption simulation.');
     } finally {
       setSimulating(false);
+    }
+  };
+
+  const handleSettleCycle = async () => {
+    if (!meter) return;
+    const confirmSettle = window.confirm(
+      `Trigger Month-End Settlement for meter ${meter.meter_number}?\n\nThis will compute the official PUCSL monthly tariff bill and deduct it from your prepaid balance.`
+    );
+    if (!confirmSettle) return;
+
+    setSettlingCycle(true);
+    setSettleSuccessMsg(null);
+    try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/settle-cycle`, {
+        method: 'POST',
+        credentials: 'include',
+        headers
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSettleSuccessMsg(`✅ Month-End Cycle (${data.cycle}) settled: Rs. ${Number(data.bill?.totalCharge || 0).toFixed(2)} deducted for ${Number(data.netKwh || 0).toFixed(1)} kWh (${data.bill?.tariffGroup || 'PUCSL'}). New Prepaid Balance: Rs. ${Number(data.newBalance).toFixed(2)}.`);
+        fetchMetersData(false);
+      } else {
+        alert(data.message || 'Cycle settlement failed');
+      }
+    } catch (e) {
+      alert('Network error during cycle settlement.');
+    } finally {
+      setSettlingCycle(false);
     }
   };
 
@@ -376,7 +411,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
                 </Badge>
               </div>
               <p className="text-[10px] sm:text-[11px] text-white/50 line-clamp-1 sm:line-clamp-none">
-                Simulate real consumption in kWh: deducts money via PUCSL tariffs & tests Lifeline in real-time.
+                Simulate real consumption in kWh: updates accrued monthly usage & PUCSL block tariff in real time. Balance settles at cycle close.
               </p>
             </div>
           </div>
@@ -445,7 +480,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
                       onClick={() => handleSimulate(parseFloat(customKwh))}
                       className="bg-[#992511] hover:bg-[#992511]/80 text-white text-xs h-8 px-2.5 ml-1 cursor-pointer"
                     >
-                      <Play className="h-3 w-3 mr-1" /> Burn
+                      <Play className="h-3 w-3 mr-1" /> Log kWh
                     </Button>
                   </div>
                 </div>
@@ -570,8 +605,28 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
         </Card>
       )}
 
+      {/* Success Notification for Month-End Cycle Settlement */}
+      {settleSuccessMsg && (
+        <div className="p-3.5 sm:p-4 rounded-xl bg-yellow-400/15 border border-yellow-400/30 flex items-center justify-between text-yellow-300 text-xs sm:text-sm">
+          <div className="flex items-center gap-2">
+            <Receipt className="h-5 w-5 text-yellow-400 shrink-0" />
+            <span>{settleSuccessMsg}</span>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setSettleSuccessMsg(null)}
+            className="text-yellow-300 hover:text-white hover:bg-yellow-400/20 text-xs cursor-pointer"
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
+
       {/* Low Balance Alert & Lifeline Mode Activation Offer */}
-      {!meter?.emergency_credit_active && Number(meter?.balance) <= 100 && (
+      {!meter?.emergency_credit_active && (
+        Number(meter?.balance) <= 100 || (consumption?.prediction && Number(consumption.prediction.projectedNetBalance) <= 100)
+      ) && (
         <Card className="bg-gradient-to-r from-amber-950/40 via-yellow-950/20 to-black/60 border border-yellow-500/30 shadow-lg text-white p-4 sm:p-5 rounded-2xl">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-start gap-3">
@@ -584,7 +639,9 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
                   <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/30 text-xs">Lifeline Protection</Badge>
                 </div>
                 <p className="text-xs sm:text-sm text-white/70 mt-1 max-w-xl">
-                  Your prepaid balance is low (Rs. {Number(meter?.balance || 0).toFixed(2)}). Avoid sudden power interruption overnight by activating Emergency Credit (up to Rs. 500 limit).
+                  {consumption?.prediction && Number(consumption.prediction.projectedNetBalance) <= 100
+                    ? `Current monthly usage (Rs. ${Number(consumption.prediction.currentCycleLiability).toFixed(2)}) is approaching your prepaid balance. Projected net remaining: Rs. ${Number(consumption.prediction.projectedNetBalance).toFixed(2)}. Activate Emergency Credit to guarantee uninterrupted power.`
+                    : `Your prepaid balance is low (Rs. ${Number(meter?.balance || 0).toFixed(2)}). Avoid sudden power interruption overnight by activating Emergency Credit (up to Rs. 500 limit).`}
                 </p>
               </div>
             </div>
@@ -610,13 +667,18 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
       {/* Top Section - Balance and Quick Status */}
       <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Main Balance Card */}
-        <Card className="bg-gradient-to-br from-[#992511] to-[#3a0b04] border-0 shadow-xl text-white lg:col-span-2 relative overflow-hidden group hover:scale-[1.005] transition-transform duration-300">
+        <Card className="bg-gradient-to-br from-[#992511] via-[#66180a] to-[#250602] border-0 shadow-2xl text-white lg:col-span-2 relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-6 opacity-15 sm:opacity-20 group-hover:opacity-30 transition-opacity pointer-events-none">
-            <Zap size={100} />
+            <Zap size={110} />
           </div>
           <CardHeader className="pb-2">
             <div className="flex justify-between items-center gap-2 flex-wrap">
-              <CardTitle className="text-white/80 text-sm sm:text-base">Available Prepaid Balance</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-white/90 text-sm sm:text-base font-bold">Available Prepaid Balance</CardTitle>
+                <span className="text-[10px] text-white/60 bg-white/10 px-2 py-0.5 rounded-full font-mono uppercase">
+                  Prepaid Wallet
+                </span>
+              </div>
               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 {meter?.emergency_credit_active && (
                   <Badge className="bg-red-500/30 text-red-200 border-red-500/50 text-[10px] sm:text-[11px] font-normal flex items-center gap-1 animate-pulse">
@@ -625,7 +687,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
                   </Badge>
                 )}
                 {consumption?.prediction && (
-                  <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/30 text-[10px] sm:text-[11px] font-normal flex items-center gap-1">
+                  <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/30 text-[10px] sm:text-[11px] font-medium flex items-center gap-1">
                     <Sparkles className="h-3 w-3" />
                     {consumption.prediction.currentTariffGroup}
                   </Badge>
@@ -633,50 +695,117 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
               </div>
             </div>
           </CardHeader>
-          <CardContent className="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-1">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className={`text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight ${Number(meter?.balance) < 0 ? 'text-amber-300' : ''}`}>
-                  {meter ? `Rs. ${Number(meter.balance).toLocaleString('en-US', {minimumFractionDigits: 2})}` : 'Rs. 0.00'}
+          <CardContent className="flex flex-col gap-4 pt-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+              {/* Left Column: Primary Wallet Funds & Lifetime Forecast */}
+              <div className="flex flex-col justify-between">
+                <div>
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <div className={`text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight ${Number(meter?.balance) < 0 ? 'text-amber-300' : 'text-white'}`}>
+                      {meter ? `Rs. ${Number(meter.balance).toLocaleString('en-US', {minimumFractionDigits: 2})}` : 'Rs. 0.00'}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-white/60 mb-3">
+                    Deposited credit • Not deducted during cycle
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-2 text-white/80">
+                    <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-xl border border-white/10 text-xs text-white">
+                      <Clock className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
+                      <span>
+                        {consumption?.prediction
+                          ? (meter?.emergency_credit_active && Number(meter.balance) < 0
+                              ? `≈ ~${consumption.prediction.estimatedDaysRemaining} days (on buffer)`
+                              : `≈ ~${consumption.prediction.estimatedDaysRemaining} days remaining`)
+                          : meter && meter.daily_average > 0
+                          ? `≈ ${Math.floor(meter.balance / meter.daily_average)} days remaining`
+                          : 'Calculating...'}
+                      </span>
+                    </div>
+                    {consumption?.prediction && (
+                      <span className="text-[11px] text-white/60">
+                        ({consumption.prediction.estimatedMinDays}–{consumption.prediction.estimatedMaxDays}d range)
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-white/80">
-                <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1 rounded-full border border-white/10 text-xs text-white">
-                  <Clock className="h-3.5 w-3.5 text-yellow-400" />
-                  <span>
-                    {consumption?.prediction
-                      ? (meter?.emergency_credit_active && Number(meter.balance) < 0
-                          ? `≈ ~${consumption.prediction.estimatedDaysRemaining} days (on buffer)`
-                          : `≈ ~${consumption.prediction.estimatedDaysRemaining} days remaining`)
-                      : meter && meter.daily_average > 0
-                      ? `≈ ${Math.floor(meter.balance / meter.daily_average)} days remaining`
-                      : 'Calculating...'}
+
+                {/* Projected Net Remaining at Cycle Close */}
+                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
+                  <span className="text-white/70">Projected Net after Settlement:</span>
+                  <span className={`font-mono font-bold ${
+                    consumption?.prediction && consumption.prediction.projectedNetBalance <= 0 
+                      ? 'text-red-300 animate-pulse' 
+                      : consumption?.prediction && consumption.prediction.projectedNetBalance <= 300
+                      ? 'text-amber-300'
+                      : 'text-green-300'
+                  }`}>
+                    Rs. {consumption?.prediction 
+                      ? Number(consumption.prediction.projectedNetBalance).toLocaleString('en-US', {minimumFractionDigits: 2}) 
+                      : Number(meter?.balance || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}
                   </span>
                 </div>
-                {consumption?.prediction && (
-                  <span className="text-[11px] text-white/60">
-                    ({consumption.prediction.estimatedMinDays}–{consumption.prediction.estimatedMaxDays}d range)
-                  </span>
-                )}
               </div>
-            </div>
-            <div className="flex flex-col gap-2 w-full md:w-auto md:min-w-[210px] bg-black/20 p-3 rounded-xl border border-white/5">
-              <div className="text-xs text-white/70 flex justify-between">
-                <span>Avg Daily Usage:</span>
-                <span className="font-semibold text-white">
-                  {consumption?.prediction ? `${consumption.prediction.averageDailyUsageKwh} kWh/day` : '0.0 kWh'}
-                </span>
+
+              {/* Right Column: Dedicated Current Month Accrued Bill Box */}
+              <div className="bg-black/40 p-3.5 sm:p-4 rounded-2xl border border-white/10 flex flex-col justify-between backdrop-blur-md">
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-yellow-300">
+                      <Calendar className="h-3.5 w-3.5 text-yellow-400" />
+                      <span>Current Month Accrued Bill</span>
+                    </div>
+                    <span className="text-[10px] text-white/50 uppercase tracking-wider font-mono">
+                      PUCSL Tariff
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-2xl sm:text-3xl font-extrabold text-amber-300 font-mono">
+                      Rs. {consumption?.prediction 
+                        ? Number(consumption.prediction.currentCycleLiability).toLocaleString('en-US', {minimumFractionDigits: 2})
+                        : '0.00'}
+                    </span>
+                    <span className="text-xs text-white/60">
+                      ({consumption?.prediction ? consumption.prediction.billingCycleConsumptionKwh : '0.0'} kWh)
+                    </span>
+                  </div>
+
+                  <div className="text-[11px] text-white/60 mt-2.5 flex flex-col gap-1">
+                    <div className="flex justify-between">
+                      <span>Energy Charge:</span>
+                      <span className="text-white font-mono">Rs. {consumption?.prediction ? Number(consumption.prediction.energyCharge || 0).toFixed(2) : '0.00'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Fixed Monthly Charge:</span>
+                      <span className="text-white font-mono">Rs. {consumption?.prediction ? Number(consumption.prediction.fixedCharge || 0).toFixed(2) : '0.00'}</span>
+                    </div>
+                    <div className="flex justify-between text-yellow-200/80 pt-1 border-t border-white/5">
+                      <span>Tariff Group:</span>
+                      <span className="font-semibold">{consumption?.prediction ? consumption.prediction.currentTariffGroup : 'Group A'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3.5 pt-2.5 border-t border-white/10 flex flex-col sm:flex-row gap-2">
+                  <Button
+                    onClick={() => onNavigate?.("payments")}
+                    className="flex-1 bg-yellow-400 text-black hover:bg-yellow-500 font-bold shadow-lg hover:scale-[1.02] transition-transform h-8 text-xs cursor-pointer"
+                  >
+                    Recharge Now
+                  </Button>
+                  <Button
+                    onClick={handleSettleCycle}
+                    disabled={settlingCycle}
+                    variant="outline"
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20 h-8 text-xs font-semibold cursor-pointer"
+                    title="Deducts the accrued monthly bill from prepaid balance"
+                  >
+                    {settlingCycle ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Receipt className="h-3 w-3 mr-1 text-yellow-400" />}
+                    Settle Cycle
+                  </Button>
+                </div>
               </div>
-              <div className="text-xs text-white/70 flex justify-between">
-                <span>Tariff System:</span>
-                <span className="font-semibold text-yellow-300">PUCSL Block</span>
-              </div>
-              <Button
-                onClick={() => onNavigate?.("payments")}
-                className="w-full bg-yellow-400 text-black hover:bg-yellow-500 font-bold shadow-lg hover:scale-105 transition-transform mt-1 h-9 text-xs cursor-pointer"
-              >
-                Recharge Now
-              </Button>
             </div>
           </CardContent>
         </Card>
