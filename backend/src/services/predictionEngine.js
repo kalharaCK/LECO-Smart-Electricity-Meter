@@ -165,10 +165,15 @@ function getWalletLifetimePrediction({
   // Base prediction for tomorrow
   const { predictedKWh, avgDailyKwh, confidence } = predictDailyConsumption(dailyHistory, new Date());
   const currentBill = calculateDomesticBill(cycleKWh);
+  const projectedNet = Math.round((balance - currentBill.totalCharge) * 100) / 100;
 
-  if (effectiveBuffer <= 0) {
+  // Effective available buffer considering accrued cycle bill
+  const netBuffer = isLifeline ? Math.max(0, projectedNet + limit) : Math.max(0, projectedNet);
+
+  if (netBuffer <= 0) {
     return {
       walletBalance: Math.round(balance * 100) / 100,
+      projectedNetBalance: projectedNet,
       estimatedDaysRemaining: 0,
       estimatedMinDays: 0,
       estimatedMaxDays: 0,
@@ -177,6 +182,8 @@ function getWalletLifetimePrediction({
       billingCycleConsumptionKwh: cycleKWh,
       currentTariffGroup: currentBill.group,
       currentCycleLiability: currentBill.totalCharge,
+      energyCharge: currentBill.energyCharge,
+      fixedCharge: currentBill.fixedCharge,
       predictionConfidence: confidence,
       predictionMethod: "WEIGHTED_HISTORICAL",
       isLifelineActive: isLifeline,
@@ -187,10 +194,10 @@ function getWalletLifetimePrediction({
     };
   }
 
-  // Simulate under three scenarios with effective available buffer
+  // Simulate under three scenarios with net available buffer
   // Normal usage (1.00x)
   const normalDays = simulateWalletLifetime({
-    walletBalance: effectiveBuffer,
+    walletBalance: netBuffer,
     currentCycleKWh: cycleKWh,
     currentCycleDay,
     dailyHistory,
@@ -199,7 +206,7 @@ function getWalletLifetimePrediction({
 
   // High usage (1.15x) -> yields shorter wallet lifetime (minDays)
   const minDays = simulateWalletLifetime({
-    walletBalance: effectiveBuffer,
+    walletBalance: netBuffer,
     currentCycleKWh: cycleKWh,
     currentCycleDay,
     dailyHistory,
@@ -208,7 +215,7 @@ function getWalletLifetimePrediction({
 
   // Low usage (0.85x) -> yields longer wallet lifetime (maxDays)
   const maxDays = simulateWalletLifetime({
-    walletBalance: effectiveBuffer,
+    walletBalance: netBuffer,
     currentCycleKWh: cycleKWh,
     currentCycleDay,
     dailyHistory,
@@ -217,6 +224,7 @@ function getWalletLifetimePrediction({
 
   return {
     walletBalance: Math.round(balance * 100) / 100,
+    projectedNetBalance: projectedNet,
     estimatedDaysRemaining: Math.round(normalDays),
     estimatedMinDays: Math.max(0, Math.floor(minDays)),
     estimatedMaxDays: Math.max(Math.round(normalDays), Math.ceil(maxDays)),
@@ -225,6 +233,8 @@ function getWalletLifetimePrediction({
     billingCycleConsumptionKwh: Math.round(cycleKWh * 100) / 100,
     currentTariffGroup: currentBill.group,
     currentCycleLiability: currentBill.totalCharge,
+    energyCharge: currentBill.energyCharge,
+    fixedCharge: currentBill.fixedCharge,
     predictionConfidence: confidence,
     predictionMethod: "WEIGHTED_HISTORICAL",
     isLifelineActive: isLifeline,
