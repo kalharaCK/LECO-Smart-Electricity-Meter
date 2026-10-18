@@ -101,7 +101,9 @@ export default function PaymentHistorySection({
 
   // Summary statistics
   const stats = useMemo(() => {
-    const totalAmount = payments.reduce((acc, curr) => acc + Number(curr.amount || 0), 0)
+    const totalAmount = payments
+      .filter((p) => p.payment_method !== "Monthly Cycle Settlement")
+      .reduce((acc, curr) => acc + Number(curr.amount || 0), 0)
     const count = payments.length
     const latest = payments[0] || null
     return { totalAmount, count, latest }
@@ -115,6 +117,8 @@ export default function PaymentHistorySection({
         return <Smartphone className="h-4 w-4 text-emerald-400" />
       case "bank":
         return <Building2 className="h-4 w-4 text-blue-400" />
+      case "monthly cycle settlement":
+        return <Receipt className="h-4 w-4 text-amber-400" />
       default:
         return <CreditCard className="h-4 w-4 text-yellow-400" />
     }
@@ -128,6 +132,8 @@ export default function PaymentHistorySection({
         return "Mobile Wallet"
       case "bank":
         return "Bank Transfer"
+      case "monthly cycle settlement":
+        return "Cycle Settlement"
       default:
         return method || "Card"
     }
@@ -241,7 +247,7 @@ export default function PaymentHistorySection({
 
             {/* Filter pills with mobile horizontal scroll */}
             <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-xl border border-white/10 text-xs overflow-x-auto w-full sm:w-auto scrollbar-none">
-              {["all", "card", "wallet", "bank"].map((m) => (
+              {["all", "card", "wallet", "bank", "Monthly Cycle Settlement"].map((m) => (
                 <button
                   key={m}
                   onClick={() => setMethodFilter(m)}
@@ -251,7 +257,7 @@ export default function PaymentHistorySection({
                       : "text-white/60 hover:text-white"
                   }`}
                 >
-                  {m === "all" ? "All" : m}
+                  {m === "all" ? "All" : m === "Monthly Cycle Settlement" ? "Cycle Bills" : m}
                 </button>
               ))}
             </div>
@@ -338,8 +344,13 @@ export default function PaymentHistorySection({
                           )}
                         </button>
                       </div>
-                      <div className="font-bold text-base text-green-400">
-                        + Rs. {Number(item.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      <div className={`font-bold text-base ${
+                        item.payment_method === "Monthly Cycle Settlement" || Number(item.new_balance) < Number(item.previous_balance)
+                          ? "text-amber-400" 
+                          : "text-green-400"
+                      }`}>
+                        {item.payment_method === "Monthly Cycle Settlement" || Number(item.new_balance) < Number(item.previous_balance) ? "- " : "+ "}
+                        Rs. {Number(item.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                       </div>
                     </div>
 
@@ -451,8 +462,13 @@ export default function PaymentHistorySection({
 
                         {/* Amount */}
                         <td className="py-3.5 px-4 whitespace-nowrap text-right">
-                          <span className="font-bold text-green-400 text-sm">
-                            + Rs. {Number(item.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                          <span className={`font-bold text-sm ${
+                            item.payment_method === "Monthly Cycle Settlement" || Number(item.new_balance) < Number(item.previous_balance)
+                              ? "text-amber-400"
+                              : "text-green-400"
+                          }`}>
+                            {item.payment_method === "Monthly Cycle Settlement" || Number(item.new_balance) < Number(item.previous_balance) ? "- " : "+ "}
+                            Rs. {Number(item.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                           </span>
                         </td>
 
@@ -568,9 +584,16 @@ export default function PaymentHistorySection({
                 <span>Previous Balance</span>
                 <span>Rs. {Number(selectedReceipt.previous_balance).toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-xs text-green-400">
-                <span>Credit Added</span>
-                <span className="font-medium">+ Rs. {Number(selectedReceipt.amount).toFixed(2)}</span>
+              <div className={`flex justify-between text-xs ${
+                selectedReceipt.payment_method === "Monthly Cycle Settlement" || Number(selectedReceipt.new_balance) < Number(selectedReceipt.previous_balance)
+                  ? "text-amber-400"
+                  : "text-green-400"
+              }`}>
+                <span>{selectedReceipt.payment_method === "Monthly Cycle Settlement" ? "Cycle Bill Deducted" : "Credit Added"}</span>
+                <span className="font-medium">
+                  {selectedReceipt.payment_method === "Monthly Cycle Settlement" || Number(selectedReceipt.new_balance) < Number(selectedReceipt.previous_balance) ? "- " : "+ "}
+                  Rs. {Number(selectedReceipt.amount).toFixed(2)}
+                </span>
               </div>
               <div className="flex justify-between text-sm sm:text-base font-bold pt-2 border-t border-white/10 items-baseline">
                 <span>New Balance</span>
