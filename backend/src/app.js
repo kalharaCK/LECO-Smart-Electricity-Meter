@@ -3,16 +3,21 @@ const helmet = require('helmet');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/authRoutes');
+const staffRoutes = require('./routes/staffRoutes');
+const customerRoutes = require('./routes/customerRoutes');
 const meterRoutes = require('./routes/meterRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const { sanitizeInputs } = require('./middlewares/sanitizer');
+const { errorHandler } = require('./middlewares/errorHandler');
+const { requireAuth } = require('./middlewares/authMiddleware');
+const { handlePayhereNotify, initPayhereCheckout, completePayhereCheckout } = require('./controllers/payhereController');
+const { pool } = require('./config/db');
 
 const app = express();
 
-// Phase 5 Step 5: Apply HTTP Security Headers
 // 1. Strip X-Powered-By to prevent framework fingerprinting
 app.disable('x-powered-by');
 
@@ -31,50 +36,110 @@ app.use(
           "http://localhost:3000",
           "http://localhost:5173",
           "http://localhost:5174",
+          "http://127.0.0.1:5173",
+          "http://127.0.0.1:5174",
           "ws://localhost:3000",
           "wss://localhost:3000",
           "https:"
         ],
-        frameAncestors: ["'none'"], // CSP anti-clickjacking
+        frameAncestors: ["'none'"],
       },
     },
     frameguard: {
-      action: 'deny', // X-Frame-Options: DENY
+      action: 'deny',
     },
-    noSniff: true, // X-Content-Type-Options: nosniff
+    noSniff: true,
     hidePoweredBy: true,
   })
 );
 
-// Middlewares
+// 3. CORS Configuration supporting Customer (5173) and Staff (5174) portals
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  process.env.STAFF_FRONTEND_URL || 'http://localhost:5174',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174'
+];
+
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:5173',
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:5174'
-  ],
+  origin: (origin, callback) => {
+    // Allow server-to-server or curl requests without origin
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, true); // Permissive for local dev multi-port access
+  },
   credentials: true
 }));
-app.use(cookieParser());
-app.use(express.json({ limit: '100kb' }));
 
-// Phase 5 Step 6: Input Sanitization across all request bodies, queries, and params
+// 4. Body parsing & cookie middleware
+app.use(cookieParser());
+app.use(express.json({ limit: '200kb' }));
+app.use(express.urlencoded({ extended: true, limit: '200kb' }));
+
+// 5. Input Sanitization against XSS & script injection
 app.use(sanitizeInputs);
 
-// Routes
-app.use('/api', authRoutes);
+// 6. Primary REST API Routes
+// Authentication
 app.use('/api/auth', authRoutes);
+app.use('/api', authRoutes); // Backwards compatibility for /api/login, /api/signup, /api/logout
+
+// Dedicated Staff Operations Portal Routes (Guarded by requireStaff)
+app.use('/api/staff', staffRoutes);
+
+// Dedicated Customer Portal Routes (Guarded by requireCustomer)
+app.use('/api/customer', customerRoutes);
+
+// Backwards-compatible routes with strict security guards in place
 app.use('/api/meters', meterRoutes);
+app.use('/api/complaints', complaintRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
-app.use('/api/complaints', complaintRoutes);
 app.use('/api/settings', settingsRoutes);
 
-// Health Check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Backend is running' });
+// PayHere Payment Gateway Handlers & Server-to-Server IPN Webhook
+app.post('/api/payments/payhere-notify', handlePayhereNotify);
+app.post('/api/payments/payhere-init', requireAuth, initPayhereCheckout);
+app.post('/api/payments/payhere-complete', requireAuth, completePayhereCheckout);
+
+// 7. REST Health & Diagnostics Check
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'healthy';
+  let dbLatencyMs = 0;
+  try {
+    const start = Date.now();
+    await pool.query('SELECT 1');
+    dbLatencyMs = Date.now() - start;
+  } catch (err) {
+    dbStatus = 'degraded: ' + err.message;
+  }
+
+  res.json({
+    status: 'ok',
+    service: 'LECO Smart AMI REST Engine',
+    database: {
+      status: dbStatus,
+      latencyMs: dbLatencyMs,
+      provider: 'Neon PostgreSQL'
+    },
+    uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString()
+  });
 });
+
+// 8. 404 Handler for unknown endpoints
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: `Endpoint not found: ${req.method} ${req.originalUrl}`,
+    status: 404
+  });
+});
+
+// 9. Centralized Error Handling Middleware
+app.use(errorHandler);
 
 module.exports = app;

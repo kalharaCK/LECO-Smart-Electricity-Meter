@@ -15,28 +15,36 @@ const {
   toggleMeterRelay,
   staffTopupMeter
 } = require('../controllers/meterController');
-const { requireAuth } = require('../middlewares/authMiddleware');
+const { requireAuth, requireCustomer, requireStaff } = require('../middlewares/authMiddleware');
 const { meterLinkRateLimiter } = require('../middlewares/rateLimiter');
 const { validateMeterInput } = require('../middlewares/sanitizer');
 
 const router = express.Router();
 
-// All meter routes require authentication
+// General authentication barrier
 router.use(requireAuth);
 
-router.get('/', getUserMeters);
-router.get('/all', getAllMetersForStaff);
-router.post('/add', meterLinkRateLimiter, validateMeterInput, addMeter);
-router.patch('/:meterId/name', updateMeterName);
-router.post('/:meterId/toggle-relay', toggleMeterRelay);
-router.post('/:meterId/staff-topup', staffTopupMeter);
-router.post('/:meterId/emergency-credit', activateEmergencyCredit);
-router.post('/:meterId/simulate-consumption', simulateConsumption);
-router.post('/:meterId/settle-cycle', settleMonthlyCycle);
-router.post('/:meterId/set-balance', setMeterBalance);
-router.get('/payments/history', getPaymentHistory);
-router.get('/:meterId/consumption', getMeterConsumption);
-router.get('/:meterId/prediction', getMeterPrediction);
-router.post('/:meterId/recharge', rechargeMeter);
+/**
+ * Staff-only operations (Strictly guarded by requireStaff)
+ * Prevents ordinary customers from manipulating grid status or crediting balances
+ */
+router.get('/all', requireStaff, getAllMetersForStaff);
+router.post('/:meterId/toggle-relay', requireStaff, toggleMeterRelay);
+router.post('/:meterId/staff-topup', requireStaff, staffTopupMeter);
+
+/**
+ * Customer-only meter operations (Guarded by requireCustomer)
+ */
+router.get('/', requireCustomer, getUserMeters);
+router.post('/add', requireCustomer, meterLinkRateLimiter, validateMeterInput, addMeter);
+router.patch('/:meterId/name', requireCustomer, updateMeterName);
+router.post('/:meterId/emergency-credit', requireCustomer, activateEmergencyCredit);
+router.post('/:meterId/simulate-consumption', requireCustomer, simulateConsumption);
+router.post('/:meterId/settle-cycle', requireCustomer, settleMonthlyCycle);
+router.post('/:meterId/set-balance', requireCustomer, setMeterBalance);
+router.get('/payments/history', requireCustomer, getPaymentHistory);
+router.get('/:meterId/consumption', requireCustomer, getMeterConsumption);
+router.get('/:meterId/prediction', requireCustomer, getMeterPrediction);
+router.post('/:meterId/recharge', requireCustomer, rechargeMeter);
 
 module.exports = router;

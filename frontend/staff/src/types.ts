@@ -48,3 +48,30 @@ export interface StaffUser {
   email: string
   role: string
 }
+
+export interface PayhereTransaction {
+  id: number
+  user_id: number
+  meter_id: number
+  amount: string | number
+  payment_method: string
+  transaction_id: string
+  order_id?: string
+  payhere_payment_id?: string
+  payhere_currency?: string
+  previous_balance: string | number
+  new_balance: string | number
+  status: 'Success' | 'Pending' | 'Failed' | string
+  card_holder_name?: string
+  card_no?: string
+  payment_gateway?: string
+  verified_at?: string
+  verified_by?: string
+  verification_notes?: string
+  created_at: string
+  meter_number?: string
+  account_number?: string
+  meter_name?: string
+  meter_status?: string
+  customer_email?: string
+}

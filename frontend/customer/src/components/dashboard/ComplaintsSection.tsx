@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { getSocket } from "@/lib/socket"
+import { useDashboardI18n } from "@/lib/dashboardI18n"
 import {
   Phone,
   Send,
@@ -55,32 +56,8 @@ interface Complaint {
   updated_at: string
 }
 
-const COMPLAINT_TYPES = [
-  { id: "recharge-problem", label: "Recharge / Token Issue", desc: "Money debited but meter balance not credited", icon: CreditCard },
-  { id: "incorrect-balance", label: "Incorrect Balance", desc: "Balance deduction mismatch or rate dispute", icon: Sliders },
-  { id: "meter-issue", label: "Meter Hardware Issue", desc: "LCD dark, red fault indicator, or relay trip", icon: Zap },
-  { id: "power-interruption", label: "Power Interruption", desc: "Unexpected blackout or single-phase loss", icon: ZapOff },
-  { id: "high-consumption", label: "High Consumption Surge", desc: "Abnormal surge in daily kWh consumption", icon: TrendingUp },
-  { id: "voltage-fluctuation", label: "Voltage Fluctuation", desc: "Flickering lights or high/low voltage hazard", icon: Activity },
-  { id: "connection-problem", label: "Smart Connectivity Problem", desc: "Meter offline or telemetry not sending", icon: Wifi },
-  { id: "other", label: "Other Support Request", desc: "General administrative or account assistance", icon: HelpCircle }
-]
-
-const PRIORITIES = [
-  { id: "low", label: "Low Priority", sla: "48h SLA", desc: "General inquiry or tariff question", color: "text-emerald-400", dot: "bg-emerald-400" },
-  { id: "medium", label: "Medium Priority", sla: "24h SLA", desc: "Standard meter or billing issue", color: "text-yellow-400", dot: "bg-yellow-400" },
-  { id: "high", label: "High Priority", sla: "6h SLA", desc: "Recharge or balance deduction failure", color: "text-orange-400", dot: "bg-orange-400" },
-  { id: "emergency", label: "Emergency Breakdown", sla: "Immediate", desc: "Total blackout or electrical hazard", color: "text-red-400", dot: "bg-red-400" }
-]
-
-const STATUS_STEPS: Array<{ key: Complaint["status"]; label: string; desc: string }> = [
-  { key: "submitted", label: "Queued", desc: "Logged in LECO system and queued for dispatch" },
-  { key: "in_review", label: "In Review", desc: "Assigned to Support Specialist / Billing Officer" },
-  { key: "investigating", label: "Under Investigation", desc: "Engineering telemetry audit or field inspection" },
-  { key: "resolved", label: "Resolved", desc: "Issue addressed, balance synchronized, or service restored" }
-]
-
 export default function ComplaintsSection() {
+  const { t } = useDashboardI18n()
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [meters, setMeters] = useState<Meter[]>([])
   const [selectedComplaintId, setSelectedComplaintId] = useState<number | null>(null)
@@ -99,6 +76,31 @@ export default function ComplaintsSection() {
   const [isPriorityOpen, setIsPriorityOpen] = useState(false)
   const categoryRef = React.useRef<HTMLDivElement>(null)
   const priorityRef = React.useRef<HTMLDivElement>(null)
+
+  const complaintTypes = [
+    { id: "recharge-problem", label: t.complaints.typeRechargeProblem, icon: CreditCard },
+    { id: "incorrect-balance", label: t.complaints.typeIncorrectBalance, icon: Sliders },
+    { id: "meter-issue", label: t.complaints.typeMeterFault, icon: Zap },
+    { id: "power-interruption", label: t.complaints.typePowerInterruption, icon: ZapOff },
+    { id: "high-consumption", label: t.complaints.typeHighConsumption, icon: TrendingUp },
+    { id: "voltage-fluctuation", label: t.complaints.typeVoltageFluctuation, icon: Activity },
+    { id: "connection-problem", label: t.complaints.typeConnectionProblem, icon: Wifi },
+    { id: "other", label: t.complaints.typeOther, icon: HelpCircle }
+  ]
+
+  const priorities = [
+    { id: "low", label: t.complaints.priorityLow, sla: "48h", color: "text-emerald-400", dot: "bg-emerald-400" },
+    { id: "medium", label: t.complaints.priorityMedium, sla: "24h", color: "text-yellow-400", dot: "bg-yellow-400" },
+    { id: "high", label: t.complaints.priorityHigh, sla: "6h", color: "text-orange-400", dot: "bg-orange-400" },
+    { id: "emergency", label: t.complaints.priorityEmergency, sla: "Immediate", color: "text-red-400", dot: "bg-red-400" }
+  ]
+
+  const statusSteps = [
+    { key: "submitted", label: t.complaints.queued },
+    { key: "in_review", label: t.complaints.inReview },
+    { key: "investigating", label: t.complaints.investigating },
+    { key: "resolved", label: t.complaints.resolved }
+  ]
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -119,7 +121,6 @@ export default function ComplaintsSection() {
   const [submittedTicket, setSubmittedTicket] = useState<Complaint | null>(null)
   const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: "success" | "error" } | null>(null)
 
-  // Helper to ensure both httpOnly cookies and Bearer tokens are attached
   const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
     const token = localStorage.getItem("token")
     const headers: Record<string, string> = { ...extraHeaders }
@@ -141,7 +142,6 @@ export default function ComplaintsSection() {
         const list: Complaint[] = data.complaints || []
         setComplaints(list)
 
-        // Select the first active complaint by default if none selected
         if (list.length > 0) {
           setSelectedComplaintId((prev) => {
             if (prev && list.some((c) => c.id === prev)) return prev
@@ -183,10 +183,8 @@ export default function ComplaintsSection() {
     init()
   }, [fetchComplaints, fetchMeters])
 
-  // Real-time WebSocket listener for live complaint updates
   useEffect(() => {
     const socket = getSocket()
-
     const handleComplaintUpdate = (updated: Complaint) => {
       setComplaints((prev) => {
         const exists = prev.some((c) => c.id === updated.id)
@@ -207,7 +205,7 @@ export default function ComplaintsSection() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!subject.trim() || !description.trim()) {
-      setFeedbackMsg({ text: "Please enter both subject and description.", type: "error" })
+      setFeedbackMsg({ text: t.complaints.descriptionPlaceholder, type: "error" })
       return
     }
 
@@ -215,7 +213,7 @@ export default function ComplaintsSection() {
     setFeedbackMsg(null)
 
     try {
-      const selectedTypeObj = COMPLAINT_TYPES.find((t) => t.id === complaintType)
+      const selectedTypeObj = complaintTypes.find((ct) => ct.id === complaintType)
       const res = await fetch("http://localhost:3000/api/complaints", {
         method: "POST",
         headers: getAuthHeaders({
@@ -239,19 +237,18 @@ export default function ComplaintsSection() {
         setSubmittedTicket(newTicket)
         setSelectedComplaintId(newTicket.id)
 
-        // Reset form inputs
         setSubject("")
         setDescription("")
         setPriority("medium")
       } else {
         setFeedbackMsg({
-          text: data.message || "Failed to submit complaint. Please try again.",
+          text: data.message || t.payments.paymentFailed,
           type: "error"
         })
       }
     } catch (err) {
       console.error("Error submitting complaint:", err)
-      setFeedbackMsg({ text: "Network error submitting complaint.", type: "error" })
+      setFeedbackMsg({ text: t.payments.networkError, type: "error" })
     } finally {
       setSubmitting(false)
     }
@@ -259,11 +256,9 @@ export default function ComplaintsSection() {
 
   // Derived Filtered Complaints
   const filteredComplaints = complaints.filter((c) => {
-    // Filter Tab
     if (filterTab === "active" && (c.status === "resolved" || c.status === "closed")) return false
     if (filterTab === "resolved" && c.status !== "resolved" && c.status !== "closed") return false
 
-    // Search Query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       const matchTicket = c.ticket_number.toLowerCase().includes(q)
@@ -275,10 +270,9 @@ export default function ComplaintsSection() {
   })
 
   const selectedComplaint = complaints.find((c) => c.id === selectedComplaintId) || complaints[0]
-  const selectedCategory = COMPLAINT_TYPES.find((t) => t.id === complaintType) || COMPLAINT_TYPES[0]
-  const selectedPriority = PRIORITIES.find((p) => p.id === priority) || PRIORITIES[1]
+  const selectedCategory = complaintTypes.find((ct) => ct.id === complaintType) || complaintTypes[0]
+  const selectedPriority = priorities.find((p) => p.id === priority) || priorities[1]
 
-  // Queue step helper
   const getStepIndex = (status: Complaint["status"]) => {
     switch (status) {
       case "submitted":
@@ -308,31 +302,31 @@ export default function ComplaintsSection() {
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-400/20 text-yellow-300 border border-yellow-400/30">
                 <ShieldAlert className="h-3.5 w-3.5 mr-1" />
-                Support Desk
+                {t.complaints.title}
               </span>
               <span className="text-white/40 text-sm">•</span>
-              <span className="text-white/60 text-xs">LECO 24/7 Service Guarantee</span>
+              <span className="text-white/60 text-xs">LECO 24/7 Service</span>
             </div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight">Support Tickets & Queue Tracking</h1>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight">{t.complaints.title}</h1>
             <p className="text-white/70 text-xs sm:text-sm mt-1 max-w-2xl">
-              Submit issues regarding meter hardware, balance discrepancies, or power interruptions. Track real-time progress through our engineering resolution queue.
+              {t.complaints.subtitle}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <div className="bg-black/40 border border-white/10 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-center flex-1 sm:flex-initial min-w-[70px] sm:min-w-[90px]">
-              <div className="text-[10px] sm:text-xs text-white/50 uppercase font-medium">In Queue</div>
+              <div className="text-[10px] sm:text-xs text-white/50 uppercase font-medium">{t.complaints.filterActive}</div>
               <div className="text-lg sm:text-xl font-bold text-yellow-400 flex items-center justify-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
                 {activeCount}
               </div>
             </div>
             <div className="bg-black/40 border border-white/10 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-center flex-1 sm:flex-initial min-w-[70px] sm:min-w-[90px]">
-              <div className="text-[10px] sm:text-xs text-white/50 uppercase font-medium">Resolved</div>
+              <div className="text-[10px] sm:text-xs text-white/50 uppercase font-medium">{t.complaints.resolved}</div>
               <div className="text-lg sm:text-xl font-bold text-green-400">{resolvedCount}</div>
             </div>
             <div className="bg-black/40 border border-white/10 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-center flex-1 sm:flex-initial min-w-[70px] sm:min-w-[90px]">
-              <div className="text-[10px] sm:text-xs text-white/50 uppercase font-medium">Total</div>
+              <div className="text-[10px] sm:text-xs text-white/50 uppercase font-medium">{t.complaints.filterAll}</div>
               <div className="text-lg sm:text-xl font-bold text-white">{complaints.length}</div>
             </div>
             <Button
@@ -340,7 +334,7 @@ export default function ComplaintsSection() {
               variant="outline"
               size="icon"
               className="bg-black/30 border-white/10 text-white hover:bg-white/10 h-10 w-10 sm:h-11 sm:w-11 rounded-xl cursor-pointer shrink-0"
-              title="Refresh Complaints Queue"
+              title="Refresh"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
@@ -350,26 +344,22 @@ export default function ComplaintsSection() {
 
       {/* Main Two-Column Layout */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Complaint Submission Form (5 Cols) */}
+        {/* Left Column: Complaint Submission Form */}
         <div className="xl:col-span-5 space-y-6">
           <Card className="bg-gradient-to-br from-[#992511] via-[#5c1307] to-[#2b0803] border-white/10 shadow-2xl text-white overflow-hidden relative">
             <div className="absolute top-0 right-0 -mt-8 -mr-8 w-40 h-40 bg-yellow-400/10 rounded-full blur-2xl pointer-events-none" />
 
             <CardHeader className="border-b border-white/10 pb-4">
               <CardTitle className="text-xl font-bold flex items-center justify-between">
-                <span>File a Complaint</span>
-                <span className="text-xs font-normal px-2.5 py-1 rounded-full bg-black/30 border border-white/10 text-white/70">
-                  Step 1: Submission
-                </span>
+                <span>{t.complaints.newComplaint}</span>
               </CardTitle>
               <CardDescription className="text-white/70 text-xs">
-                Fill out the details below. A unique ticket ID will be generated and routed directly into our dispatch queue.
+                {t.complaints.subtitle}
               </CardDescription>
             </CardHeader>
 
             <CardContent className="pt-6">
               {submittedTicket ? (
-                /* Success View with Direct Navigation to Queue */
                 <div className="text-center py-6 animate-in zoom-in-95 duration-400 space-y-5">
                   <div className="mx-auto w-16 h-16 bg-green-500/20 border border-green-500/40 text-green-400 flex items-center justify-center rounded-2xl shadow-lg shadow-green-500/10">
                     <CheckCircle2 className="h-9 w-9" />
@@ -377,31 +367,12 @@ export default function ComplaintsSection() {
 
                   <div>
                     <span className="text-xs uppercase tracking-wider font-semibold text-yellow-400 bg-yellow-400/10 px-3 py-1 rounded-full border border-yellow-400/20">
-                      Successfully Queued
+                      {t.complaints.queued}
                     </span>
-                    <h3 className="text-2xl font-bold mt-2">Ticket #{submittedTicket.ticket_number}</h3>
+                    <h3 className="text-2xl font-bold mt-2">{t.complaints.ticketNumber} #{submittedTicket.ticket_number}</h3>
                     <p className="text-white/70 text-sm mt-1 max-w-sm mx-auto">
-                      Your complaint has been submitted and assigned to position{" "}
-                      <span className="font-semibold text-white">#1</span> in the active engineering review queue.
+                      {t.complaints.feedbackSubmitted}
                     </p>
-                  </div>
-
-                  <div className="bg-black/30 border border-white/10 rounded-xl p-4 text-left space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-white/50">Category:</span>
-                      <span className="font-medium text-white">{submittedTicket.complaint_type}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-white/50">Priority:</span>
-                      <span className="font-semibold uppercase text-yellow-400">{submittedTicket.priority}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-white/50">Initial Status:</span>
-                      <span className="text-yellow-400 font-semibold flex items-center gap-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-yellow-400 animate-pulse" />
-                        Queued for Review
-                      </span>
-                    </div>
                   </div>
 
                   <div className="space-y-2.5 pt-2">
@@ -410,22 +381,21 @@ export default function ComplaintsSection() {
                         setSelectedComplaintId(submittedTicket.id)
                         setSubmittedTicket(null)
                       }}
-                      className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-11 rounded-xl shadow-lg"
+                      className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-11 rounded-xl shadow-lg cursor-pointer"
                     >
                       <ArrowRight className="h-4 w-4 mr-2" />
-                      View Live Tracking in Queue
+                      {t.complaints.myComplaints}
                     </Button>
                     <Button
                       onClick={() => setSubmittedTicket(null)}
                       variant="outline"
-                      className="w-full bg-black/20 border-white/20 text-white hover:bg-white/10 h-10 rounded-xl text-xs"
+                      className="w-full bg-black/20 border-white/20 text-white hover:bg-white/10 h-10 rounded-xl text-xs cursor-pointer"
                     >
-                      Submit Another Complaint
+                      {t.complaints.newComplaint}
                     </Button>
                   </div>
                 </div>
               ) : (
-                /* Submission Form */
                 <form onSubmit={handleSubmit} className="space-y-5">
                   {feedbackMsg && (
                     <div
@@ -439,11 +409,10 @@ export default function ComplaintsSection() {
                     </div>
                   )}
 
-                  {/* Issue Category - Sleek Executive Dropdown */}
+                  {/* Issue Category */}
                   <div className="space-y-1.5 relative" ref={categoryRef}>
                     <Label className="text-white text-xs font-semibold uppercase tracking-wider flex items-center justify-between">
-                      <span>Issue Category</span>
-                      <span className="text-[10px] text-white/50 normal-case">Select primary problem</span>
+                      <span>{t.complaints.selectCategory}</span>
                     </Label>
 
                     <button
@@ -458,13 +427,8 @@ export default function ComplaintsSection() {
                         <div className="w-8 h-8 rounded-lg bg-yellow-400/15 border border-yellow-400/30 flex items-center justify-center text-yellow-400 shrink-0">
                           <selectedCategory.icon className="h-4 w-4" />
                         </div>
-                        <div>
-                          <div className="text-xs font-bold text-white group-hover:text-yellow-300 transition-colors">
-                            {selectedCategory.label}
-                          </div>
-                          <div className="text-[10px] text-white/50 line-clamp-1">
-                            {selectedCategory.desc}
-                          </div>
+                        <div className="text-xs font-bold text-white group-hover:text-yellow-300 transition-colors">
+                          {selectedCategory.label}
                         </div>
                       </div>
                       <ChevronDown
@@ -474,18 +438,17 @@ export default function ComplaintsSection() {
                       />
                     </button>
 
-                    {/* Category Popover Menu */}
                     {isCategoryOpen && (
                       <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-[#1e0703]/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150 max-h-60 overflow-y-auto">
-                        {COMPLAINT_TYPES.map((t) => {
-                          const IconComp = t.icon
-                          const isSelected = complaintType === t.id
+                        {complaintTypes.map((ct) => {
+                          const IconComp = ct.icon
+                          const isSelected = complaintType === ct.id
                           return (
                             <button
-                              key={t.id}
+                              key={ct.id}
                               type="button"
                               onClick={() => {
-                                setComplaintType(t.id)
+                                setComplaintType(ct.id)
                                 setIsCategoryOpen(false)
                               }}
                               className={`w-full p-2 rounded-xl text-left flex items-center justify-between transition-all cursor-pointer ${
@@ -504,10 +467,7 @@ export default function ComplaintsSection() {
                                 >
                                   <IconComp className="h-3.5 w-3.5" />
                                 </div>
-                                <div>
-                                  <div className="text-xs font-semibold text-white">{t.label}</div>
-                                  <div className="text-[10px] text-white/50">{t.desc}</div>
-                                </div>
+                                <div className="text-xs font-semibold text-white">{ct.label}</div>
                               </div>
                               {isSelected && <Check className="h-3.5 w-3.5 text-yellow-400 mr-1 shrink-0" />}
                             </button>
@@ -517,12 +477,11 @@ export default function ComplaintsSection() {
                     )}
                   </div>
 
-                  {/* Meter Association & Priority in Balanced Two Columns */}
+                  {/* Meter & Priority */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    {/* Affected Smart Meter */}
                     <div className="space-y-1.5">
                       <Label htmlFor="meter-select" className="text-white text-xs font-semibold uppercase tracking-wider">
-                        Affected Smart Meter
+                        {t.complaints.meterOptional}
                       </Label>
                       {meters.length > 0 ? (
                         <div className="relative">
@@ -534,7 +493,7 @@ export default function ComplaintsSection() {
                           >
                             {meters.map((m) => (
                               <option key={m.id} value={m.id} className="bg-[#240804] text-white">
-                                {m.meter_number} — {m.name || "Home"}
+                                {m.meter_number} — {m.name || "Meter"}
                               </option>
                             ))}
                           </select>
@@ -543,18 +502,14 @@ export default function ComplaintsSection() {
                       ) : (
                         <div className="bg-black/30 border border-white/10 rounded-xl px-3.5 py-2 flex items-center gap-2.5 text-white/60 text-xs h-[42px]">
                           <ShieldAlert className="h-4 w-4 text-yellow-400/80 shrink-0" />
-                          <div className="line-clamp-1">
-                            <span className="font-semibold text-white/80">General Account</span>
-                            <span className="text-[9px] text-white/40 block leading-tight">No meter linked yet</span>
-                          </div>
+                          <span className="font-semibold text-white/80">{t.header.portalTitle}</span>
                         </div>
                       )}
                     </div>
 
-                    {/* Priority Selector with Custom Dropdown */}
                     <div className="space-y-1.5 relative" ref={priorityRef}>
                       <Label className="text-white text-xs font-semibold uppercase tracking-wider">
-                        Urgency / SLA
+                        {t.complaints.priorityLabel}
                       </Label>
 
                       <button
@@ -567,12 +522,9 @@ export default function ComplaintsSection() {
                       >
                         <div className="flex items-center gap-2 text-left">
                           <span className={`h-2.5 w-2.5 rounded-full ${selectedPriority.dot} ring-2 ring-white/10 shrink-0`} />
-                          <div className="line-clamp-1">
-                            <span className={`text-xs font-bold ${selectedPriority.color}`}>
-                              {selectedPriority.label}
-                            </span>
-                            <span className="text-[10px] text-white/50 ml-1.5 font-medium">({selectedPriority.sla})</span>
-                          </div>
+                          <span className={`text-xs font-bold ${selectedPriority.color}`}>
+                            {selectedPriority.label}
+                          </span>
                         </div>
                         <ChevronDown
                           className={`h-4 w-4 text-white/60 transition-transform duration-200 shrink-0 ${
@@ -581,10 +533,9 @@ export default function ComplaintsSection() {
                         />
                       </button>
 
-                      {/* Priority Dropdown Menu */}
                       {isPriorityOpen && (
                         <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-[#1e0703]/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150 max-h-60 overflow-y-auto">
-                          {PRIORITIES.map((p) => {
+                          {priorities.map((p) => {
                             const isSelected = priority === p.id
                             return (
                               <button
@@ -602,15 +553,7 @@ export default function ComplaintsSection() {
                               >
                                 <div className="flex items-center gap-2.5">
                                   <span className={`h-2 w-2 rounded-full ${p.dot} shrink-0`} />
-                                  <div>
-                                    <div className="flex items-center gap-1.5">
-                                      <span className={`text-xs font-bold ${p.color}`}>{p.label}</span>
-                                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/10 text-white/70 font-semibold">
-                                        {p.sla}
-                                      </span>
-                                    </div>
-                                    <div className="text-[10px] text-white/50">{p.desc}</div>
-                                  </div>
+                                  <span className={`text-xs font-bold ${p.color}`}>{p.label}</span>
                                 </div>
                                 {isSelected && <Check className="h-3.5 w-3.5 text-yellow-400 mr-1 shrink-0" />}
                               </button>
@@ -624,13 +567,13 @@ export default function ComplaintsSection() {
                   {/* Subject Line */}
                   <div className="space-y-1.5">
                     <Label htmlFor="subject" className="text-white text-xs">
-                      Subject
+                      {t.complaints.subjectLabel}
                     </Label>
                     <Input
                       id="subject"
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
-                      placeholder="e.g. Card debited Rs. 1000 but meter balance unchanged"
+                      placeholder={t.complaints.subjectPlaceholder}
                       className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl focus-visible:ring-yellow-400"
                       required
                     />
@@ -639,13 +582,13 @@ export default function ComplaintsSection() {
                   {/* Description */}
                   <div className="space-y-1.5">
                     <Label htmlFor="description" className="text-white text-xs">
-                      Detailed Description
+                      {t.complaints.descriptionLabel}
                     </Label>
                     <Textarea
                       id="description"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Provide all relevant details (e.g. transaction reference, time observed, displayed error codes on LCD)..."
+                      placeholder={t.complaints.descriptionPlaceholder}
                       className="bg-black/30 border-white/15 text-white text-xs min-h-[90px] rounded-xl focus-visible:ring-yellow-400"
                       required
                     />
@@ -655,17 +598,17 @@ export default function ComplaintsSection() {
                   <Button
                     type="submit"
                     disabled={submitting}
-                    className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-11 rounded-xl shadow-lg hover:shadow-yellow-400/20 transition-all flex items-center justify-center"
+                    className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-11 rounded-xl shadow-lg hover:shadow-yellow-400/20 transition-all flex items-center justify-center cursor-pointer"
                   >
                     {submitting ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Queuing Complaint...
+                        {t.complaints.submitting}
                       </>
                     ) : (
                       <>
                         <Send className="h-4 w-4 mr-2" />
-                        Submit & Place in Queue
+                        {t.complaints.submitBtn}
                       </>
                     )}
                   </Button>
@@ -679,12 +622,12 @@ export default function ComplaintsSection() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2 text-red-400">
                 <AlertTriangle className="h-4 w-4" />
-                CEB / LECO Breakdown Emergency Hotline
+                LECO Emergency Hotline
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-white/70 leading-relaxed">
-                For life-threatening electrical hazards, spark emissions, fallen conductors, or immediate localized blackouts, contact the 24/7 hotline directly:
+                For electrical hazards, spark emissions, or total localized power blackouts:
               </p>
               <a
                 href="tel:1987"
@@ -697,7 +640,7 @@ export default function ComplaintsSection() {
           </Card>
         </div>
 
-        {/* Right Column: Real-Time Complaint Tracking Queue (7 Cols) */}
+        {/* Right Column: Tracking Queue */}
         <div className="xl:col-span-7 space-y-6">
           <Card className="bg-gradient-to-br from-[#181818] via-[#121212] to-[#0a0a0a] border-white/10 shadow-2xl text-white">
             <CardHeader className="border-b border-white/10 pb-4">
@@ -705,11 +648,8 @@ export default function ComplaintsSection() {
                 <div>
                   <CardTitle className="text-lg font-bold flex items-center gap-2">
                     <Clock className="h-5 w-5 text-yellow-400" />
-                    Complaint Tracking Queue
+                    {t.complaints.myComplaints}
                   </CardTitle>
-                  <CardDescription className="text-white/60 text-xs mt-0.5">
-                    Live operational status of your logged tickets with LECO technical officers
-                  </CardDescription>
                 </div>
 
                 {/* Filter Pills */}
@@ -717,35 +657,35 @@ export default function ComplaintsSection() {
                   <button
                     type="button"
                     onClick={() => setFilterTab("active")}
-                    className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                    className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
                       filterTab === "active"
                         ? "bg-yellow-400 text-black shadow-md font-semibold"
                         : "text-white/60 hover:text-white"
                     }`}
                   >
-                    Active ({activeCount})
+                    {t.complaints.filterActive} ({activeCount})
                   </button>
                   <button
                     type="button"
                     onClick={() => setFilterTab("resolved")}
-                    className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                    className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
                       filterTab === "resolved"
                         ? "bg-green-500 text-black shadow-md font-semibold"
                         : "text-white/60 hover:text-white"
                     }`}
                   >
-                    Resolved ({resolvedCount})
+                    {t.complaints.resolved} ({resolvedCount})
                   </button>
                   <button
                     type="button"
                     onClick={() => setFilterTab("all")}
-                    className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                    className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
                       filterTab === "all"
                         ? "bg-white/20 text-white shadow-md font-semibold"
                         : "text-white/60 hover:text-white"
                     }`}
                   >
-                    All ({complaints.length})
+                    {t.complaints.filterAll} ({complaints.length})
                   </button>
                 </div>
               </div>
@@ -756,7 +696,7 @@ export default function ComplaintsSection() {
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by ticket #CMP, subject, or category..."
+                  placeholder={t.complaints.searchPlaceholder}
                   className="pl-9 bg-black/30 border-white/10 text-white text-xs h-9 rounded-xl focus-visible:ring-yellow-400"
                 />
               </div>
@@ -766,21 +706,16 @@ export default function ComplaintsSection() {
               {loading ? (
                 <div className="py-16 text-center text-white/50 flex flex-col items-center justify-center gap-3">
                   <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
-                  <span className="text-xs">Loading complaint queue...</span>
+                  <span className="text-xs">{t.overview.calculating}</span>
                 </div>
               ) : filteredComplaints.length === 0 ? (
                 <div className="text-center py-12 border border-dashed border-white/10 rounded-2xl bg-black/20 p-6">
                   <FileText className="h-10 w-10 text-white/30 mx-auto mb-3" />
-                  <h4 className="text-sm font-semibold text-white">No Tickets in this View</h4>
-                  <p className="text-xs text-white/50 max-w-sm mx-auto mt-1">
-                    {filterTab === "active"
-                      ? "You have no pending complaints in the active engineering queue. All tickets have been addressed."
-                      : "No tickets matching your filter criteria."}
-                  </p>
+                  <h4 className="text-sm font-semibold text-white">{t.complaints.noComplaints}</h4>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                  {/* Left sub-column: Ticket List (5 cols on md) */}
+                  {/* Left sub-column: Ticket List */}
                   <div className="md:col-span-5 space-y-2 max-h-[460px] overflow-y-auto pr-1">
                     {filteredComplaints.map((c) => {
                       const isSelected = c.id === (selectedComplaint?.id ?? null)
@@ -789,17 +724,10 @@ export default function ComplaintsSection() {
                       return (
                         <div
                           key={c.id}
-                          onClick={() => {
-                            setSelectedComplaintId(c.id)
-                            if (window.innerWidth < 768) {
-                              setTimeout(() => {
-                                document.getElementById("selected-ticket-detail")?.scrollIntoView({ behavior: "smooth" })
-                              }, 100)
-                            }
-                          }}
+                          onClick={() => setSelectedComplaintId(c.id)}
                           className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
                             isSelected
-                              ? "bg-gradient-to-r from-yellow-400/20 to-black/40 border-yellow-400/70 shadow-lg shadow-yellow-400/5 ring-1 ring-yellow-400/30"
+                              ? "bg-gradient-to-r from-yellow-400/20 to-black/40 border-yellow-400/70 shadow-lg ring-1 ring-yellow-400/30"
                               : "bg-black/30 border-white/10 hover:bg-black/50 hover:border-white/20"
                           }`}
                         >
@@ -811,14 +739,10 @@ export default function ComplaintsSection() {
                               className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${
                                 isResolved
                                   ? "bg-green-500/20 text-green-300 border border-green-500/30"
-                                  : c.status === "investigating"
-                                  ? "bg-orange-500/20 text-orange-300 border border-orange-500/30"
-                                  : c.status === "in_review"
-                                  ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
                                   : "bg-yellow-400/20 text-yellow-300 border border-yellow-400/30"
                               }`}
                             >
-                              {c.status.replace("_", " ")}
+                              {c.status === "submitted" ? t.complaints.queued : c.status === "in_review" ? t.complaints.inReview : c.status === "investigating" ? t.complaints.investigating : t.complaints.resolved}
                             </span>
                           </div>
 
@@ -835,10 +759,9 @@ export default function ComplaintsSection() {
                     })}
                   </div>
 
-                  {/* Right sub-column: Selected Ticket Detailed Stepper (7 cols on md) */}
+                  {/* Right sub-column: Selected Ticket Detailed Stepper */}
                   {selectedComplaint && (
                     <div id="selected-ticket-detail" className="md:col-span-7 bg-black/40 border border-white/10 rounded-2xl p-5 space-y-5 scroll-mt-20">
-                      {/* Ticket Header */}
                       <div className="flex justify-between items-start border-b border-white/10 pb-4">
                         <div>
                           <div className="flex items-center gap-2">
@@ -847,21 +770,15 @@ export default function ComplaintsSection() {
                             </span>
                             <Badge
                               variant="outline"
-                              className={`text-[10px] uppercase font-bold ${
-                                selectedComplaint.priority === "emergency"
-                                  ? "bg-red-500/20 text-red-300 border-red-500/40"
-                                  : selectedComplaint.priority === "high"
-                                  ? "bg-orange-500/20 text-orange-300 border-orange-500/40"
-                                  : "bg-blue-500/20 text-blue-300 border-blue-500/40"
-                              }`}
+                              className="text-[10px] uppercase font-bold bg-yellow-400/10 text-yellow-300 border-yellow-400/30"
                             >
-                              {selectedComplaint.priority} Priority
+                              {selectedComplaint.priority}
                             </Badge>
                           </div>
                           <h4 className="text-sm font-bold text-white mt-1">{selectedComplaint.subject}</h4>
                           <p className="text-xs text-white/60 mt-0.5">
-                            Category: {selectedComplaint.complaint_type}
-                            {selectedComplaint.meter_number && ` • Meter: ${selectedComplaint.meter_number}`}
+                            {selectedComplaint.complaint_type}
+                            {selectedComplaint.meter_number && ` • ${t.addMeter.meterNumberLabel}: ${selectedComplaint.meter_number}`}
                           </p>
                         </div>
                       </div>
@@ -869,21 +786,20 @@ export default function ComplaintsSection() {
                       {/* 4-Step Interactive Tracking Stepper */}
                       <div className="space-y-4">
                         <Label className="text-white text-xs font-semibold uppercase tracking-wider flex items-center justify-between">
-                          <span>Live Progress Stepper</span>
+                          <span>{t.complaints.statusLabel}</span>
                           <span className="text-[10px] text-white/50 normal-case">
-                            Step {getStepIndex(selectedComplaint.status) + 1} of 4
+                            Step {getStepIndex(selectedComplaint.status) + 1} / 4
                           </span>
                         </Label>
 
                         <div className="relative pl-6 space-y-4 before:absolute before:inset-y-2 before:left-[11px] before:w-[2px] before:bg-white/15">
-                          {STATUS_STEPS.map((step, idx) => {
+                          {statusSteps.map((step, idx) => {
                             const currentIdx = getStepIndex(selectedComplaint.status)
                             const isCompleted = idx < currentIdx
                             const isCurrent = idx === currentIdx
 
                             return (
                               <div key={step.key} className="relative group">
-                                {/* Dot Icon */}
                                 <span
                                   className={`absolute -left-6 top-1 h-3.5 w-3.5 rounded-full flex items-center justify-center transition-all ${
                                     isCompleted
@@ -897,25 +813,17 @@ export default function ComplaintsSection() {
                                 </span>
 
                                 <div>
-                                  <div className="flex items-center gap-2">
-                                    <p
-                                      className={`text-xs font-bold ${
-                                        isCurrent
-                                          ? "text-yellow-400"
-                                          : isCompleted
-                                          ? "text-white"
-                                          : "text-white/40"
-                                      }`}
-                                    >
-                                      {step.label}
-                                    </p>
-                                    {isCurrent && (
-                                      <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-yellow-400/20 text-yellow-300 font-semibold">
-                                        Current Stage
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-[11px] text-white/50 mt-0.5">{step.desc}</p>
+                                  <p
+                                    className={`text-xs font-bold ${
+                                      isCurrent
+                                        ? "text-yellow-400"
+                                        : isCompleted
+                                        ? "text-white"
+                                        : "text-white/40"
+                                    }`}
+                                  >
+                                    {step.label}
+                                  </p>
                                 </div>
                               </div>
                             )
@@ -925,23 +833,18 @@ export default function ComplaintsSection() {
 
                       {/* Ticket Description */}
                       <div className="bg-black/30 border border-white/10 rounded-xl p-3 text-xs space-y-1">
-                        <span className="text-white/50 font-medium text-[10px] uppercase">Customer Description</span>
+                        <span className="text-white/50 font-medium text-[10px] uppercase">{t.complaints.descriptionLabel}</span>
                         <p className="text-white/80 leading-relaxed">{selectedComplaint.description}</p>
                       </div>
 
-                      {/* Resolution / Officer Notes if present */}
+                      {/* Resolution Notes */}
                       {selectedComplaint.resolution_notes && (
                         <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-xs space-y-1">
                           <span className="text-green-400 font-semibold text-[10px] uppercase flex items-center gap-1">
                             <CheckCircle2 className="h-3 w-3" />
-                            Officer Resolution Remarks
+                            {t.complaints.resolved}
                           </span>
                           <p className="text-white/90 leading-relaxed">{selectedComplaint.resolution_notes}</p>
-                          {selectedComplaint.resolved_at && (
-                            <span className="text-[10px] text-white/50 block mt-1">
-                              Resolved: {new Date(selectedComplaint.resolved_at).toLocaleString()}
-                            </span>
-                          )}
                         </div>
                       )}
                     </div>

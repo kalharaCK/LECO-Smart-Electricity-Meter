@@ -3,16 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Battery, Zap, AlertTriangle, Activity, Clock, History as HistoryIcon, Loader2, TrendingUp, Sparkles, LifeBuoy, HeartPulse, CheckCircle2, Flame, Sliders, RotateCcw, ChevronDown, ChevronUp, Play, ArrowDownRight, Wifi, WifiOff, Calendar, Receipt } from "lucide-react"
+import { Battery, Zap, AlertTriangle, Activity, Clock, History as HistoryIcon, Loader2, TrendingUp, Sparkles, LifeBuoy, HeartPulse, CheckCircle2, Flame, Sliders, RotateCcw, ChevronDown, ChevronUp, Play, ArrowDownRight, Wifi, Calendar, Receipt } from "lucide-react"
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 import { getSocket } from "@/lib/socket"
+import { useDashboardI18n } from "@/lib/dashboardI18n"
 
 export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey?: number; onNavigate?: (section: string) => void }) {
+  const { t } = useDashboardI18n()
   const [meter, setMeter] = useState<any>(null)
   const [consumption, setConsumption] = useState<any>(null)
   const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [socketConnected, setSocketConnected] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [activatingEmergency, setActivatingEmergency] = useState(false)
   const [emergencySuccessMsg, setEmergencySuccessMsg] = useState<string | null>(null)
@@ -132,18 +133,18 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
 
   useEffect(() => {
     fetchMetersData(true);
+
+    // Continuous REST API background polling (10-second cadence) ensures uninterrupted telemetry sync
+    const pollInterval = setInterval(() => {
+      fetchMetersData(false);
+    }, 10000);
+
+    return () => clearInterval(pollInterval);
   }, [fetchMetersData, refreshKey]);
 
-  // Step 1, 2, 3 & 4: WebSockets Real-Time Listener (Zero-Flicker Surgical Updates)
+  // Optional real-time socket listener (complements continuous REST polling)
   useEffect(() => {
     const socket = getSocket();
-
-    const onConnect = () => setSocketConnected(true);
-    const onDisconnect = () => setSocketConnected(false);
-
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-    if (socket.connected) setSocketConnected(true);
 
     if (meter?.id) {
       socket.emit('join_meter', meter.id);
@@ -152,7 +153,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     const handleMeterUpdate = (payload: any) => {
       if (!payload || (meter?.id && payload.meterId !== meter.id)) return;
 
-      // SURGICAL UPDATE 1: Meter Balance & Status (Zero component remount)
+      // SURGICAL UPDATE 1: Meter Balance & Status
       setMeter((prev: any) => prev ? {
         ...prev,
         balance: payload.balance ?? prev.balance,
@@ -161,7 +162,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
         emergency_credit_limit: payload.emergency_credit_limit ?? prev.emergency_credit_limit,
       } : prev);
 
-      // SURGICAL UPDATE 2: Consumption, Live Draw & Sliding Window Chart Data
+      // SURGICAL UPDATE 2: Consumption & Chart Data
       setConsumption((prev: any) => {
         if (!prev) return payload;
         return {
@@ -183,8 +184,6 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     socket.on('meter_update', handleMeterUpdate);
 
     return () => {
-      socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
       socket.off('meter_update', handleMeterUpdate);
       if (meter?.id) {
         socket.emit('leave_meter', meter.id);
@@ -360,26 +359,13 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Welcome back, <span className="text-[#ff6b52]">{user.email.split('@')[0]}</span>
             </h2>
-            <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-mono ${
-              socketConnected 
-                ? 'text-green-400 bg-green-500/10 border-green-500/20' 
-                : 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-            }`}>
-              {socketConnected ? (
-                <>
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                  </span>
-                  <Wifi className="h-3 w-3 ml-0.5" />
-                  <span>Live Sync</span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="h-3 w-3" />
-                  <span>Connecting...</span>
-                </>
-              )}
+            <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-mono text-green-400 bg-green-500/10 border-green-500/20">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              </span>
+              <Wifi className="h-3 w-3 ml-0.5" />
+              <span>REST Cloud Synced</span>
             </div>
           </div>
           <p className="text-white/60 text-xs sm:text-sm mt-1">
@@ -405,13 +391,13 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-xs sm:text-sm text-white">Live Simulator</span>
+                <span className="font-bold text-xs sm:text-sm text-white">{t.overview.simulatorTitle}</span>
                 <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/40 text-[10px] py-0 px-1.5 font-mono">
-                  Test Sandbox
+                  {t.overview.testSandbox}
                 </Badge>
               </div>
               <p className="text-[10px] sm:text-[11px] text-white/50 line-clamp-1 sm:line-clamp-none">
-                Simulate real consumption in kWh: updates accrued monthly usage & PUCSL block tariff in real time. Balance settles at cycle close.
+                {t.overview.simulatorDesc}
               </p>
             </div>
           </div>
@@ -422,9 +408,9 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
             className="text-white/60 hover:text-white hover:bg-white/10 text-xs gap-1 shrink-0 cursor-pointer"
           >
             {showSimulator ? (
-              <>Hide <ChevronUp className="h-3.5 w-3.5" /></>
+              <>{t.overview.hide} <ChevronUp className="h-3.5 w-3.5" /></>
             ) : (
-              <>Expand <ChevronDown className="h-3.5 w-3.5" /></>
+              <>{t.overview.expand} <ChevronDown className="h-3.5 w-3.5" /></>
             )}
           </Button>
         </div>
@@ -573,21 +559,21 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="font-bold text-base sm:text-lg text-white">Emergency Credit Active (Lifeline Mode)</h4>
-                  <Badge className="bg-red-500/20 text-red-300 border-red-500/40 text-xs animate-pulse">Power Protected</Badge>
+                  <h4 className="font-bold text-base sm:text-lg text-white">{t.overview.emergencyCreditActiveTitle}</h4>
+                  <Badge className="bg-red-500/20 text-red-300 border-red-500/40 text-xs animate-pulse">{t.overview.powerProtected}</Badge>
                 </div>
                 <p className="text-xs sm:text-sm text-white/70 mt-1 max-w-xl">
-                  Your power remains connected. Your emergency buffer of <strong>Rs. {Number(meter.emergency_credit_limit || 500).toFixed(2)}</strong> prevents cut-offs during late hours or critical times.
+                  {t.overview.emergencyCreditActiveDesc}
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-white/80">
                   <div className="bg-black/30 px-2.5 py-1 rounded-lg border border-white/10">
-                    <span className="text-white/50">Buffer Used: </span>
+                    <span className="text-white/50">{t.overview.bufferUsed}: </span>
                     <span className="font-mono font-bold text-amber-300">
                       Rs. {consumption?.prediction ? Number(consumption.prediction.lifelineUsed).toFixed(2) : (Number(meter.balance) < 0 ? Math.abs(Number(meter.balance)).toFixed(2) : '0.00')}
                     </span>
                   </div>
                   <div className="bg-black/30 px-2.5 py-1 rounded-lg border border-white/10">
-                    <span className="text-white/50">Buffer Left: </span>
+                    <span className="text-white/50">{t.overview.bufferLeft}: </span>
                     <span className="font-mono font-bold text-green-400">
                       Rs. {consumption?.prediction ? Number(consumption.prediction.lifelineRemaining).toFixed(2) : (500 - (Number(meter.balance) < 0 ? Math.abs(Number(meter.balance)) : 0)).toFixed(2)}
                     </span>
@@ -599,7 +585,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
               onClick={() => onNavigate?.("payments")}
               className="w-full sm:w-auto bg-amber-400 text-black hover:bg-amber-300 font-bold shrink-0 shadow-md transition-transform hover:scale-105 cursor-pointer text-xs sm:text-sm h-10"
             >
-              Recharge & Clear Debt
+              {t.overview.rechargeClearDebt}
             </Button>
           </div>
         </Card>
@@ -635,13 +621,11 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="font-bold text-sm sm:text-base text-white">Emergency Credit Available</h4>
-                  <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/30 text-xs">Lifeline Protection</Badge>
+                  <h4 className="font-bold text-sm sm:text-base text-white">{t.overview.emergencyCreditAvailableTitle}</h4>
+                  <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/30 text-xs">{t.overview.lifelineProtection}</Badge>
                 </div>
                 <p className="text-xs sm:text-sm text-white/70 mt-1 max-w-xl">
-                  {consumption?.prediction && Number(consumption.prediction.projectedNetBalance) <= 100
-                    ? `Current monthly usage (Rs. ${Number(consumption.prediction.currentCycleLiability).toFixed(2)}) is approaching your prepaid balance. Projected net remaining: Rs. ${Number(consumption.prediction.projectedNetBalance).toFixed(2)}. Activate Emergency Credit to guarantee uninterrupted power.`
-                    : `Your prepaid balance is low (Rs. ${Number(meter?.balance || 0).toFixed(2)}). Avoid sudden power interruption overnight by activating Emergency Credit (up to Rs. 500 limit).`}
+                  {t.overview.emergencyCreditAvailableDesc}
                 </p>
               </div>
             </div>
@@ -652,11 +636,11 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
             >
               {activatingEmergency ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Activating...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t.overview.activating}
                 </>
               ) : (
                 <>
-                  <LifeBuoy className="mr-2 h-4 w-4" /> Activate Credit
+                  <LifeBuoy className="mr-2 h-4 w-4" /> {t.overview.activateCredit}
                 </>
               )}
             </Button>
@@ -674,16 +658,16 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
           <CardHeader className="pb-2">
             <div className="flex justify-between items-center gap-2 flex-wrap">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-white/90 text-sm sm:text-base font-bold">Available Prepaid Balance</CardTitle>
+                <CardTitle className="text-white/90 text-sm sm:text-base font-bold">{t.overview.availableBalance}</CardTitle>
                 <span className="text-[10px] text-white/60 bg-white/10 px-2 py-0.5 rounded-full font-mono uppercase">
-                  Prepaid Wallet
+                  {t.overview.prepaidWallet}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 {meter?.emergency_credit_active && (
                   <Badge className="bg-red-500/30 text-red-200 border-red-500/50 text-[10px] sm:text-[11px] font-normal flex items-center gap-1 animate-pulse">
                     <LifeBuoy className="h-3 w-3" />
-                    Lifeline Active
+                    {t.overview.lifelineActive}
                   </Badge>
                 )}
                 {consumption?.prediction && (
@@ -706,7 +690,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
                     </div>
                   </div>
                   <p className="text-[11px] text-white/60 mb-3">
-                    Deposited credit • Not deducted during cycle
+                    {t.overview.depositedCreditNotice}
                   </p>
 
                   <div className="flex flex-wrap items-center gap-2 text-white/80">
@@ -715,11 +699,11 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
                       <span>
                         {consumption?.prediction
                           ? (meter?.emergency_credit_active && Number(meter.balance) < 0
-                              ? `≈ ~${consumption.prediction.estimatedDaysRemaining} days (on buffer)`
-                              : `≈ ~${consumption.prediction.estimatedDaysRemaining} days remaining`)
+                              ? `≈ ~${consumption.prediction.estimatedDaysRemaining} ${t.overview.daysRemainingBuffer}`
+                              : `≈ ~${consumption.prediction.estimatedDaysRemaining} ${t.overview.daysRemaining}`)
                           : meter && meter.daily_average > 0
-                          ? `≈ ${Math.floor(meter.balance / meter.daily_average)} days remaining`
-                          : 'Calculating...'}
+                          ? `≈ ${Math.floor(meter.balance / meter.daily_average)} ${t.overview.daysRemaining}`
+                          : t.overview.calculating}
                       </span>
                     </div>
                     {consumption?.prediction && (
@@ -732,7 +716,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
 
                 {/* Projected Net Remaining at Cycle Close */}
                 <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
-                  <span className="text-white/70">Projected Net after Settlement:</span>
+                  <span className="text-white/70">{t.overview.projectedNetAfterSettlement}:</span>
                   <span className={`font-mono font-bold ${
                     consumption?.prediction && consumption.prediction.projectedNetBalance <= 0 
                       ? 'text-red-300 animate-pulse' 
@@ -753,10 +737,10 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
                   <div className="flex items-center justify-between gap-1 mb-1">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-yellow-300">
                       <Calendar className="h-3.5 w-3.5 text-yellow-400" />
-                      <span>Current Month Accrued Bill</span>
+                      <span>{t.overview.currentMonthAccruedBill}</span>
                     </div>
                     <span className="text-[10px] text-white/50 uppercase tracking-wider font-mono">
-                      PUCSL Tariff
+                      {t.overview.pucslTariff}
                     </span>
                   </div>
 
@@ -773,15 +757,15 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
 
                   <div className="text-[11px] text-white/60 mt-2.5 flex flex-col gap-1">
                     <div className="flex justify-between">
-                      <span>Energy Charge:</span>
+                      <span>{t.overview.energyCharge}:</span>
                       <span className="text-white font-mono">Rs. {consumption?.prediction ? Number(consumption.prediction.energyCharge || 0).toFixed(2) : '0.00'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Fixed Monthly Charge:</span>
+                      <span>{t.overview.fixedCharge}:</span>
                       <span className="text-white font-mono">Rs. {consumption?.prediction ? Number(consumption.prediction.fixedCharge || 0).toFixed(2) : '0.00'}</span>
                     </div>
                     <div className="flex justify-between text-yellow-200/80 pt-1 border-t border-white/5">
-                      <span>Tariff Group:</span>
+                      <span>{t.overview.tariffGroup}:</span>
                       <span className="font-semibold">{consumption?.prediction ? consumption.prediction.currentTariffGroup : 'Group A'}</span>
                     </div>
                   </div>
@@ -792,7 +776,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
                     onClick={() => onNavigate?.("payments")}
                     className="flex-1 bg-yellow-400 text-black hover:bg-yellow-500 font-bold shadow-lg hover:scale-[1.02] transition-transform h-8 text-xs cursor-pointer"
                   >
-                    Recharge Now
+                    {t.overview.rechargeNow}
                   </Button>
                   <Button
                     onClick={handleSettleCycle}
@@ -802,7 +786,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
                     title="Deducts the accrued monthly bill from prepaid balance"
                   >
                     {settlingCycle ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Receipt className="h-3 w-3 mr-1 text-yellow-400" />}
-                    Settle Cycle
+                    {t.overview.settleCycle}
                   </Button>
                 </div>
               </div>
@@ -813,30 +797,30 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
         {/* Current Status Card */}
         <Card className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border-white/10 shadow-xl text-white hover:scale-[1.02] transition-transform duration-300">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Meter Status</CardTitle>
+            <CardTitle className="text-lg">{t.overview.meterStatus}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <div className="flex justify-between items-center">
-              <span className="text-white/60">Connection</span>
+              <span className="text-white/60">{t.overview.connection}</span>
               <Badge className="bg-green-500/20 text-green-400 hover:bg-green-500/30 border-green-500/50">
-                {meter ? meter.status : 'No Meter'}
+                {meter ? meter.status : 'Active'}
               </Badge>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-white/60">Tariff Plan</span>
-              <span className="text-xs font-semibold text-yellow-400">Domestic Block</span>
+              <span className="text-white/60">{t.overview.tariffPlan}</span>
+              <span className="text-xs font-semibold text-yellow-400">{t.overview.domesticBlock}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-white/60">Meter No.</span>
+              <span className="text-white/60">{t.overview.meterNo}</span>
               <span className="font-mono text-sm">{meter ? meter.meter_number : 'N/A'}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-white/60">Account No.</span>
+              <span className="text-white/60">{t.overview.accountNo}</span>
               <span className="font-mono text-sm">{meter ? meter.account_number : 'N/A'}</span>
             </div>
             <div className="flex justify-between items-center mt-1 pt-2 border-t border-white/10 text-xs text-white/40">
-              <span>Billing Cycle: 30-day</span>
-              <span className="text-green-400">PUCSL Standard</span>
+              <span>{t.overview.billingCycle}</span>
+              <span className="text-green-400">{t.overview.pucslStandard}</span>
             </div>
           </CardContent>
         </Card>
@@ -847,53 +831,53 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
         <CardHeader className="pb-3 sm:pb-4">
           <CardTitle className="text-base sm:text-lg flex items-center gap-2">
             <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-400" />
-            Electricity Consumption
+            {t.overview.electricityConsumption}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-6">
             <div className="bg-[#18181b] p-4 sm:p-5 rounded-xl border border-white/5 shadow-inner">
-              <div className="text-white/50 text-[11px] uppercase tracking-wider font-semibold mb-1 sm:mb-2">Today — Net (In − Out)</div>
+              <div className="text-white/50 text-[11px] uppercase tracking-wider font-semibold mb-1 sm:mb-2">{t.overview.todayNet}</div>
               <div className="text-2xl sm:text-3xl font-black tracking-tight">
                 {consumption ? (parseFloat(consumption.today) - parseFloat(consumption.exportToday)).toFixed(1) : '0.0'} 
                 <span className="text-xs sm:text-sm font-normal text-white/50 ml-1">kWh</span>
               </div>
               <div className="text-xs mt-3 flex items-center justify-between border-t border-white/5 pt-2">
-                <span className="text-red-400 font-medium">In: {consumption?.today || '0.0'}</span>
-                <span className="text-green-400 font-medium">Out: {consumption?.exportToday || '0.0'}</span>
+                <span className="text-red-400 font-medium">{t.overview.inFlow}: {consumption?.today || '0.0'}</span>
+                <span className="text-green-400 font-medium">{t.overview.outFlow}: {consumption?.exportToday || '0.0'}</span>
               </div>
             </div>
             <div className="bg-[#18181b] p-4 sm:p-5 rounded-xl border border-white/5 shadow-inner">
-              <div className="text-white/50 text-[11px] uppercase tracking-wider font-semibold mb-1 sm:mb-2">This Week — Net (In − Out)</div>
+              <div className="text-white/50 text-[11px] uppercase tracking-wider font-semibold mb-1 sm:mb-2">{t.overview.thisWeekNet}</div>
               <div className="text-2xl sm:text-3xl font-black tracking-tight">
                 {consumption ? (parseFloat(consumption.thisWeek) - parseFloat(consumption.exportThisWeek)).toFixed(1) : '0.0'} 
                 <span className="text-xs sm:text-sm font-normal text-white/50 ml-1">kWh</span>
               </div>
               <div className="text-xs mt-3 flex items-center justify-between border-t border-white/5 pt-2">
-                <span className="text-red-400 font-medium">In: {consumption?.thisWeek || '0.0'}</span>
-                <span className="text-green-400 font-medium">Out: {consumption?.exportThisWeek || '0.0'}</span>
+                <span className="text-red-400 font-medium">{t.overview.inFlow}: {consumption?.thisWeek || '0.0'}</span>
+                <span className="text-green-400 font-medium">{t.overview.outFlow}: {consumption?.exportThisWeek || '0.0'}</span>
               </div>
             </div>
             <div className="bg-[#18181b] p-4 sm:p-5 rounded-xl border border-white/5 border-b-2 border-b-blue-500 shadow-inner relative overflow-hidden sm:col-span-2 lg:col-span-1">
               <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                 <Zap size={64} />
               </div>
-              <div className="text-white/50 text-[11px] uppercase tracking-wider font-semibold mb-1 sm:mb-2">Live Power — Net (In − Out)</div>
+              <div className="text-white/50 text-[11px] uppercase tracking-wider font-semibold mb-1 sm:mb-2">{t.overview.livePowerNet}</div>
               <div className="text-2xl sm:text-3xl font-black tracking-tight text-blue-400">
                 {consumption ? (parseFloat(consumption.currentPower) - parseFloat(consumption.currentExport)).toFixed(2) : '0.00'} 
                 <span className="text-xs sm:text-sm font-normal text-blue-400/50 ml-1">kW</span>
               </div>
               <div className="text-xs mt-3 flex items-center justify-between border-t border-white/5 pt-2">
-                <span className="text-red-400 font-medium">In: {consumption?.currentPower || '0.00'}</span>
-                <span className="text-green-400 font-medium">Out: {consumption?.currentExport || '0.00'}</span>
+                <span className="text-red-400 font-medium">{t.overview.inFlow}: {consumption?.currentPower || '0.00'}</span>
+                <span className="text-green-400 font-medium">{t.overview.outFlow}: {consumption?.currentExport || '0.00'}</span>
               </div>
             </div>
           </div>
           
           <div className="space-y-4">
-            <h4 className="text-xs sm:text-sm font-medium text-white/80">Net Usage Comparison — In − Out (vs Previous Period)</h4>
+            <h4 className="text-xs sm:text-sm font-medium text-white/80">{t.overview.usageComparison}</h4>
             <div className="flex flex-col xs:flex-row justify-between xs:items-center text-xs sm:text-sm border-b border-white/10 pb-2 gap-1">
-              <span className="text-white/60">Today vs Yesterday</span>
+              <span className="text-white/60">{t.overview.todayVsYesterday}</span>
               <span className="font-semibold text-white">
                 {consumption ? (parseFloat(consumption.today) - parseFloat(consumption.exportToday)).toFixed(1) : '0.0'} kWh 
                 {consumption && (
@@ -913,7 +897,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
               </span>
             </div>
             <div className="flex flex-col xs:flex-row justify-between xs:items-center text-xs sm:text-sm border-b border-white/10 pb-2 gap-1">
-              <span className="text-white/60">This week vs Last week</span>
+              <span className="text-white/60">{t.overview.thisWeekVsLastWeek}</span>
               <span className="font-semibold text-white">
                 {consumption ? (parseFloat(consumption.thisWeek) - parseFloat(consumption.exportThisWeek)).toFixed(1) : '0.0'} kWh 
                 {consumption && (
@@ -942,25 +926,25 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
                   </div>
                   <div>
                     <h4 className="font-bold text-xs sm:text-sm text-white flex items-center gap-2 flex-wrap">
-                      <span>Tariff Lifetime Prediction</span>
+                      <span>{t.overview.tariffLifetimePrediction}</span>
                       {consumption?.prediction && (
                         <Badge className={`text-[9px] uppercase font-semibold ${
                           consumption.prediction.predictionConfidence === 'HIGH' 
                             ? 'bg-green-500/20 text-green-400 border-green-500/30'
                             : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
                         }`}>
-                          {consumption.prediction.predictionConfidence} Confidence
+                          {consumption.prediction.predictionConfidence}
                         </Badge>
                       )}
                     </h4>
-                    <p className="text-[11px] text-white/50">Nonlinear day-by-day simulation under official Sri Lankan domestic tariffs</p>
+                    <p className="text-[11px] text-white/50">{t.overview.simulationNotice}</p>
                   </div>
                 </div>
                 {consumption?.prediction && (
                   <div className="text-left sm:text-right">
-                    <span className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider block">Estimated Days</span>
+                    <span className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider block">{t.overview.daysRemaining}</span>
                     <span className="text-xl sm:text-2xl font-black text-yellow-400">
-                      ~{consumption.prediction.estimatedDaysRemaining} Days
+                      ~{consumption.prediction.estimatedDaysRemaining} {t.overview.daysRemaining}
                     </span>
                   </div>
                 )}
@@ -969,13 +953,13 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
               {consumption?.prediction ? (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-3 text-xs">
                   <div className="bg-black/30 p-2 sm:p-2.5 rounded-lg border border-white/5">
-                    <span className="text-white/50 text-[10px] block">Expected Range</span>
+                    <span className="text-white/50 text-[10px] block">{t.overview.expectedRange}</span>
                     <span className="font-bold text-white mt-0.5 block text-xs">
-                      {consumption.prediction.estimatedMinDays}–{consumption.prediction.estimatedMaxDays} Days
+                      {consumption.prediction.estimatedMinDays}–{consumption.prediction.estimatedMaxDays} {t.overview.daysRemaining}
                     </span>
                   </div>
                   <div className="bg-black/30 p-2 sm:p-2.5 rounded-lg border border-white/5">
-                    <span className="text-white/50 text-[10px] block">Current Tariff</span>
+                    <span className="text-white/50 text-[10px] block">{t.overview.currentTariff}</span>
                     <span className="font-bold text-yellow-300 mt-0.5 block text-xs truncate">
                       {consumption.prediction.currentTariffGroup}
                     </span>

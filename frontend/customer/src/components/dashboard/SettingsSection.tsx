@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { useDashboardI18n } from "@/lib/dashboardI18n"
 import {
   Settings,
   Bell,
@@ -18,7 +19,9 @@ import {
   LifeBuoy,
   Radio,
   LogOut,
-  Building2
+  Building2,
+  Eye,
+  EyeOff
 } from "lucide-react"
 
 interface Meter {
@@ -57,6 +60,7 @@ interface SettingsSectionProps {
 }
 
 export default function SettingsSection({ onLogout }: SettingsSectionProps) {
+  const { t } = useDashboardI18n()
   const [activeTab, setActiveTab] = useState<"alerts" | "notifications" | "security">("alerts")
 
   // Data states
@@ -131,11 +135,11 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
       }
     } catch (err) {
       console.error("Error loading settings:", err)
-      showToast("Failed to load settings from server", "error")
+      showToast(t.payments.networkError, "error")
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     fetchSettings()
@@ -163,13 +167,13 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
 
       const data = await res.json()
       if (res.ok && data.success) {
-        showToast("Settings and alert thresholds saved successfully!", "success")
+        showToast(t.settings.savedSuccess, "success")
       } else {
-        showToast(data.message || "Failed to save settings", "error")
+        showToast(data.message || t.payments.paymentFailed, "error")
       }
     } catch (err) {
       console.error("Error saving preferences:", err)
-      showToast("Network error saving preferences", "error")
+      showToast(t.payments.networkError, "error")
     } finally {
       setSavingPreferences(false)
     }
@@ -178,25 +182,19 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
   // Change Password
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!currentPassword || !newPassword) {
-      showToast("Current password and new password are required", "error")
-      return
-    }
-
-    if (newPassword.length < 6) {
-      showToast("New password must be at least 6 characters long", "error")
-      return
-    }
-
     if (newPassword !== confirmPassword) {
-      showToast("New passwords do not match", "error")
+      showToast(t.settings.passwordsDoNotMatch, "error")
+      return
+    }
+    if (newPassword.length < 6) {
+      showToast(t.settings.passwordMinLength, "error")
       return
     }
 
     setSavingPassword(true)
     try {
       const res = await fetch("http://localhost:3000/api/settings/password", {
-        method: "PATCH",
+        method: "POST",
         headers: getAuthHeaders({ "Content-Type": "application/json" }),
         credentials: "include",
         body: JSON.stringify({
@@ -207,16 +205,16 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
 
       const data = await res.json()
       if (res.ok && data.success) {
-        showToast("Account password updated successfully!", "success")
+        showToast(t.settings.savedSuccess, "success")
         setCurrentPassword("")
         setNewPassword("")
         setConfirmPassword("")
       } else {
-        showToast(data.message || "Failed to change password", "error")
+        showToast(data.message || t.payments.paymentFailed, "error")
       }
     } catch (err) {
       console.error("Error changing password:", err)
-      showToast("Network error changing password", "error")
+      showToast(t.payments.networkError, "error")
     } finally {
       setSavingPassword(false)
     }
@@ -224,7 +222,6 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
 
   return (
     <div className="space-y-6">
-      {/* Toast Feedback Notification */}
       {toastMessage && (
         <div
           className={`fixed top-6 right-6 z-50 p-4 rounded-2xl shadow-2xl border flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 text-sm font-semibold ${
@@ -250,14 +247,12 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
             <div className="flex items-center gap-2 mb-2">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-400/20 text-yellow-300 border border-yellow-400/30">
                 <Settings className="h-3.5 w-3.5 mr-1" />
-                System Configuration
+                {t.settings.title}
               </span>
-              <span className="text-white/40 text-sm">•</span>
-              <span className="text-white/60 text-xs">LECO Smart AMI Settings</span>
             </div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Account & Smart Meter Settings</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">{t.settings.title}</h1>
             <p className="text-white/70 text-sm mt-1 max-w-2xl">
-              Configure alert thresholds, Lifeline mode automation, notification channels, and account security.
+              {t.settings.subtitle}
             </p>
           </div>
 
@@ -270,12 +265,12 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
               {savingPreferences ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving Changes...
+                  {t.settings.saving}
                 </>
               ) : (
                 <>
                   <Save className="h-4 w-4" />
-                  Save Changes
+                  {t.settings.savePreferences}
                 </>
               )}
             </Button>
@@ -294,7 +289,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
             }`}
           >
             <Sliders className="h-4 w-4" />
-            Smart Alerts & Thresholds
+            {t.settings.tabAlerts}
           </button>
 
           <button
@@ -307,7 +302,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
             }`}
           >
             <Bell className="h-4 w-4" />
-            Alert Channels & SMS
+            {t.settings.tabNotifications}
           </button>
 
           <button
@@ -320,7 +315,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
             }`}
           >
             <Shield className="h-4 w-4" />
-            Security & Profile
+            {t.settings.tabSecurity}
           </button>
         </div>
       </div>
@@ -328,30 +323,25 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
       {loading ? (
         <div className="py-20 text-center text-white/50 flex flex-col items-center justify-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
-          <span className="text-xs">Loading configuration settings...</span>
+          <span className="text-xs">{t.overview.calculating}</span>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6">
           {/* TAB 1: Smart Alerts & Thresholds */}
           {activeTab === "alerts" && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Card 1: Threshold Controls */}
               <Card className="bg-gradient-to-br from-[#181818] via-[#121212] to-[#0a0a0a] border-white/10 shadow-2xl text-white">
                 <CardHeader className="border-b border-white/10 pb-4">
                   <CardTitle className="text-lg font-bold flex items-center gap-2">
                     <Sliders className="h-5 w-5 text-yellow-400" />
-                    Consumption & Wallet Triggers
+                    {t.settings.energyPreferences}
                   </CardTitle>
-                  <CardDescription className="text-white/60 text-xs">
-                    Fine-tune automated triggers for low balance and heavy power usage
-                  </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-6">
-                  {/* Low Balance Warning Threshold */}
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <Label htmlFor="low-balance-input" className="text-xs font-semibold text-white uppercase tracking-wider">
-                        Low Balance Warning Alert (Rs.)
+                        {t.settings.lowBalanceThreshold}
                       </Label>
                       <span className="text-sm font-bold text-yellow-400">Rs. {lowBalanceThreshold.toLocaleString()}</span>
                     </div>
@@ -384,16 +374,12 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                         ))}
                       </div>
                     </div>
-                    <p className="text-[11px] text-white/50 leading-relaxed">
-                      Sends an instant SMS and push alert when your wallet dips below this amount to avoid unexpected disconnections.
-                    </p>
                   </div>
 
                   <div className="border-t border-white/10 pt-5 space-y-3">
-                    {/* Daily kWh Quota Warning */}
                     <div className="flex justify-between items-center">
                       <Label htmlFor="kwh-quota-input" className="text-xs font-semibold text-white uppercase tracking-wider">
-                        Daily Energy Usage Quota (kWh/Day)
+                        {t.settings.dailyBudget}
                       </Label>
                       <span className="text-sm font-bold text-yellow-400">{dailyKwhBudget} kWh / day</span>
                     </div>
@@ -426,9 +412,6 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                         ))}
                       </div>
                     </div>
-                    <p className="text-[11px] text-white/50 leading-relaxed">
-                      Flags abnormal surges in power consumption to prevent stepping into higher PUCSL tariff tiers.
-                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -438,24 +421,17 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                 <CardHeader className="border-b border-white/10 pb-4">
                   <CardTitle className="text-lg font-bold flex items-center gap-2">
                     <LifeBuoy className="h-5 w-5 text-yellow-400" />
-                    Automated Protection Policies
+                    {t.settings.autoEmergencyCredit}
                   </CardTitle>
-                  <CardDescription className="text-white/60 text-xs">
-                    Regulatory consumer safeguards and emergency power rules
-                  </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-5">
-                  {/* Auto-Lifeline Toggle */}
                   <div className="bg-black/30 border border-white/10 rounded-2xl p-4 flex items-start justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white">Automatic Lifeline Mode (-Rs. 500 Buffer)</span>
-                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-yellow-400/20 text-yellow-300">
-                          Recommended
-                        </span>
+                        <span className="text-xs font-bold text-white">{t.settings.autoEmergencyCredit}</span>
                       </div>
                       <p className="text-[11px] text-white/50 leading-relaxed">
-                        When balance hits Rs. 0.00, automatically activate the Rs. 500 emergency buffer so your home stays powered until your next recharge.
+                        {t.settings.autoEmergencyCreditDesc}
                       </p>
                     </div>
 
@@ -474,17 +450,13 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                     </button>
                   </div>
 
-                  {/* Night Curfew Friendly Disconnect */}
                   <div className="bg-black/30 border border-white/10 rounded-2xl p-4 flex items-start justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white">Friendly Disconnect Curfew (10 PM – 6 AM)</span>
-                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300">
-                          PUCSL Rule
-                        </span>
+                        <span className="text-xs font-bold text-white">{t.settings.nightCurfew}</span>
                       </div>
                       <p className="text-[11px] text-white/50 leading-relaxed">
-                        Under PUCSL utility guidelines, physical meter relay will never disconnect your power overnight between 10:00 PM and 6:00 AM or on Poya holidays, even if prepaid balance reaches zero.
+                        {t.settings.nightCurfewDesc}
                       </p>
                     </div>
 
@@ -503,11 +475,10 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                     </button>
                   </div>
 
-                  {/* Alert Phone Number Input */}
                   <div className="space-y-1.5 pt-1">
                     <Label htmlFor="alert-phone-input" className="text-xs font-semibold text-white uppercase tracking-wider flex items-center gap-1.5">
                       <Phone className="h-3.5 w-3.5 text-yellow-400" />
-                      SMS Alert Mobile Number
+                      {t.settings.phoneLabel}
                     </Label>
                     <Input
                       id="alert-phone-input"
@@ -516,38 +487,31 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                       placeholder="+94 77 123 4567"
                       className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl"
                     />
-                    <p className="text-[10px] text-white/40">
-                      LECO automated gateway will dispatch recharge receipts and critical power alerts to this number.
-                    </p>
                   </div>
                 </CardContent>
               </Card>
             </div>
           )}
 
-          {/* TAB 2: Alert Channels & Notifications */}
+          {/* TAB 2: Notifications */}
           {activeTab === "notifications" && (
             <Card className="bg-gradient-to-br from-[#181818] via-[#121212] to-[#0a0a0a] border-white/10 shadow-2xl text-white max-w-3xl mx-auto">
               <CardHeader className="border-b border-white/10 pb-4">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                   <Bell className="h-5 w-5 text-yellow-400" />
-                  Dispatch Channels & Preferences
+                  {t.settings.notificationChannels}
                 </CardTitle>
-                <CardDescription className="text-white/60 text-xs">
-                  Choose how and when LECO contacts you regarding your smart electricity meter
-                </CardDescription>
               </CardHeader>
               <CardContent className="pt-6 space-y-4">
-                {/* SMS Channel */}
                 <div className="bg-black/30 border border-white/10 rounded-2xl p-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-yellow-400/10 border border-yellow-400/30 flex items-center justify-center text-yellow-400 shrink-0">
                       <Phone className="h-5 w-5" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-white">Instant SMS Notifications</div>
+                      <div className="text-xs font-bold text-white">{t.settings.smsNotifications}</div>
                       <div className="text-[11px] text-white/50">
-                        Dispatches SMS for low balance warnings, power reconnections, and recharge tokens
+                        {t.settings.smsNotificationsDesc}
                       </div>
                     </div>
                   </div>
@@ -567,16 +531,15 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                   </button>
                 </div>
 
-                {/* Email Statements */}
                 <div className="bg-black/30 border border-white/10 rounded-2xl p-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
                       <Mail className="h-5 w-5" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-white">Monthly Electronic Bill Statements</div>
+                      <div className="text-xs font-bold text-white">{t.settings.emailNotifications}</div>
                       <div className="text-[11px] text-white/50">
-                        Detailed PDF monthly statement sent to {user?.email} with PUCSL tier breakdown
+                        {t.settings.emailNotificationsDesc}
                       </div>
                     </div>
                   </div>
@@ -596,16 +559,15 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                   </button>
                 </div>
 
-                {/* Weekly Report */}
                 <div className="bg-black/30 border border-white/10 rounded-2xl p-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-green-500/10 border border-green-500/30 flex items-center justify-center text-green-400 shrink-0">
                       <Radio className="h-5 w-5" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-white">Weekly Energy Efficiency Digest</div>
+                      <div className="text-xs font-bold text-white">{t.settings.weeklyDigest}</div>
                       <div className="text-[11px] text-white/50">
-                        In-depth 7-day consumption comparison with AI conservation tips from our energy engine
+                        {t.settings.weeklyDigestDesc}
                       </div>
                     </div>
                   </div>
@@ -629,74 +591,103 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                   <Button
                     onClick={handleSavePreferences}
                     disabled={savingPreferences}
-                    className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-11 rounded-xl shadow-lg"
+                    className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-11 rounded-xl shadow-lg cursor-pointer"
                   >
-                    {savingPreferences ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Alert Preferences"}
+                    {savingPreferences ? <Loader2 className="h-4 w-4 animate-spin" /> : t.settings.savePreferences}
                   </Button>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* TAB 4: Security & Profile */}
+          {/* TAB 3: Security & Profile */}
           {activeTab === "security" && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Change Password Card */}
               <Card className="bg-gradient-to-br from-[#181818] via-[#121212] to-[#0a0a0a] border-white/10 shadow-2xl text-white">
                 <CardHeader className="border-b border-white/10 pb-4">
                   <CardTitle className="text-lg font-bold flex items-center gap-2">
                     <Shield className="h-5 w-5 text-yellow-400" />
-                    Change Account Password
+                    {t.settings.changePassword}
                   </CardTitle>
-                  <CardDescription className="text-white/60 text-xs">
-                    Update your web portal login credentials
-                  </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
                   <form onSubmit={handleChangePassword} className="space-y-4">
                     <div className="space-y-1.5">
                       <Label htmlFor="current-pw" className="text-xs text-white">
-                        Current Password
+                        {t.settings.currentPassword}
                       </Label>
-                      <Input
-                        id="current-pw"
-                        type={showPassword ? "text" : "password"}
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl"
-                        required
-                      />
+                      <div className="relative">
+                        <Input
+                          id="current-pw"
+                          type={showPassword ? "text" : "password"}
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl pr-10"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          tabIndex={-1}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-1.5">
                       <Label htmlFor="new-pw" className="text-xs text-white">
-                        New Password (minimum 6 characters)
+                        {t.settings.newPassword}
                       </Label>
-                      <Input
-                        id="new-pw"
-                        type={showPassword ? "text" : "password"}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl"
-                        required
-                      />
+                      <div className="relative">
+                        <Input
+                          id="new-pw"
+                          type={showPassword ? "text" : "password"}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl pr-10"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          tabIndex={-1}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-1.5">
                       <Label htmlFor="confirm-pw" className="text-xs text-white">
-                        Confirm New Password
+                        {t.settings.confirmPassword}
                       </Label>
-                      <Input
-                        id="confirm-pw"
-                        type={showPassword ? "text" : "password"}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl"
-                        required
-                      />
+                      <div className="relative">
+                        <Input
+                          id="confirm-pw"
+                          type={showPassword ? "text" : "password"}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl pr-10"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          tabIndex={-1}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-between text-xs text-white/60 pt-1">
@@ -707,71 +698,55 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                           onChange={(e) => setShowPassword(e.target.checked)}
                           className="rounded bg-black/40 border-white/20 text-yellow-400 focus:ring-0"
                         />
-                        <span>Show Passwords</span>
+                        <span>{t.settings.showPasswords}</span>
                       </label>
                     </div>
 
                     <Button
                       type="submit"
                       disabled={savingPassword || !currentPassword || !newPassword}
-                      className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-10 rounded-xl text-xs shadow-lg mt-2"
+                      className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold h-10 rounded-xl text-xs shadow-lg mt-2 cursor-pointer"
                     >
                       {savingPassword ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Updating Password...
+                          {t.settings.saving}
                         </>
                       ) : (
-                        "Update Password"
+                        t.settings.changePassword
                       )}
                     </Button>
                   </form>
                 </CardContent>
               </Card>
 
-              {/* Profile & Session Overview */}
+              {/* Profile Overview */}
               <Card className="bg-gradient-to-br from-[#181818] via-[#121212] to-[#0a0a0a] border-white/10 shadow-2xl text-white">
                 <CardHeader className="border-b border-white/10 pb-4">
                   <CardTitle className="text-lg font-bold flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-yellow-400" />
-                    Account & Session Overview
+                    {t.settings.accountProfile}
                   </CardTitle>
-                  <CardDescription className="text-white/60 text-xs">
-                    Registered LECO profile & current browser session
-                  </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-4">
                   <div className="bg-black/30 border border-white/10 rounded-xl p-4 space-y-3 text-xs">
                     <div className="flex justify-between items-center">
-                      <span className="text-white/50">Registered Email:</span>
+                      <span className="text-white/50">{t.settings.emailLabel}:</span>
                       <span className="font-semibold text-white">{user?.email}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-white/50">Account Role:</span>
+                      <span className="text-white/50">{t.settings.roleLabel}:</span>
                       <Badge variant="outline" className="bg-yellow-400/10 text-yellow-300 border-yellow-400/30 text-[10px] uppercase font-bold">
-                        {user?.role || "Customer"}
+                        {user?.role || t.settings.customerRole}
                       </Badge>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-white/50">Linked Meters Count:</span>
-                      <span className="font-semibold text-white">{meters.length} smart meters</span>
+                      <span className="text-white/50">{t.addMeter.myLinkedMeters}:</span>
+                      <span className="font-semibold text-white">{meters.length}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-white/50">Active Tariff Schedule:</span>
+                      <span className="text-white/50">{t.overview.tariffPlan}:</span>
                       <span className="font-semibold text-yellow-400">{tariffType}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-white/50">Account Member Since:</span>
-                      <span className="text-white/70">
-                        {user?.created_at ? new Date(user.created_at).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "Active"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-white/50">Active Session:</span>
-                      <span className="text-emerald-400 flex items-center gap-1 font-medium">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        httpOnly Cookie + Bearer JWT
-                      </span>
                     </div>
                   </div>
 
@@ -779,10 +754,10 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                     <Button
                       onClick={onLogout}
                       variant="outline"
-                      className="w-full bg-red-500/10 border-red-500/30 hover:bg-red-500/20 text-red-300 font-bold h-10 rounded-xl text-xs flex items-center justify-center gap-2"
+                      className="w-full bg-red-500/10 border-red-500/30 hover:bg-red-500/20 text-red-300 font-bold h-10 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <LogOut className="h-4 w-4" />
-                      Sign Out of LECO Portal
+                      {t.settings.logoutBtn}
                     </Button>
                   </div>
                 </CardContent>

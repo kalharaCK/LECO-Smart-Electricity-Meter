@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ShieldCheck, Zap, Lock, Mail, Loader2, AlertTriangle, ArrowRight } from "lucide-react"
+import { ShieldCheck, Lock, Mail, Loader2, AlertTriangle, ArrowRight, Eye, EyeOff } from "lucide-react"
 import type { StaffUser } from "../types"
 
 interface StaffLoginProps {
@@ -13,6 +13,7 @@ interface StaffLoginProps {
 export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
   const [email, setEmail] = useState("staff@leco.lk")
   const [password, setPassword] = useState("staff123")
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
@@ -70,12 +71,12 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
         <div className="h-1.5 w-full bg-gradient-to-r from-yellow-400 via-amber-200 to-yellow-400" />
 
         <CardHeader className="text-center pt-8 pb-4">
-          <div className="mx-auto w-14 h-14 rounded-2xl bg-black/40 border border-yellow-400/30 flex items-center justify-center shadow-lg shadow-black/40 mb-3">
-            <Zap className="h-7 w-7 text-yellow-400" />
+          <div className="flex justify-center mb-3">
+            <img src="/leco-logo.png" alt="LECO Self Care" className="h-14 w-auto object-contain" />
           </div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-400/20 border border-yellow-400/30 text-yellow-300 text-xs font-bold uppercase tracking-wider mx-auto mb-2">
             <ShieldCheck className="h-3.5 w-3.5" />
-            LECO AMI Staff Terminal
+            LECO Self Care • Staff Portal
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight text-white">
             Operations & Grid Control
@@ -114,14 +115,25 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
                 <Lock className="h-3.5 w-3.5 text-yellow-400" />
                 Security Password
               </Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="bg-black/30 border-white/15 text-white placeholder:text-white/40 text-xs h-10 rounded-xl focus-visible:border-yellow-400"
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="bg-black/30 border-white/15 text-white placeholder:text-white/40 text-xs h-10 rounded-xl focus-visible:border-yellow-400 pr-10"
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors p-1"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             <Button

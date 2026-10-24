@@ -6,18 +6,29 @@ const {
   updateComplaintStatus,
   getAllComplaints
 } = require('../controllers/complaintController');
-const { requireAuth } = require('../middlewares/authMiddleware');
+const { requireAuth, requireCustomer, requireStaff } = require('../middlewares/authMiddleware');
 const { complaintRateLimiter } = require('../middlewares/rateLimiter');
 
 const router = express.Router();
 
-// All complaint routes require customer or staff authentication
 router.use(requireAuth);
 
-router.post('/', complaintRateLimiter, createComplaint);
-router.get('/my', getMyComplaints);
-router.get('/all', getAllComplaints);
+/**
+ * Staff-only operations
+ * Customer tokens are strictly rejected
+ */
+router.get('/all', requireStaff, getAllComplaints);
+router.patch('/:id/status', requireStaff, updateComplaintStatus);
+
+/**
+ * Customer-only operations
+ */
+router.post('/', requireCustomer, complaintRateLimiter, createComplaint);
+router.get('/my', requireCustomer, getMyComplaints);
+
+/**
+ * Shared retrieval (Enforces either ownership or staff role inside controller)
+ */
 router.get('/:id', getComplaintById);
-router.patch('/:id/status', updateComplaintStatus);
 
 module.exports = router;

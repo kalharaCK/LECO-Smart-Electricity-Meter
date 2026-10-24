@@ -1,10 +1,21 @@
 const { Pool } = require('pg');
 
+const defaultDbUrl = 'postgresql://neondb_owner:npg_ANkWi13sFrGy@ep-autumn-paper-b4lli3x5-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require';
+const connectionString = process.env.DATABASE_URL || defaultDbUrl;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   ssl: {
     rejectUnauthorized: false
-  }
+  },
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 30000,
+  keepAlive: true
+});
+
+pool.on('error', (err) => {
+  console.error('[Database Pool Warning]: Unexpected error on idle client:', err.message);
 });
 
 const initDb = async () => {
@@ -27,6 +38,9 @@ const initDb = async () => {
         status VARCHAR(50) DEFAULT 'Connected',
         daily_average DECIMAL(10, 2) DEFAULT 0.00,
         name VARCHAR(100) DEFAULT 'Home',
+        emergency_credit_limit DECIMAL(10, 2) DEFAULT 500.00,
+        emergency_credit_active BOOLEAN DEFAULT FALSE,
+        emergency_credit_activated_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
       CREATE TABLE IF NOT EXISTS consumption_logs (
@@ -42,7 +56,7 @@ const initDb = async () => {
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id),
         meter_id INTEGER REFERENCES meters(id),
-        type VARCHAR(50) NOT NULL, -- e.g., 'alert', 'success', 'info'
+        type VARCHAR(50) NOT NULL,
         title VARCHAR(255) NOT NULL,
         message TEXT NOT NULL,
         is_read BOOLEAN DEFAULT FALSE,
@@ -61,11 +75,16 @@ const initDb = async () => {
         status VARCHAR(50) DEFAULT 'Success',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-      ALTER TABLE payments ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(100) UNIQUE;
-      ALTER TABLE meters ADD COLUMN IF NOT EXISTS emergency_credit_limit DECIMAL(10, 2) DEFAULT 500.00;
-      ALTER TABLE meters ADD COLUMN IF NOT EXISTS emergency_credit_active BOOLEAN DEFAULT FALSE;
-      ALTER TABLE meters ADD COLUMN IF NOT EXISTS emergency_credit_activated_at TIMESTAMP;
-
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS order_id VARCHAR(100);
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS payhere_payment_id VARCHAR(100);
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS payhere_currency VARCHAR(10) DEFAULT 'LKR';
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_holder_name VARCHAR(255);
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS card_no VARCHAR(50);
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_gateway VARCHAR(50) DEFAULT 'PayHere';
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP;
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS verified_by VARCHAR(100);
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS verification_notes TEXT;
+      CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
       CREATE TABLE IF NOT EXISTS complaints (
         id SERIAL PRIMARY KEY,
         ticket_number VARCHAR(50) UNIQUE NOT NULL,
@@ -98,32 +117,86 @@ const initDb = async () => {
       );
       CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
     `);
-    console.log('Database tables initialized');
+    console.log('[Database] Tables and indexes verified successfully.');
 
-    // Phase 2 Security: Encrypt any legacy unhashed meter PINs using bcrypt
-    const unhashedMeters = await pool.query(`SELECT id, pin FROM meters WHERE pin NOT LIKE '$2%'`);
-    if (unhashedMeters.rows.length > 0) {
-      const bcrypt = require('bcryptjs');
-      for (const m of unhashedMeters.rows) {
-        const hashed = await bcrypt.hash(m.pin, 10);
-        await pool.query('UPDATE meters SET pin = $1 WHERE id = $2', [hashed, m.id]);
-      }
-      console.log(`[Security] Migrated ${unhashedMeters.rows.length} legacy meter PIN(s) to bcrypt cryptographic hashes.`);
-    }
+    const bcrypt = require('bcryptjs');
 
-    // Seed default staff account if not exists
+    // 1. Seed / Verify Staff Account (staff@leco.lk / staff123)
     const staffCheck = await pool.query(`SELECT id FROM users WHERE email = 'staff@leco.lk'`);
     if (staffCheck.rows.length === 0) {
-      const bcrypt = require('bcryptjs');
       const staffHash = await bcrypt.hash('staff123', 10);
       await pool.query(
         `INSERT INTO users (email, password, role) VALUES ('staff@leco.lk', $1, 'staff')`,
         [staffHash]
       );
-      console.log('[Auth] Created default LECO staff account: staff@leco.lk (password: staff123)');
+      console.log('[Auth] Created default LECO Staff account: staff@leco.lk (password: staff123)');
+    } else {
+      // Ensure role is explicitly 'staff'
+      await pool.query(`UPDATE users SET role = 'staff' WHERE email = 'staff@leco.lk'`);
     }
+
+    // 2. Seed / Verify Customer Demo Account (customer@leco.lk / customer123)
+    let customerId;
+    const customerCheck = await pool.query(`SELECT id FROM users WHERE email = 'customer@leco.lk'`);
+    if (customerCheck.rows.length === 0) {
+      const custHash = await bcrypt.hash('customer123', 10);
+      const custRes = await pool.query(
+        `INSERT INTO users (email, password, role) VALUES ('customer@leco.lk', $1, 'customer') RETURNING id`,
+        [custHash]
+      );
+      customerId = custRes.rows[0].id;
+      console.log('[Auth] Created default LECO Customer account: customer@leco.lk (password: customer123)');
+    } else {
+      customerId = customerCheck.rows[0].id;
+      await pool.query(`UPDATE users SET role = 'customer' WHERE email = 'customer@leco.lk'`);
+    }
+
+    // 3. Ensure Customer has at least one linked smart meter
+    if (customerId) {
+      const meterCheck = await pool.query(`SELECT id FROM meters WHERE user_id = $1`, [customerId]);
+      if (meterCheck.rows.length === 0) {
+        const pinHash = await bcrypt.hash('1234', 10);
+        const newMeter = await pool.query(
+          `INSERT INTO meters (user_id, meter_number, account_number, pin, balance, status, daily_average, name)
+           VALUES ($1, 'LECO-COL-9901', 'ACC-883921', $2, 2450.00, 'Connected', 145.00, 'Primary Residence')
+           RETURNING id`,
+          [customerId, pinHash]
+        );
+        const meterId = newMeter.rows[0].id;
+
+        // Seed 14 days of realistic consumption logs
+        for (let i = 13; i >= 0; i--) {
+          const kwh = +(8.5 + Math.random() * 6).toFixed(2);
+          const exported = +(Math.random() * 2).toFixed(2);
+          await pool.query(
+            `INSERT INTO consumption_logs (meter_id, reading_date, reading_hour, consumption, energy_export)
+             VALUES ($1, CURRENT_DATE - ($2 || ' days')::INTERVAL, 12, $3, $4)`,
+            [meterId, i, kwh, exported]
+          );
+        }
+
+        // Seed initial welcome notification
+        await pool.query(
+          `INSERT INTO notifications (user_id, meter_id, type, title, message)
+           VALUES ($1, $2, 'info', 'Smart Meter Activated', 'Your smart meter LECO-COL-9901 has been linked to your account.')`,
+          [customerId, meterId]
+        );
+        console.log('[Database] Seeded initial smart meter LECO-COL-9901 for customer@leco.lk');
+      }
+    }
+
+    // 4. Migrate any unhashed legacy meter PINs
+    const unhashedMeters = await pool.query(`SELECT id, pin FROM meters WHERE pin NOT LIKE '$2%'`);
+    if (unhashedMeters.rows.length > 0) {
+      for (const m of unhashedMeters.rows) {
+        const hashed = await bcrypt.hash(m.pin, 10);
+        await pool.query('UPDATE meters SET pin = $1 WHERE id = $2', [hashed, m.id]);
+      }
+      console.log(`[Security] Migrated ${unhashedMeters.rows.length} legacy meter PIN(s) to bcrypt hashes.`);
+    }
+
   } catch (err) {
-    console.error('Error initializing database:', err);
+    console.error('[Database Init Error]:', err.message);
   }
 };
 
@@ -132,10 +205,10 @@ const connectDb = async () => {
     const client = await pool.connect();
     const result = await client.query('SELECT NOW()');
     client.release();
-    console.log('Connected to Neon PostgreSQL:', result.rows[0].now);
+    console.log('[Database Connected] Neon PostgreSQL:', result.rows[0].now);
     await initDb();
   } catch (err) {
-    console.error('Error connecting to database:', err.stack);
+    console.error('[Database Connection Error]:', err.message);
   }
 };
 

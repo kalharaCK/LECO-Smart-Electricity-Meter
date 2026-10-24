@@ -12,6 +12,7 @@ import {
   TrendingUp, 
   ShieldAlert
 } from "lucide-react"
+import { useDashboardI18n } from "@/lib/dashboardI18n"
 
 interface Message {
   id: string
@@ -20,26 +21,37 @@ interface Message {
   timestamp: string
 }
 
-const SUGGESTED_PROMPTS = [
-  { label: "How many days will my top-up last?", icon: Calendar },
-  { label: "What was my last top-up?", icon: CreditCard },
-  { label: "Compare my weekly electricity usage", icon: TrendingUp },
-  { label: "Is Lifeline Mode active?", icon: ShieldAlert },
-]
-
 export default function EnergyAssistantBot() {
+  const { t } = useDashboardI18n()
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState("")
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "bot",
-      text: "Hello! I am your **LECO Smart Energy Assistant**.\n\nI can analyze your live meter telemetry, check how many days your balance will last, explain your PUCSL tariff tiers, or review past top-ups. How can I help you today?",
+      text: t.bot.welcomeMessage,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ])
   const [isTyping, setIsTyping] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+
+  // Update initial welcome message if user changes language before sending messages
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].id === "welcome") {
+        return [{ ...prev[0], text: t.bot.welcomeMessage }]
+      }
+      return prev
+    })
+  }, [t.bot.welcomeMessage])
+
+  const suggestedPrompts = [
+    { label: t.bot.promptDaysLeft, icon: Calendar },
+    { label: t.bot.promptLastTopup, icon: CreditCard },
+    { label: t.bot.promptCompareUsage, icon: TrendingUp },
+    { label: t.bot.promptLifelineActive, icon: ShieldAlert },
+  ]
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -95,7 +107,7 @@ export default function EnergyAssistantBot() {
       })
 
       const data = await res.json()
-      const botReply = data.reply || "I am currently unable to process your request. Please try again shortly."
+      const botReply = data.reply || t.bot.fallbackReply
 
       const botMessage: Message = {
         id: "bot-" + Date.now(),
@@ -114,7 +126,7 @@ export default function EnergyAssistantBot() {
         {
           id: "err-" + Date.now(),
           role: "bot",
-          text: "I encountered a network issue connecting to the energy database. Please try again.",
+          text: t.bot.networkError,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ])
@@ -187,7 +199,7 @@ export default function EnergyAssistantBot() {
             className="hidden sm:flex items-center gap-2 bg-[#18181b]/95 border border-white/15 shadow-2xl py-2 px-3.5 rounded-full text-xs text-white/90 cursor-pointer hover:border-yellow-400/50 hover:bg-[#202025] transition-all animate-in fade-in slide-in-from-right-3 duration-300"
           >
             <Sparkles className="h-3.5 w-3.5 text-yellow-400 animate-pulse" />
-            <span>Ask LECO Energy AI</span>
+            <span>{t.bot.askAi}</span>
           </div>
         )}
 
@@ -227,19 +239,17 @@ export default function EnergyAssistantBot() {
           <div className="p-3.5 sm:p-4 bg-gradient-to-r from-[#992511]/40 via-[#18181b] to-black border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2.5 sm:gap-3">
               <div className="relative">
-                <div className="p-2 sm:p-2.5 rounded-2xl bg-gradient-to-br from-[#992511] to-[#601206] text-white border border-white/15 shadow-inner">
-                  <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-300" />
-                </div>
+                <img src="/leco-logo.png" alt="LECO Self Care" className="h-8 w-auto object-contain" />
                 <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-black" />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h3 className="font-bold text-xs sm:text-sm text-white tracking-tight">LECO Energy Assistant</h3>
+                  <h3 className="font-bold text-xs sm:text-sm text-white tracking-tight">{t.bot.title}</h3>
                   <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/30 text-[9px] px-1.5 py-0 font-mono">
-                    AI Agent
+                    {t.bot.agentBadge}
                   </Badge>
                 </div>
-                <p className="text-[10px] sm:text-[11px] text-white/50">Online • Live Telemetry Connected</p>
+                <p className="text-[10px] sm:text-[11px] text-white/50">{t.bot.statusOnline}</p>
               </div>
             </div>
 
@@ -281,7 +291,7 @@ export default function EnergyAssistantBot() {
                   <span className="h-1.5 w-1.5 rounded-full bg-yellow-400 animate-bounce [animation-delay:-0.15s]" />
                   <span className="h-1.5 w-1.5 rounded-full bg-yellow-400 animate-bounce" />
                 </div>
-                <span className="text-[10px] text-white/40">Querying energy engine...</span>
+                <span className="text-[10px] text-white/40">{t.bot.typingNotice}</span>
               </div>
             )}
 
@@ -290,7 +300,7 @@ export default function EnergyAssistantBot() {
 
           {/* Quick Suggestion Chips */}
           <div className="px-3 py-2 border-t border-white/5 bg-black/30 overflow-x-auto flex gap-1.5 scrollbar-none">
-            {SUGGESTED_PROMPTS.map((p, idx) => {
+            {suggestedPrompts.map((p, idx) => {
               const Icon = p.icon
               return (
                 <button
@@ -319,7 +329,7 @@ export default function EnergyAssistantBot() {
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about days left, tariffs, usage..."
+                placeholder={t.bot.inputPlaceholder}
                 disabled={isTyping}
                 className="bg-black/50 border-white/15 text-white placeholder:text-white/40 text-xs sm:text-xs h-10 rounded-xl focus-visible:ring-yellow-400/50"
               />

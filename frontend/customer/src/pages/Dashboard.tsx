@@ -21,6 +21,12 @@ import ComplaintsSection from "../components/dashboard/ComplaintsSection"
 import PaymentHistorySection from "../components/dashboard/PaymentHistorySection"
 import SettingsSection from "../components/dashboard/SettingsSection"
 import EnergyAssistantBot from "../components/chat/EnergyAssistantBot"
+import { LanguageSelector } from "@/components/LanguageSelector"
+import { 
+  DashboardI18nProvider, 
+  useDashboardI18n,
+  getDashboardTranslations 
+} from "@/lib/dashboardI18n"
 
 import {
   Sidebar,
@@ -38,15 +44,6 @@ import {
   SidebarFooter,
   useSidebar
 } from "@/components/ui/sidebar"
-
-const navItems = [
-  { id: "overview", title: "Overview", icon: LayoutDashboard },
-  { id: "add-meter", title: "Add Meter", icon: PlusCircle },
-  { id: "payments", title: "Payments", icon: CreditCard },
-  { id: "history", title: "Payment History", icon: HistoryIcon },
-  { id: "complaints", title: "Complaints", icon: MessageSquareWarning },
-  { id: "settings", title: "Settings", icon: Settings },
-]
 
 interface ErrorBoundaryProps {
   children: React.ReactNode
@@ -73,22 +70,25 @@ class SectionErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   render() {
     if (this.state.hasError) {
+      const savedLang = (typeof window !== "undefined" ? localStorage.getItem("customer_lang") : "en") || "en"
+      const t = getDashboardTranslations(savedLang === "si" || savedLang === "ta" ? savedLang : "en")
+
       return (
         <div className="p-6 sm:p-8 rounded-2xl bg-[#180806] border border-red-500/30 text-white space-y-4 max-w-2xl mx-auto mt-6 shadow-2xl">
           <div className="flex items-center gap-3 text-red-400">
             <AlertTriangle className="h-6 w-6 shrink-0" />
-            <h3 className="text-base sm:text-lg font-bold">Failed to display this section</h3>
+            <h3 className="text-base sm:text-lg font-bold">{t.errorBoundary.title}</h3>
           </div>
           <p className="text-xs text-white/70 leading-relaxed">
-            {this.state.error?.message || "An unexpected error occurred while rendering this section."}
+            {this.state.error?.message || t.errorBoundary.genericDesc}
           </p>
           <div className="pt-2">
             <Button
               onClick={() => this.setState({ hasError: false, error: null })}
-              className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-2"
+              className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-xs h-9 px-4 rounded-xl flex items-center gap-2 cursor-pointer"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              Reload Section
+              {t.errorBoundary.reloadBtn}
             </Button>
           </div>
         </div>
@@ -102,6 +102,7 @@ class SectionErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 function DashboardInner() {
   const navigate = useNavigate()
   const { setOpenMobile, isMobile } = useSidebar()
+  const { language, setLanguage, t } = useDashboardI18n()
   const [user, setUser] = useState<{ email: string; role: string } | null>(null)
   const [activeSection, setActiveSection] = useState("overview")
   const [notifications, setNotifications] = useState<any[]>([])
@@ -215,6 +216,37 @@ function DashboardInner() {
     }
   }
 
+  // Active section title in current language
+  const getActiveSectionTitle = () => {
+    switch (activeSection) {
+      case "overview": return t.nav.overview
+      case "add-meter": return t.nav.addMeter
+      case "payments": return t.nav.payments
+      case "history": return t.nav.history
+      case "complaints": return t.nav.complaints
+      case "settings": return t.nav.settings
+      default: return activeSection.replace('-', ' ')
+    }
+  }
+
+  const navItems = [
+    { id: "overview", title: t.nav.overview, icon: LayoutDashboard },
+    { id: "add-meter", title: t.nav.addMeter, icon: PlusCircle },
+    { id: "payments", title: t.nav.payments, icon: CreditCard },
+    { id: "history", title: t.nav.history, icon: HistoryIcon },
+    { id: "complaints", title: t.nav.complaints, icon: MessageSquareWarning },
+    { id: "settings", title: t.nav.settings, icon: Settings },
+  ]
+
+  // Key items for mobile bottom navigation dock
+  const mobileDockItems = [
+    { id: "overview", label: t.dock.overview, icon: LayoutDashboard },
+    { id: "payments", label: t.dock.recharge, icon: CreditCard },
+    { id: "history", label: t.dock.history, icon: HistoryIcon },
+    { id: "complaints", label: t.dock.help, icon: MessageSquareWarning },
+    { id: "settings", label: t.dock.settings, icon: Settings },
+  ]
+
   if (!user) return null
 
   const renderContent = () => {
@@ -252,32 +284,24 @@ function DashboardInner() {
     }
   }
 
-  // Key items for mobile bottom navigation dock
-  const mobileDockItems = [
-    { id: "overview", label: "Overview", icon: LayoutDashboard },
-    { id: "payments", label: "Recharge", icon: CreditCard },
-    { id: "history", label: "History", icon: HistoryIcon },
-    { id: "complaints", label: "Help", icon: MessageSquareWarning },
-    { id: "settings", label: "Settings", icon: Settings },
-  ]
-
   return (
     <div className="flex min-h-screen w-full bg-[#09090b] text-white selection:bg-[#992511]/30">
       {/* Desktop & Mobile Drawer Sidebar */}
       <Sidebar variant="inset" className="border-r border-white/5 bg-[#0f0f11]">
         <SidebarHeader className="border-b border-white/5 pb-2">
-          <div className="flex h-12 items-center justify-between px-3">
-            <div className="flex items-center gap-2.5 font-bold text-lg tracking-tight text-white">
-              <span className="h-7 w-7 rounded-lg bg-gradient-to-br from-[#992511] to-[#e6391d] flex items-center justify-center text-white text-xs font-black shadow-md">
-                E
-              </span>
-              <span>E-Meter Portal</span>
+          <div className="flex h-14 items-center justify-between px-3">
+            <div className="flex items-center gap-2.5 font-bold tracking-tight text-white">
+              <img src="/leco-logo.png" alt="LECO Self Care" className="h-9 w-auto object-contain shrink-0" />
+              <div className="flex flex-col leading-tight">
+                <span className="font-extrabold text-sm text-white">LECO Self Care</span>
+                <span className="text-[10px] text-white/50 font-medium">Customer Portal</span>
+              </div>
             </div>
           </div>
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel className="text-white/40 text-[11px] uppercase tracking-wider">Navigation</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-white/40 text-[11px] uppercase tracking-wider">{t.nav.navigationLabel}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {navItems.map((item) => (
@@ -309,7 +333,7 @@ function DashboardInner() {
                 className="text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl cursor-pointer"
               >
                 <LogOut className="h-4 w-4" />
-                <span>Logout</span>
+                <span>{t.nav.logout}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -324,27 +348,37 @@ function DashboardInner() {
             
             {/* Desktop Breadcrumbs */}
             <div className="hidden md:flex items-center text-xs font-medium text-white/50">
-              <span>Customer Portal</span>
+              <div className="flex items-center gap-2 mr-1">
+                <img src="/leco-logo.png" alt="LECO Logo" className="h-5 w-auto object-contain" />
+                <span className="font-bold text-white/90">LECO Self Care</span>
+              </div>
               <span className="mx-2">/</span>
-              <span className="text-white capitalize font-semibold">{activeSection.replace('-', ' ')}</span>
+              <span className="text-white capitalize font-semibold">{getActiveSectionTitle()}</span>
             </div>
 
             {/* Mobile Header Title */}
             <div className="flex md:hidden items-center gap-1.5 min-w-0">
-              <span className="font-bold text-sm text-[#ff6b52] tracking-tight">E-Meter</span>
+              <img src="/leco-logo.png" alt="LECO Logo" className="h-5 w-auto object-contain shrink-0" />
+              <span className="font-bold text-xs text-white tracking-tight">LECO Self Care</span>
               <span className="text-white/30 text-xs">•</span>
               <span className="text-xs text-white/80 font-medium capitalize truncate max-w-[120px]">
-                {activeSection.replace('-', ' ')}
+                {getActiveSectionTitle()}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4 relative shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3.5 relative shrink-0">
+            {/* Standard Language Selector */}
+            <LanguageSelector 
+              currentLanguage={language} 
+              onLanguageChange={setLanguage} 
+            />
+
             {/* Notifications Button */}
             <button 
               className="relative p-2 rounded-xl text-white/70 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
               onClick={() => setShowNotifications(!showNotifications)}
-              aria-label="Notifications"
+              aria-label={t.header.notifications}
             >
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
@@ -365,17 +399,17 @@ function DashboardInner() {
                   <div className="p-3.5 border-b border-white/10 flex justify-between items-center bg-black/30">
                     <div className="flex items-center gap-2">
                       <Bell className="h-4 w-4 text-yellow-400" />
-                      <h4 className="font-semibold text-sm text-white">Notifications</h4>
+                      <h4 className="font-semibold text-sm text-white">{t.header.notifications}</h4>
                     </div>
                     {unreadCount > 0 && (
                       <span className="text-[11px] font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/20">
-                        {unreadCount} unread
+                        {unreadCount} {t.header.unread}
                       </span>
                     )}
                   </div>
                   <div className="max-h-[340px] overflow-y-auto divide-y divide-white/5">
                     {notifications.length === 0 ? (
-                      <div className="p-6 text-center text-xs text-white/50">No notifications</div>
+                      <div className="p-6 text-center text-xs text-white/50">{t.header.noNotifications}</div>
                     ) : (
                       notifications.map(n => (
                         <div 
@@ -413,7 +447,7 @@ function DashboardInner() {
         <main className="flex-1 p-3 sm:p-5 lg:p-8 pb-28 md:pb-10 max-w-7xl w-full mx-auto">
           <div className="mb-4 sm:mb-6 animate-in fade-in slide-in-from-left-4 duration-500">
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight capitalize text-white">
-              {activeSection.replace('-', ' ')}
+              {getActiveSectionTitle()}
             </h1>
           </div>
           <div key={activeSection} className="animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500 fill-mode-both">
@@ -464,9 +498,11 @@ function DashboardInner() {
 export default function Dashboard() {
   return (
     <SectionErrorBoundary>
-      <SidebarProvider>
-        <DashboardInner />
-      </SidebarProvider>
+      <DashboardI18nProvider>
+        <SidebarProvider>
+          <DashboardInner />
+        </SidebarProvider>
+      </DashboardI18nProvider>
     </SectionErrorBoundary>
   )
 }

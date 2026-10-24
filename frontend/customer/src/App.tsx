@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { TooltipProvider } from "@/components/ui/tooltip"
 import AuthPage from "./pages/AuthPage"
 import Dashboard from "./pages/Dashboard"
+import { CookieConsentModal } from "./components/CookieConsentModal"
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <CookieConsentModal />
       </Router>
     </TooltipProvider>
   )

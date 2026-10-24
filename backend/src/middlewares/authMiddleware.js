@@ -1,7 +1,9 @@
 const jwt = require('jsonwebtoken');
 
+/**
+ * Validates JWT token from Authorization header or HTTP-only cookie
+ */
 const requireAuth = (req, res, next) => {
-  // Prioritize explicit Authorization header from client over ambient cookies
   let token = null;
 
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
@@ -11,16 +13,60 @@ const requireAuth = (req, res, next) => {
   }
 
   if (!token) {
-    return res.status(401).json({ message: 'Unauthorized, no authentication token found' });
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Unauthorized: Authentication token required.' 
+    });
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_jwt_key');
-    req.user = decoded; // { id, role }
+    req.user = decoded; // { id, email, role }
     next();
   } catch (err) {
-    return res.status(401).json({ message: 'Unauthorized, invalid or expired token' });
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Unauthorized: Invalid or expired authentication token.' 
+    });
   }
 };
 
-module.exports = { requireAuth };
+/**
+ * Restricts route strictly to LECO Customer accounts.
+ * Blocks staff accounts from accessing customer-scoped private data.
+ */
+const requireCustomer = (req, res, next) => {
+  requireAuth(req, res, () => {
+    const role = (req.user?.role || '').toLowerCase();
+    if (role === 'customer' || role === 'user') {
+      return next();
+    }
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: Customer access only. Staff members must use the Staff Operations Portal.'
+    });
+  });
+};
+
+/**
+ * Restricts route strictly to LECO Staff and Grid Administrators.
+ * Completely blocks customer tokens from accessing grid controls, meter relays, and all complaints.
+ */
+const requireStaff = (req, res, next) => {
+  requireAuth(req, res, () => {
+    const role = (req.user?.role || '').toLowerCase();
+    if (role === 'staff' || role === 'admin') {
+      return next();
+    }
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: LECO Staff privileges required. Access denied.'
+    });
+  });
+};
+
+module.exports = {
+  requireAuth,
+  requireCustomer,
+  requireStaff
+};

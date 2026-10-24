@@ -1,28 +1,30 @@
 import { useState, useEffect, useCallback } from "react"
 import {
-  Zap,
   Cpu,
   MessageSquareWarning,
-  LogOut
+  LogOut,
+  CreditCard
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import StaffLogin from "./components/StaffLogin"
 import MetersManagement from "./components/MetersManagement"
 import ComplaintsManagement from "./components/ComplaintsManagement"
+import PayhereVerification from "./components/PayhereVerification"
 import { getSocket } from "./lib/socket"
-import type { StaffMeter, StaffComplaint, StaffUser } from "./types"
+import type { StaffMeter, StaffComplaint, StaffUser, PayhereTransaction } from "./types"
 
 export function App() {
   const [user, setUser] = useState<StaffUser | null>(null)
   const [token, setToken] = useState<string>("")
-  const [activeTab, setActiveTab] = useState<"meters" | "complaints">("meters")
+  const [activeTab, setActiveTab] = useState<"meters" | "complaints" | "payhere">("meters")
 
   // Data states
   const [meters, setMeters] = useState<StaffMeter[]>([])
   const [complaints, setComplaints] = useState<StaffComplaint[]>([])
+  const [payhereTransactions, setPayhereTransactions] = useState<PayhereTransaction[]>([])
   const [loadingMeters, setLoadingMeters] = useState(false)
   const [loadingComplaints, setLoadingComplaints] = useState(false)
-  const [socketConnected, setSocketConnected] = useState(false)
+  const [loadingPayhere, setLoadingPayhere] = useState(false)
 
   // Cross-tab jump
   const [complaintMeterFilter, setComplaintMeterFilter] = useState("")
@@ -92,26 +94,50 @@ export function App() {
     }
   }, [getAuthHeaders])
 
-  // When user is authenticated, fetch initial data
+  // Fetch PayHere Transactions
+  const fetchPayhereTransactions = useCallback(async () => {
+    setLoadingPayhere(true)
+    try {
+      const res = await fetch("http://localhost:3000/api/staff/payments/payhere-transactions", {
+        headers: getAuthHeaders(),
+        credentials: "include"
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.transactions && Array.isArray(data.transactions)) {
+          setPayhereTransactions(data.transactions)
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching PayHere transactions:", err)
+    } finally {
+      setLoadingPayhere(false)
+    }
+  }, [getAuthHeaders])
+
+  // When user is authenticated, fetch initial data and maintain continuous REST polling
   useEffect(() => {
     if (user) {
       fetchMeters()
       fetchComplaints()
+      fetchPayhereTransactions()
+
+      // High-reliability REST API background synchronization (10-second polling cadence)
+      const interval = setInterval(() => {
+        fetchMeters()
+        fetchComplaints()
+        fetchPayhereTransactions()
+      }, 10000)
+
+      return () => clearInterval(interval)
     }
-  }, [user, fetchMeters, fetchComplaints])
+  }, [user, fetchMeters, fetchComplaints, fetchPayhereTransactions])
 
   // WebSocket Live Real-Time Integration
   useEffect(() => {
     if (!user) return
 
     const socket = getSocket()
-
-    const handleConnect = () => setSocketConnected(true)
-    const handleDisconnect = () => setSocketConnected(false)
-
-    socket.on("connect", handleConnect)
-    socket.on("disconnect", handleDisconnect)
-    if (socket.connected) setSocketConnected(true)
 
     // Listen to real-time complaint updates from customers or other staff
     const handleComplaintUpdate = (updated: StaffComplaint) => {
@@ -149,8 +175,6 @@ export function App() {
     socket.on("meter_update", handleMeterUpdate)
 
     return () => {
-      socket.off("connect", handleConnect)
-      socket.off("disconnect", handleDisconnect)
       socket.off("complaint_update", handleComplaintUpdate)
       socket.off("meter_update", handleMeterUpdate)
     }
@@ -185,6 +209,10 @@ export function App() {
     (c) => c.status === "submitted" || c.status === "in_review" || c.status === "investigating"
   ).length
 
+  const pendingPayhereCount = payhereTransactions.filter(
+    (t) => t.status.toLowerCase() === "pending" || t.status.toLowerCase() === "review_needed"
+  ).length
+
   return (
     <div className="min-h-screen bg-[#09090b] text-white font-sans flex flex-col selection:bg-[#992511]/30 selection:text-white">
       {/* Top Operations Header */}
@@ -192,17 +220,15 @@ export function App() {
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           {/* Logo & Terminal Identity */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#992511] to-[#3a0b04] border border-white/10 flex items-center justify-center shadow-lg shadow-[#992511]/20 shrink-0">
-              <Zap className="h-5 w-5 text-yellow-400" />
-            </div>
+            <img src="/leco-logo.png" alt="LECO Self Care" className="h-10 w-auto object-contain shrink-0" />
 
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-base lg:text-lg tracking-tight text-white">
-                  LECO <span className="text-yellow-400">OPERATIONS</span>
+                  LECO <span className="text-yellow-400">Self Care</span>
                 </span>
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-400/10 text-yellow-400 border border-yellow-400/20">
-                  STAFF TERMINAL
+                  STAFF PORTAL
                 </span>
               </div>
               <p className="text-[11px] text-white/50 hidden sm:block">
@@ -213,15 +239,11 @@ export function App() {
 
           {/* Right Header Status & Profile Controls */}
           <div className="flex items-center gap-3">
-            {/* Live Socket Status */}
+            {/* Live REST API Synchronization Badge */}
             <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-white/5 text-xs">
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  socketConnected ? "bg-emerald-400 animate-pulse" : "bg-rose-500"
-                }`}
-              />
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-white/70 text-[11px] font-mono">
-                {socketConnected ? "Grid Telemetry Live" : "Reconnecting..."}
+                REST Grid Synced
               </span>
             </div>
 
@@ -259,21 +281,27 @@ export function App() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              {activeTab === "meters" ? "Smart Meters Fleet Command" : "Customer Complaints & Engineering Triage"}
+              {activeTab === "meters"
+                ? "Smart Meters Fleet Command"
+                : activeTab === "complaints"
+                ? "Customer Complaints & Engineering Triage"
+                : "PayHere Payment Gateway Ledger & Verification"}
             </h1>
             <p className="text-xs text-white/60 mt-1 max-w-xl">
               {activeTab === "meters"
                 ? "Full telemetry monitoring, live balance tracking, remote relay cutoff & instant credit relief."
-                : "Triage customer complaints, dispatch field technicians, update progress stages, and push live resolution notices."}
+                : activeTab === "complaints"
+                ? "Triage customer complaints, dispatch field technicians, update progress stages, and push live resolution notices."
+                : "Verify online checkout tokens, inspect MD5 digital signatures, review PayHere webhook callbacks, and conduct manual reconciliations."}
             </p>
           </div>
 
           {/* Executive Tab Switcher */}
-          <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5 self-start md:self-auto">
+          <div className="flex flex-wrap items-center gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5 self-start md:self-auto">
             <button
               type="button"
               onClick={() => setActiveTab("meters")}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-4 lg:px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === "meters"
                   ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
                   : "text-white/60 hover:text-white hover:bg-white/5"
@@ -289,7 +317,7 @@ export function App() {
                 setComplaintMeterFilter("")
                 setActiveTab("complaints")
               }}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-4 lg:px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === "complaints"
                   ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
                   : "text-white/60 hover:text-white hover:bg-white/5"
@@ -300,6 +328,24 @@ export function App() {
               {openComplaintsCount > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-red-500 text-white animate-pulse">
                   {openComplaintsCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("payhere")}
+              className={`px-4 lg:px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === "payhere"
+                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
+                  : "text-white/60 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <CreditCard className="h-4 w-4" />
+              PayHere Ledger ({payhereTransactions.length})
+              {pendingPayhereCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-black">
+                  {pendingPayhereCount}
                 </span>
               )}
             </button>
@@ -317,12 +363,19 @@ export function App() {
             onSelectComplaintTabWithMeter={handleSelectComplaintTabWithMeter}
             getAuthHeaders={getAuthHeaders}
           />
-        ) : (
+        ) : activeTab === "complaints" ? (
           <ComplaintsManagement
             complaints={complaints}
             loading={loadingComplaints}
             onRefresh={fetchComplaints}
             initialMeterSearch={complaintMeterFilter}
+            getAuthHeaders={getAuthHeaders}
+          />
+        ) : (
+          <PayhereVerification
+            transactions={payhereTransactions}
+            loading={loadingPayhere}
+            onRefresh={fetchPayhereTransactions}
             getAuthHeaders={getAuthHeaders}
           />
         )}
