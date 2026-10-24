@@ -75,3 +75,30 @@ export interface PayhereTransaction {
   meter_status?: string
   customer_email?: string
 }
+
+export interface SmsLog {
+  id: number
+  recipient: string
+  sender_id: string
+  event_type: string
+  language: string
+  message: string
+  status: 'delivered' | 'sent' | 'failed' | string
+  provider_uid?: string
+  cost: number | string
+  error_message?: string
+  metadata?: any
+  created_at: string
+}
+
+export interface SmsBalance {
+  remaining_balance?: string | number
+  expired_on?: string
+}
+
+export interface SmsStats {
+  total_sent: number
+  total_delivered: number
+  total_failed: number
+  sent_today: number
+}
