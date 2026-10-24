@@ -52,41 +52,62 @@ const getIo = () => io;
 
 /**
  * Broadcast real-time meter telemetry & balance update to listening room
+ * Fully decoupled and asynchronous - will never block or throw in REST context.
  * @param {number|string} meterId 
  * @param {object} payload 
  */
 const emitMeterUpdate = (meterId, payload) => {
-  if (io && meterId) {
-    io.to(`meter_${meterId}`).emit('meter_update', payload);
-    io.emit('meter_update', { meterId, ...payload });
-  }
+  setImmediate(() => {
+    try {
+      if (io && meterId) {
+        io.to(`meter_${meterId}`).emit('meter_update', payload);
+        io.emit('meter_update', { meterId, ...payload });
+      }
+    } catch (err) {
+      console.warn('[SocketService] Non-critical socket emitMeterUpdate error:', err.message);
+    }
+  });
 };
 
 /**
  * Broadcast real-time notification to user's room
+ * Fully decoupled and asynchronous - will never block or throw in REST context.
  * @param {number|string} userId 
  * @param {object} notification 
  */
 const emitNotification = (userId, notification) => {
-  if (io && userId) {
-    io.to(`user_${userId}`).emit('notification', notification);
-    io.emit('notification', { userId, ...notification });
-  }
+  setImmediate(() => {
+    try {
+      if (io && userId) {
+        io.to(`user_${userId}`).emit('notification', notification);
+        io.emit('notification', { userId, ...notification });
+      }
+    } catch (err) {
+      console.warn('[SocketService] Non-critical socket emitNotification error:', err.message);
+    }
+  });
 };
 
 /**
  * Broadcast real-time complaint status update to user's room and staff
+ * Fully decoupled and asynchronous - will never block or throw in REST context.
  * @param {number|string} userId 
  * @param {object} complaint 
  */
 const emitComplaintUpdate = (userId, complaint) => {
-  if (io) {
-    if (userId) {
-      io.to(`user_${userId}`).emit('complaint_update', complaint);
+  setImmediate(() => {
+    try {
+      if (io) {
+        if (userId) {
+          io.to(`user_${userId}`).emit('complaint_update', complaint);
+        }
+        io.to('staff_room').emit('complaint_update', complaint);
+        io.emit('complaint_update', complaint);
+      }
+    } catch (err) {
+      console.warn('[SocketService] Non-critical socket emitComplaintUpdate error:', err.message);
     }
-    io.to('staff_room').emit('complaint_update', complaint);
-    io.emit('complaint_update', complaint);
-  }
+  });
 };
 
 module.exports = {
