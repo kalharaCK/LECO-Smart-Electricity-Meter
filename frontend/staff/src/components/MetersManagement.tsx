@@ -678,7 +678,7 @@ export default function MetersManagement({
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-white/50">AMI Ping Interval:</span>
+                    <span className="text-white/50">Telemetry Ping Interval:</span>
                     <span className="text-emerald-400 font-mono">15s Live Telemetry</span>
                   </div>
                 </div>
