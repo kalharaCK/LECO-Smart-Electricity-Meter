@@ -10,6 +10,8 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const predictionModule = require('./modules/prediction');
+const chatbotModule = require('./modules/chatbot');
 const { sanitizeInputs } = require('./middlewares/sanitizer');
 const { errorHandler } = require('./middlewares/errorHandler');
 const { requireAuth } = require('./middlewares/authMiddleware');
@@ -97,7 +99,8 @@ app.use('/api/customer', customerRoutes);
 app.use('/api/meters', meterRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/chat', chatRoutes);
+app.use('/api/chat', chatbotModule.router);
+app.use('/api/prediction', predictionModule.router);
 app.use('/api/settings', settingsRoutes);
 
 // PayHere Payment Gateway Handlers & Server-to-Server IPN Webhook
@@ -119,7 +122,7 @@ app.get('/api/health', async (req, res) => {
 
   res.json({
     status: 'ok',
-    service: 'LECO Smart AMI REST Engine',
+    service: 'LECO Self Care REST Engine',
     database: {
       status: dbStatus,
       latencyMs: dbLatencyMs,
