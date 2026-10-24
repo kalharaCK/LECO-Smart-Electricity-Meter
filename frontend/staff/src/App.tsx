@@ -3,20 +3,22 @@ import {
   Cpu,
   MessageSquareWarning,
   LogOut,
-  CreditCard
+  CreditCard,
+  Send
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import StaffLogin from "./components/StaffLogin"
 import MetersManagement from "./components/MetersManagement"
 import ComplaintsManagement from "./components/ComplaintsManagement"
 import PayhereVerification from "./components/PayhereVerification"
+import SmsGatewayManagement from "./components/SmsGatewayManagement"
 import { getSocket } from "./lib/socket"
 import type { StaffMeter, StaffComplaint, StaffUser, PayhereTransaction } from "./types"
 
 export function App() {
   const [user, setUser] = useState<StaffUser | null>(null)
   const [token, setToken] = useState<string>("")
-  const [activeTab, setActiveTab] = useState<"meters" | "complaints" | "payhere">("meters")
+  const [activeTab, setActiveTab] = useState<"meters" | "complaints" | "payhere" | "sms">("meters")
 
   // Data states
   const [meters, setMeters] = useState<StaffMeter[]>([])
@@ -232,7 +234,7 @@ export function App() {
                 </span>
               </div>
               <p className="text-[11px] text-white/50 hidden sm:block">
-                Advanced Metering Infrastructure (AMI) Grid Control & Complaint Dispatch
+                LECO Self Care Smart Grid Operations & Complaint Dispatch
               </p>
             </div>
           </div>
@@ -285,14 +287,18 @@ export function App() {
                 ? "Smart Meters Fleet Command"
                 : activeTab === "complaints"
                 ? "Customer Complaints & Engineering Triage"
-                : "PayHere Payment Gateway Ledger & Verification"}
+                : activeTab === "payhere"
+                ? "PayHere Payment Gateway Ledger & Verification"
+                : "Text.lk SMS Gateway & Trilingual Alerts Center"}
             </h1>
             <p className="text-xs text-white/60 mt-1 max-w-xl">
               {activeTab === "meters"
                 ? "Full telemetry monitoring, live balance tracking, remote relay cutoff & instant credit relief."
                 : activeTab === "complaints"
                 ? "Triage customer complaints, dispatch field technicians, update progress stages, and push live resolution notices."
-                : "Verify online checkout tokens, inspect MD5 digital signatures, review PayHere webhook callbacks, and conduct manual reconciliations."}
+                : activeTab === "payhere"
+                ? "Verify online checkout tokens, inspect MD5 digital signatures, review PayHere webhook callbacks, and conduct manual reconciliations."
+                : "Live SMS balance tracking, instant transactional SMS dispatch (English, Sinhala, Tamil), automated low-balance fleet broadcasts, and full transmission audit ledger."}
             </p>
           </div>
 
@@ -349,6 +355,19 @@ export function App() {
                 </span>
               )}
             </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("sms")}
+              className={`px-4 lg:px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === "sms"
+                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
+                  : "text-white/60 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <Send className="h-4 w-4" />
+              SMS Gateway
+            </button>
           </div>
         </div>
       </div>
@@ -371,11 +390,16 @@ export function App() {
             initialMeterSearch={complaintMeterFilter}
             getAuthHeaders={getAuthHeaders}
           />
-        ) : (
+        ) : activeTab === "payhere" ? (
           <PayhereVerification
             transactions={payhereTransactions}
             loading={loadingPayhere}
             onRefresh={fetchPayhereTransactions}
+            getAuthHeaders={getAuthHeaders}
+          />
+        ) : (
+          <SmsGatewayManagement
+            meters={meters}
             getAuthHeaders={getAuthHeaders}
           />
         )}
@@ -383,7 +407,7 @@ export function App() {
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-4 px-4 text-center text-xs text-white/30">
-        LECO Smart AMI Engineering Console • Port 5174 • Real-Time Dual-Way WebSocket Synchronized
+        LECO Self Care Operations Console • Port 5174 • Real-Time Dual-Way WebSocket Synchronized
       </footer>
     </div>
   )
