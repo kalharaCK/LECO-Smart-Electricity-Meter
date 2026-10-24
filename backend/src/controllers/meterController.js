@@ -4,6 +4,7 @@ const { getWalletLifetimePrediction } = require('../services/predictionEngine');
 const { calculateDomesticBill } = require('../services/tariffEngine');
 const { sanitizeString } = require('../middlewares/sanitizer');
 const { emitMeterUpdate, emitNotification } = require('../services/socketService');
+const smsService = require('../services/smsService');
 
 /**
  * Broadcasts latest meter telemetry, balance, and prediction over WebSocket
@@ -532,6 +533,33 @@ const rechargeMeter = async (req, res) => {
       // Real-time WebSocket Broadcast
       broadcastMeterState(meterId).catch(e => console.error('WS broadcast error:', e));
 
+      // Dispatch Payment Confirmation SMS via Text.lk
+      try {
+        const userMobQuery = await client.query(
+          `SELECT COALESCE(u.mobile_number, s.phone_number) as phone 
+           FROM users u 
+           LEFT JOIN user_settings s ON u.id = s.user_id 
+           WHERE u.id = $1`,
+          [userId]
+        );
+        const customerPhone = userMobQuery.rows[0]?.phone;
+        if (customerPhone) {
+          smsService.sendEventSms({
+            recipient: customerPhone,
+            eventType: 'payment',
+            language: 'en',
+            data: {
+              amount: rechargeAmount.toFixed(2),
+              account_no: meterCheck.rows[0].account_number || meterCheck.rows[0].meter_number,
+              ref: txnId,
+              balance: newBalance.toFixed(2)
+            }
+          }).catch(err => console.error('[Recharge SMS error]:', err.message));
+        }
+      } catch (smsErr) {
+        console.error('[Recharge SMS Phone Fetch Error]:', smsErr.message);
+      }
+
       res.status(200).json({
         message: debtRecovered > 0 
           ? `Recharge successful. Recovered Rs. ${debtRecovered.toFixed(2)} emergency credit debt.` 
@@ -1049,7 +1077,7 @@ const getAllMetersForStaff = async (req, res) => {
         u.email AS customer_email,
         u.role AS customer_role,
         u.created_at AS customer_since,
-        COALESCE(us.phone_number, '+94 77 123 4567') AS phone_number,
+        COALESCE(u.mobile_number, us.phone_number, '+94 77 123 4567') AS phone_number,
         COALESCE(us.tariff_type, 'Domestic D-1 (PUCSL Block Tariff)') AS tariff_type,
         COALESCE(us.low_balance_threshold, 300.00) AS low_balance_threshold,
         COALESCE(us.daily_kwh_budget, 12.00) AS daily_kwh_budget,
@@ -1133,6 +1161,31 @@ const toggleMeterRelay = async (req, res) => {
     // Broadcast to real-time WebSockets
     broadcastMeterState(meterId).catch(console.error);
 
+    // Dispatch Relay Status SMS via Text.lk
+    try {
+      const userMobQuery = await pool.query(
+        `SELECT COALESCE(u.mobile_number, s.phone_number) as phone 
+         FROM users u 
+         LEFT JOIN user_settings s ON u.id = s.user_id 
+         WHERE u.id = $1`,
+        [meter.user_id]
+      );
+      const customerPhone = userMobQuery.rows[0]?.phone;
+      if (customerPhone) {
+        smsService.sendEventSms({
+          recipient: customerPhone,
+          eventType: 'relay_command',
+          language: 'en',
+          data: {
+            account_no: meter.account_number || meter.meter_number,
+            status: newStatus === 'Connected' ? 'Connected (Active)' : 'Disconnected (Cutoff)'
+          }
+        }).catch(err => console.error('[Relay SMS error]:', err.message));
+      }
+    } catch (smsErr) {
+      console.error('[Relay SMS Phone Fetch Error]:', smsErr.message);
+    }
+
     return res.json({
       success: true,
       message: `Meter relay successfully changed to ${newStatus}.`,
@@ -1190,6 +1243,33 @@ const staffTopupMeter = async (req, res) => {
     );
 
     broadcastMeterState(meterId).catch(console.error);
+
+    // Dispatch Staff Adjustment SMS via Text.lk
+    try {
+      const userMobQuery = await pool.query(
+        `SELECT COALESCE(u.mobile_number, s.phone_number) as phone 
+         FROM users u 
+         LEFT JOIN user_settings s ON u.id = s.user_id 
+         WHERE u.id = $1`,
+        [meter.user_id]
+      );
+      const customerPhone = userMobQuery.rows[0]?.phone;
+      if (customerPhone) {
+        smsService.sendEventSms({
+          recipient: customerPhone,
+          eventType: 'payment',
+          language: 'en',
+          data: {
+            amount: numAmount.toFixed(2),
+            account_no: meter.account_number || meter.meter_number,
+            ref: txId,
+            balance: newBalance.toFixed(2)
+          }
+        }).catch(err => console.error('[Staff Topup SMS error]:', err.message));
+      }
+    } catch (smsErr) {
+      console.error('[Staff Topup SMS Phone Fetch Error]:', smsErr.message);
+    }
 
     return res.json({
       success: true,
