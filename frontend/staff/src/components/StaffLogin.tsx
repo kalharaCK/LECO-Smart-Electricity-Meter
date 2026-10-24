@@ -49,7 +49,7 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
       }
     } catch (err) {
       console.error("Staff login error:", err)
-      setErrorMsg("Unable to connect to LECO AMI backend. Please verify server on port 3000.")
+      setErrorMsg("Unable to connect to LECO Self Care backend. Please verify server on port 3000.")
     } finally {
       setLoading(false)
     }
