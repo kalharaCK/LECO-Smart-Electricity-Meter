@@ -116,6 +116,46 @@ const initDb = async () => {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
       CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
+      ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS monthly_budget_lkr DECIMAL(10, 2) DEFAULT 3000.00;
+
+      -- Customer Registration & Authentication Extensions (Name, Address, Mobile, NIC)
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile_number VARCHAR(50);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS nic VARCHAR(50);
+      CREATE INDEX IF NOT EXISTS idx_users_nic ON users(nic);
+      CREATE INDEX IF NOT EXISTS idx_users_mobile_number ON users(mobile_number);
+
+      -- Verification OTP Storage for Registration and Forgot Password flows
+      CREATE TABLE IF NOT EXISTS verification_otps (
+        id SERIAL PRIMARY KEY,
+        purpose VARCHAR(50) NOT NULL,
+        identifier VARCHAR(100) NOT NULL,
+        otp_code VARCHAR(10) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        verified BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_verification_otps_lookup ON verification_otps(identifier, purpose, verified);
+
+      -- SMS Gateway Logs & Delivery Audit
+      CREATE TABLE IF NOT EXISTS sms_logs (
+        id SERIAL PRIMARY KEY,
+        recipient VARCHAR(50) NOT NULL,
+        sender_id VARCHAR(50) DEFAULT 'TextLKDemo',
+        event_type VARCHAR(50) NOT NULL,
+        language VARCHAR(10) DEFAULT 'en',
+        message TEXT NOT NULL,
+        status VARCHAR(50) DEFAULT 'sent',
+        provider_uid VARCHAR(100),
+        cost DECIMAL(6, 2) DEFAULT 0,
+        error_message TEXT,
+        metadata JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_sms_logs_recipient ON sms_logs(recipient);
+      CREATE INDEX IF NOT EXISTS idx_sms_logs_event_type ON sms_logs(event_type);
+      CREATE INDEX IF NOT EXISTS idx_sms_logs_created_at ON sms_logs(created_at DESC);
     `);
     console.log('[Database] Tables and indexes verified successfully.');
 
@@ -126,7 +166,8 @@ const initDb = async () => {
     if (staffCheck.rows.length === 0) {
       const staffHash = await bcrypt.hash('staff123', 10);
       await pool.query(
-        `INSERT INTO users (email, password, role) VALUES ('staff@leco.lk', $1, 'staff')`,
+        `INSERT INTO users (email, password, role, full_name, mobile_number, nic) 
+         VALUES ('staff@leco.lk', $1, 'staff', 'LECO Operations Engineer', '0779998888', '199000000000')`,
         [staffHash]
       );
       console.log('[Auth] Created default LECO Staff account: staff@leco.lk (password: staff123)');
@@ -141,14 +182,24 @@ const initDb = async () => {
     if (customerCheck.rows.length === 0) {
       const custHash = await bcrypt.hash('customer123', 10);
       const custRes = await pool.query(
-        `INSERT INTO users (email, password, role) VALUES ('customer@leco.lk', $1, 'customer') RETURNING id`,
+        `INSERT INTO users (email, password, role, full_name, address, mobile_number, nic) 
+         VALUES ('customer@leco.lk', $1, 'customer', 'Sunil Perera', 'No. 45/2, Galle Road, Colombo 03', '0771234567', '198512304567') 
+         RETURNING id`,
         [custHash]
       );
       customerId = custRes.rows[0].id;
       console.log('[Auth] Created default LECO Customer account: customer@leco.lk (password: customer123)');
     } else {
       customerId = customerCheck.rows[0].id;
-      await pool.query(`UPDATE users SET role = 'customer' WHERE email = 'customer@leco.lk'`);
+      await pool.query(
+        `UPDATE users SET 
+          role = 'customer',
+          full_name = COALESCE(full_name, 'Sunil Perera'),
+          address = COALESCE(address, 'No. 45/2, Galle Road, Colombo 03'),
+          mobile_number = COALESCE(mobile_number, '0771234567'),
+          nic = COALESCE(nic, '198512304567')
+         WHERE email = 'customer@leco.lk'`
+      );
     }
 
     // 3. Ensure Customer has at least one linked smart meter
