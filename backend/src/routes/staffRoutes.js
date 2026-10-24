@@ -104,4 +104,23 @@ router.patch('/complaints/:id/status', updateComplaintStatus);
 router.get('/payments/payhere-transactions', getStaffPayhereTransactions);
 router.post('/payments/:id/verify-payhere', verifyStaffPayhereTransaction);
 
+/**
+ * Text.lk Programmable SMS Gateway & Alerts Dispatch
+ */
+const {
+  getSmsBalance,
+  getSmsProfile,
+  getSmsLogs,
+  sendStaffSms,
+  broadcastLowBalanceAlerts,
+  getTemplates
+} = require('../controllers/smsController');
+
+router.get('/sms/balance', getSmsBalance);
+router.get('/sms/profile', getSmsProfile);
+router.get('/sms/logs', getSmsLogs);
+router.get('/sms/templates', getTemplates);
+router.post('/sms/send', sendStaffSms);
+router.post('/sms/broadcast-low-balance', broadcastLowBalanceAlerts);
+
 module.exports = router;
