@@ -25,7 +25,7 @@ const startServer = async () => {
 
     server.listen(port, () => {
       console.log('====================================================');
-      console.log(`⚡ LECO Smart AMI Enterprise REST Server Ready`);
+      console.log(`⚡ LECO Self Care Enterprise REST Server Ready`);
       console.log(`📡 Port: ${port}`);
       console.log(`🔒 Security: JWT Bearer + Strict Customer/Staff RBAC`);
       console.log(`🌐 Customer API: http://localhost:${port}/api/customer`);
