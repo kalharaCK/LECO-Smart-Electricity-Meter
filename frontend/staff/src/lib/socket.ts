@@ -15,7 +15,6 @@ export const getSocket = (): Socket => {
 
     socket.on('connect', () => {
       console.log('⚡ Staff portal connected to LECO Grid WebSocket:', socket?.id);
-      socket?.emit('join_staff');
     });
 
     socket.on('disconnect', (reason) => {
