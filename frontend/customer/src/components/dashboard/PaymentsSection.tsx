@@ -123,35 +123,40 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
           console.log("PayHere checkout onCompleted received for order:", orderId)
           setStep("processing")
           try {
-            const completeRes = await fetch("http://localhost:3000/api/customer/payments/payhere-complete", {
-              method: "POST",
-              credentials: "include",
-              headers: authHeaders,
-              body: JSON.stringify({
-                orderId: orderId,
-                paymentMethod: "PAYHERE",
-              }),
-            })
-            const completeData = await completeRes.json()
-            if (completeRes.ok && completeData.success) {
-              setResult({
-                prevBalance: String(completeData.payment.prevBalance ?? selectedMeter.balance),
-                newBalance: String(completeData.payment.newBalance),
-                amount: String(completeData.payment.amount),
-                txnId: completeData.payment.orderId || completeData.payment.paymentId,
-                debtRecovered: completeData.payment.debtRecovered,
-                lifelineReplenished: completeData.payment.lifelineReplenished,
-                gateway: "PayHere Verified Gateway",
+            // The browser callback is only a UX signal. Wait for the signed server-to-server
+            // PayHere notification to reconcile the payment before displaying success.
+            for (let attempt = 0; attempt < 10; attempt++) {
+              const completeRes = await fetch("http://localhost:3000/api/customer/payments/payhere-complete", {
+                method: "POST",
+                credentials: "include",
+                headers: authHeaders,
+                body: JSON.stringify({ orderId }),
               })
-              setStep("success")
-              onSuccess?.()
-            } else {
-              setErrorMsg(completeData.message || t.payments.paymentFailed)
-              setStep("error")
+              const completeData = await completeRes.json()
+              if (completeRes.ok && completeData.success && completeData.payment?.status === "Success") {
+                setResult({
+                  prevBalance: String(completeData.payment.prevBalance ?? selectedMeter.balance),
+                  newBalance: String(completeData.payment.newBalance),
+                  amount: String(completeData.payment.amount),
+                  txnId: completeData.payment.orderId,
+                  gateway: "PayHere Verified Gateway",
+                })
+                setStep("success")
+                onSuccess?.()
+                return
+              }
+              if (completeRes.status !== 202) {
+                setErrorMsg(completeData.message || t.payments.paymentFailed)
+                setStep("error")
+                return
+              }
+              await new Promise((resolve) => setTimeout(resolve, 1500))
             }
+            setErrorMsg("PayHere is still confirming this payment. Check payment history shortly before trying again.")
+            setStep("error")
           } catch (finalizeErr) {
-            console.error("Error finalizing PayHere payment:", finalizeErr)
-            setErrorMsg("Payment was received, but system reconciliation timed out. Staff will verify via audit ledger.")
+            console.error("Error checking PayHere payment status:", finalizeErr)
+            setErrorMsg("Payment status could not be confirmed yet. Check payment history shortly before trying again.")
             setStep("error")
           }
         }

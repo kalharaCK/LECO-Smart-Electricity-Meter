@@ -54,22 +54,19 @@ app.use(
 );
 
 // 3. CORS Configuration supporting Customer (5173) and Staff (5174) portals
-const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173',
-  process.env.STAFF_FRONTEND_URL || 'http://localhost:5174',
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174'
-];
+const production = process.env.NODE_ENV === 'production';
+const corsOrigins = production
+  ? [process.env.FRONTEND_URL, process.env.STAFF_FRONTEND_URL].filter(Boolean)
+  : [process.env.FRONTEND_URL || 'http://localhost:5173', process.env.STAFF_FRONTEND_URL || 'http://localhost:5174',
+      'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'];
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow server-to-server or curl requests without origin
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || corsOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(null, true); // Permissive for local dev multi-port access
+    return callback(new Error('Origin is not allowed by CORS'));
   },
   credentials: true
 }));

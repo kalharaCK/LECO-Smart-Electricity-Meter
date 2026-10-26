@@ -18,6 +18,9 @@ process.on('uncaughtException', (err) => {
 
 const startServer = async () => {
   try {
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+      throw new Error('JWT_SECRET must be configured with at least 32 characters.');
+    }
     await connectDb();
     
     // Initialize optional WebSocket support for live broadcast without blocking REST API

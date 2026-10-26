@@ -11,11 +11,15 @@ const md5 = (str) => crypto.createHash('md5').update(str).digest('hex');
  * Get configured PayHere merchant credentials
  */
 const getMerchantConfig = () => {
-  const merchantId = process.env.PAYHERE_MERCHANT_ID || '1236689';
-  const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || 'leco_payhere_merchant_secret_sandbox_2026';
+  const merchantId = process.env.PAYHERE_MERCHANT_ID;
+  const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET;
   const isSandbox = process.env.PAYHERE_SANDBOX !== 'false';
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+
+  if (!merchantId || !merchantSecret) {
+    throw new Error('PAYHERE_MERCHANT_ID and PAYHERE_MERCHANT_SECRET must be configured.');
+  }
 
   return {
     merchantId,

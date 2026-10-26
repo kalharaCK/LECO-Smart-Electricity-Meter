@@ -39,7 +39,7 @@ const signup = async (req, res) => {
 
     const token = jwt.sign(
       { id: newUser.rows[0].id, email: newUser.rows[0].email, role: newUser.rows[0].role },
-      process.env.JWT_SECRET || 'super_secret_jwt_key',
+      process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
@@ -77,7 +77,7 @@ const login = async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'super_secret_jwt_key',
+      process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
@@ -127,7 +127,7 @@ const staffLogin = async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'super_secret_jwt_key',
+      process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
@@ -177,7 +177,7 @@ const customerLogin = async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'super_secret_jwt_key',
+      process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
@@ -213,7 +213,7 @@ const getMe = async (req, res) => {
     }
     const token = jwt.sign(
       { id: userResult.rows[0].id, email: userResult.rows[0].email, role: userResult.rows[0].role },
-      process.env.JWT_SECRET || 'super_secret_jwt_key',
+      process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
     res.json({ success: true, user: userResult.rows[0], token });
@@ -232,7 +232,7 @@ const getSessionToken = async (req, res) => {
         const u = userRes.rows[0];
         const freshToken = jwt.sign(
           { id: u.id, email: u.email, role: u.role },
-          process.env.JWT_SECRET || 'super_secret_jwt_key',
+          process.env.JWT_SECRET,
           { expiresIn: '1d' }
         );
         return res.json({ success: true, token: freshToken, user: u });
@@ -242,7 +242,7 @@ const getSessionToken = async (req, res) => {
     let token = req.cookies?.token;
     if (token) {
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_jwt_key');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const userRes = await pool.query('SELECT id, email, role FROM users WHERE id = $1', [decoded.id]);
         if (userRes.rows.length > 0) {
           return res.json({ success: true, token, user: userRes.rows[0] });

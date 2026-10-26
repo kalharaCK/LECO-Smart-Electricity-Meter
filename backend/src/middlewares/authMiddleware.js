@@ -20,7 +20,7 @@ const requireAuth = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_jwt_key');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded; // { id, email, role }
     next();
   } catch (err) {
@@ -65,8 +65,16 @@ const requireStaff = (req, res, next) => {
   });
 };
 
+const developmentOnly = (req, res, next) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ success: false, message: 'Endpoint not found' });
+  }
+  return next();
+};
+
 module.exports = {
   requireAuth,
   requireCustomer,
-  requireStaff
+  requireStaff,
+  developmentOnly
 };

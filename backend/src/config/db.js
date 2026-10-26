@@ -1,7 +1,10 @@
 const { Pool } = require('pg');
 
-const defaultDbUrl = 'postgresql://neondb_owner:npg_ANkWi13sFrGy@ep-autumn-paper-b4lli3x5-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require';
-const connectionString = process.env.DATABASE_URL || defaultDbUrl;
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error('DATABASE_URL must be configured before starting the backend.');
+}
 
 const pool = new Pool({
   connectionString,
@@ -121,6 +124,9 @@ const initDb = async () => {
 
     const bcrypt = require('bcryptjs');
 
+    // Demo accounts are strictly for local development and must never be seeded in production.
+    if (process.env.NODE_ENV === 'production') return;
+
     // 1. Seed / Verify Staff Account (staff@leco.lk / staff123)
     const staffCheck = await pool.query(`SELECT id FROM users WHERE email = 'staff@leco.lk'`);
     if (staffCheck.rows.length === 0) {
@@ -209,6 +215,7 @@ const connectDb = async () => {
     await initDb();
   } catch (err) {
     console.error('[Database Connection Error]:', err.message);
+    throw err;
   }
 };
 
