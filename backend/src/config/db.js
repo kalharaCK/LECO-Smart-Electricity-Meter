@@ -124,6 +124,16 @@ const initDb = async () => {
 
     const bcrypt = require('bcryptjs');
 
+    // Security migrations run in every environment; only demo data is development-only.
+    const unhashedMeters = await pool.query(`SELECT id, pin FROM meters WHERE pin NOT LIKE '$2%'`);
+    for (const meter of unhashedMeters.rows) {
+      const hashed = await bcrypt.hash(meter.pin, 10);
+      await pool.query('UPDATE meters SET pin = $1 WHERE id = $2', [hashed, meter.id]);
+    }
+    if (unhashedMeters.rows.length > 0) {
+      console.log(`[Security] Migrated ${unhashedMeters.rows.length} legacy meter PIN(s) to bcrypt hashes.`);
+    }
+
     // Demo accounts are strictly for local development and must never be seeded in production.
     if (process.env.NODE_ENV === 'production') return;
 
@@ -189,16 +199,6 @@ const initDb = async () => {
         );
         console.log('[Database] Seeded initial smart meter LECO-COL-9901 for customer@leco.lk');
       }
-    }
-
-    // 4. Migrate any unhashed legacy meter PINs
-    const unhashedMeters = await pool.query(`SELECT id, pin FROM meters WHERE pin NOT LIKE '$2%'`);
-    if (unhashedMeters.rows.length > 0) {
-      for (const m of unhashedMeters.rows) {
-        const hashed = await bcrypt.hash(m.pin, 10);
-        await pool.query('UPDATE meters SET pin = $1 WHERE id = $2', [hashed, m.id]);
-      }
-      console.log(`[Security] Migrated ${unhashedMeters.rows.length} legacy meter PIN(s) to bcrypt hashes.`);
     }
 
   } catch (err) {

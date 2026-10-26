@@ -36,3 +36,28 @@ test('failed database connection releases its client and rejects startup', async
     console.error = originalConsoleError;
   }
 });
+
+test('production initializes PIN security migrations without seeding demo accounts', async () => {
+  const originalQuery = pool.query;
+  const originalEnv = process.env.NODE_ENV;
+  const originalConsoleLog = console.log;
+  const queries = [];
+  process.env.NODE_ENV = 'production';
+  pool.query = async (sql) => {
+    queries.push(sql);
+    return { rows: [] };
+  };
+  console.log = () => {};
+
+  try {
+    await initDb();
+    assert.ok(queries.some((sql) => sql.includes('SELECT id, pin FROM meters')));
+    assert.equal(queries.some((sql) => sql.includes("email = 'staff@leco.lk'")), false);
+    assert.equal(queries.some((sql) => sql.includes("email = 'customer@leco.lk'")), false);
+  } finally {
+    pool.query = originalQuery;
+    console.log = originalConsoleLog;
+    if (originalEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalEnv;
+  }
+});
