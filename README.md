@@ -1,21 +1,22 @@
-# LECO Smart Electricity Meter Portal ⚡
+# LECO Smart Electricity Meter Portal
 
 > **An advanced, end-to-end Smart Prepaid Electricity Metering & Bidirectional Grid Analytics Platform** developed for modern utility providers (LECO - Lanka Electricity Company) and prosumers.
 
 ---
 
-## 📑 Table of Contents
-1. [Executive Summary & Concept](#-executive-summary--concept)
-2. [Key Innovations & Domain Model](#-key-innovations--domain-model)
-3. [System Architecture](#-system-architecture)
-4. [Technology Stack](#-technology-stack)
-5. [Database Schema & Data Dictionary](#-database-schema--data-dictionary)
-6. [Core Functional Modules](#-core-functional-modules)
-7. [REST API Specification](#-rest-api-specification)
-8. [Calculation Logic & Algorithms](#-calculation-logic--algorithms)
-9. [Security, Concurrency & Data Integrity](#-security-concurrency--data-integrity)
-10. [Local Development & Environment Setup](#-local-development--environment-setup)
-11. [Future Roadmap](#-future-roadmap)
+## Table of Contents
+1. [Executive Summary & Concept](#executive-summary--concept)
+2. [Key Innovations & Domain Model](#key-innovations--domain-model)
+3. [System Architecture](#system-architecture)
+4. [Technology Stack](#technology-stack)
+5. [Database Schema & Data Dictionary](#database-schema--data-dictionary)
+6. [Core Functional Modules](#core-functional-modules)
+7. [REST API Specification](docs/API_SPECIFICATION.md)
+8. [System Architecture Blueprint](docs/ARCHITECTURE.md)
+9. [Calculation Logic & Algorithms](#calculation-logic--algorithms)
+10. [Security, Concurrency & Data Integrity](#security-concurrency--data-integrity)
+11. [Local Development & Environment Setup](#local-development--environment-setup)
+12. [Future Roadmap](#future-roadmap)
 
 ---
 
