@@ -445,11 +445,13 @@ function DashboardInner() {
 
         {/* Main Content Area: Safe Bottom Spacing for Mobile Dock & Floating Assistant */}
         <main className="flex-1 p-3 sm:p-5 lg:p-8 pb-28 md:pb-10 max-w-7xl w-full mx-auto">
-          <div className="mb-4 sm:mb-6 animate-in fade-in slide-in-from-left-4 duration-500">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight capitalize text-white">
-              {getActiveSectionTitle()}
-            </h1>
-          </div>
+          {activeSection !== "overview" && (
+            <div className="mb-4 sm:mb-6 animate-in fade-in slide-in-from-left-4 duration-500">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight capitalize text-white">
+                {getActiveSectionTitle()}
+              </h1>
+            </div>
+          )}
           <div key={activeSection} className="animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500 fill-mode-both">
             <SectionErrorBoundary key={activeSection}>
               {renderContent()}

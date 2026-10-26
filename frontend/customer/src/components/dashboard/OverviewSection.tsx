@@ -2,13 +2,51 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Battery, Zap, AlertTriangle, Activity, Clock, History as HistoryIcon, Loader2, TrendingUp, Sparkles, LifeBuoy, HeartPulse, CheckCircle2, Flame, Sliders, RotateCcw, ChevronDown, ChevronUp, Play, ArrowDownRight, Wifi, Calendar, Receipt } from "lucide-react"
+import { 
+  Zap, 
+  Clock, 
+  History as HistoryIcon, 
+  Loader2, 
+  TrendingUp, 
+  LifeBuoy, 
+  CheckCircle2, 
+  CreditCard, 
+  ChevronRight, 
+  Activity,
+  Sliders,
+  BellRing,
+  ShieldCheck,
+  Target,
+  X,
+  Wallet,
+  PhoneCall,
+  FileText,
+  AlertCircle
+} from "lucide-react"
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 import { getSocket } from "@/lib/socket"
 import { useDashboardI18n } from "@/lib/dashboardI18n"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
-export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey?: number; onNavigate?: (section: string) => void }) {
+interface UserSettingsState {
+  phone_number?: string
+  low_balance_threshold: number
+  daily_kwh_budget: number
+  monthly_budget_lkr: number
+  auto_emergency_credit: boolean
+  night_curfew_enabled: boolean
+  email_notifications: boolean
+  sms_notifications: boolean
+  weekly_report: boolean
+}
+
+interface OverviewSectionProps {
+  refreshKey?: number
+  onNavigate?: (section: string) => void
+}
+
+export default function OverviewSection({ refreshKey, onNavigate }: OverviewSectionProps) {
   const { t } = useDashboardI18n()
   const [meter, setMeter] = useState<any>(null)
   const [consumption, setConsumption] = useState<any>(null)
@@ -17,323 +55,260 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
   const [currentTime, setCurrentTime] = useState(new Date())
   const [activatingEmergency, setActivatingEmergency] = useState(false)
   const [emergencySuccessMsg, setEmergencySuccessMsg] = useState<string | null>(null)
-  const [settlingCycle, setSettlingCycle] = useState(false)
-  const [settleSuccessMsg, setSettleSuccessMsg] = useState<string | null>(null)
-  const [simulating, setSimulating] = useState(false)
-  const [simulationLog, setSimulationLog] = useState<string | null>(null)
-  const [customKwh, setCustomKwh] = useState("2.5")
-  const [showSimulator, setShowSimulator] = useState(true)
 
-  const activeMeterIdRef = useRef<number | null>(null);
+  // Budget & Alert Settings State
+  const [userSettings, setUserSettings] = useState<UserSettingsState>({
+    low_balance_threshold: 300,
+    daily_kwh_budget: 12,
+    monthly_budget_lkr: 3000,
+    auto_emergency_credit: true,
+    night_curfew_enabled: true,
+    email_notifications: true,
+    sms_notifications: true,
+    weekly_report: true
+  })
+  const [budgetModalOpen, setBudgetModalOpen] = useState(false)
+  const [budgetForm, setBudgetForm] = useState({
+    monthly_budget_lkr: 3000,
+    daily_kwh_budget: 12,
+    low_balance_threshold: 300,
+    sms_notifications: true,
+    email_notifications: true,
+    auto_emergency_credit: true
+  })
+  const [savingBudget, setSavingBudget] = useState(false)
+  const [budgetSuccessMsg, setBudgetSuccessMsg] = useState<string | null>(null)
 
-  const user = JSON.parse(localStorage.getItem('user') || '{"email": "User"}')
+  const activeMeterIdRef = useRef<number | null>(null)
+  const user = JSON.parse(localStorage.getItem("user") || '{"email": "Customer"}')
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  // Non-blocking fetch: Only sets loading spinner on initial load or manual reload
+  // Fetch Meter Data & Telemetry
   const fetchMetersData = useCallback(async (isInitial = false) => {
-    if (isInitial) setLoading(true);
+    if (isInitial) setLoading(true)
     try {
-      let token = localStorage.getItem('token');
-      let needsFreshToken = !token;
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          if (payload.role !== 'customer') {
-            needsFreshToken = true;
-          }
-        } catch (e) {
-          needsFreshToken = true;
-        }
-      }
+      let token = localStorage.getItem("token")
+      const headers: Record<string, string> = {}
+      if (token) headers["Authorization"] = `Bearer ${token}`
 
-      if (needsFreshToken && user?.email) {
-        try {
-          const tokenRes = await fetch('http://localhost:3000/api/auth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: user.email })
-          });
-          if (tokenRes.ok) {
-            const tokenData = await tokenRes.json();
-            if (tokenData.token) {
-              localStorage.setItem('token', tokenData.token);
-              token = tokenData.token;
-            }
-          }
-        } catch (e) {
-          console.error('Session auto-recovery failed:', e);
-        }
-      }
-
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      let res = await fetch('http://localhost:3000/api/meters', {
-        headers
-      });
-
-      // If unauthorized or failed, attempt one recovery cycle
-      if ((res.status === 401 || !res.ok) && user?.email) {
-        try {
-          const tokenRes = await fetch('http://localhost:3000/api/auth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: user.email })
-          });
-          if (tokenRes.ok) {
-            const tokenData = await tokenRes.json();
-            if (tokenData.token) {
-              localStorage.setItem('token', tokenData.token);
-              headers['Authorization'] = `Bearer ${tokenData.token}`;
-              res = await fetch('http://localhost:3000/api/meters', {
-                headers
-              });
-            }
-          }
-        } catch (retryErr) {
-          console.error('Retry fetch meters failed:', retryErr);
-        }
-      }
+      const res = await fetch("http://localhost:3000/api/meters", {
+        headers,
+        credentials: "include"
+      })
 
       if (res.ok) {
-        const data = await res.json();
-        if (data.length > 0) {
-          const firstMeter = data[0];
-          activeMeterIdRef.current = firstMeter.id;
-          setMeter((prev: any) => ({ ...(prev || {}), ...firstMeter }));
-          
-          // Fetch consumption stats for this meter
-          const consRes = await fetch(`http://localhost:3000/api/meters/${firstMeter.id}/consumption`, {
-            headers
-          });
-          if (consRes.ok) {
-            setConsumption(await consRes.json());
+        const data = await res.json()
+        if (data && data.length > 0) {
+          const activeMeter = data[0]
+          setMeter(activeMeter)
+          activeMeterIdRef.current = activeMeter.id
+
+          // Fetch consumption and predictions
+          try {
+            const consRes = await fetch(`http://localhost:3000/api/meters/${activeMeter.id}/consumption`, {
+              headers,
+              credentials: "include"
+            })
+            if (consRes.ok) {
+              const consData = await consRes.json()
+              setConsumption(consData)
+            }
+          } catch (e) {
+            console.error("Error fetching consumption:", e)
           }
-          // Fetch notifications
-          const notifRes = await fetch("http://localhost:3000/api/notifications", {
-            headers
-          });
-          if (notifRes.ok) {
-            setNotifications(await notifRes.json());
-          }
-        } else {
-          setMeter(null);
         }
       }
-    } catch (e) {
-      console.error("Failed to fetch data", e);
+
+      // Fetch Recent Notifications
+      try {
+        const notifRes = await fetch("http://localhost:3000/api/notifications", {
+          headers,
+          credentials: "include"
+        })
+        if (notifRes.ok) {
+          const notifData = await notifRes.json()
+          setNotifications(Array.isArray(notifData) ? notifData : notifData.notifications || [])
+        }
+      } catch (e) {
+        console.error("Error fetching notifications:", e)
+      }
+
+      // Fetch Live User Settings for Budget & Prepaid Alerts
+      try {
+        const settingsRes = await fetch("http://localhost:3000/api/settings", {
+          headers,
+          credentials: "include"
+        })
+        if (settingsRes.ok) {
+          const sData = await settingsRes.json()
+          if (sData.settings) {
+            setUserSettings({
+              phone_number: sData.settings.phone_number || "+94 77 123 4567",
+              low_balance_threshold: Number(sData.settings.low_balance_threshold) || 300,
+              daily_kwh_budget: Number(sData.settings.daily_kwh_budget) || 12,
+              monthly_budget_lkr: Number(sData.settings.monthly_budget_lkr) || 3000,
+              auto_emergency_credit: sData.settings.auto_emergency_credit ?? true,
+              night_curfew_enabled: sData.settings.night_curfew_enabled ?? true,
+              email_notifications: sData.settings.email_notifications ?? true,
+              sms_notifications: sData.settings.sms_notifications ?? true,
+              weekly_report: sData.settings.weekly_report ?? true
+            })
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching settings:", e)
+      }
+    } catch (err) {
+      console.error("Error fetching meter data:", err)
     } finally {
-      if (isInitial) setLoading(false);
+      if (isInitial) setLoading(false)
     }
-  }, [user?.email]);
+  }, [])
 
   useEffect(() => {
-    fetchMetersData(true);
+    fetchMetersData(true)
+  }, [fetchMetersData, refreshKey])
 
-    // Continuous REST API background polling (10-second cadence) ensures uninterrupted telemetry sync
-    const pollInterval = setInterval(() => {
-      fetchMetersData(false);
-    }, 10000);
-
-    return () => clearInterval(pollInterval);
-  }, [fetchMetersData, refreshKey]);
-
-  // Optional real-time socket listener (complements continuous REST polling)
+  // Periodic background refresh every 15 seconds
   useEffect(() => {
-    const socket = getSocket();
+    const interval = setInterval(() => {
+      fetchMetersData(false)
+    }, 15000)
+    return () => clearInterval(interval)
+  }, [fetchMetersData])
 
-    if (meter?.id) {
-      socket.emit('join_meter', meter.id);
-    }
+  // Live WebSocket Telemetry Stream
+  useEffect(() => {
+    if (!meter?.id) return
+    const socket = getSocket()
+    socket.emit("join_meter", meter.id)
 
     const handleMeterUpdate = (payload: any) => {
-      if (!payload || (meter?.id && payload.meterId !== meter.id)) return;
+      if (!payload || payload.meterId !== activeMeterIdRef.current) return
 
-      // SURGICAL UPDATE 1: Meter Balance & Status
-      setMeter((prev: any) => prev ? {
-        ...prev,
-        balance: payload.balance ?? prev.balance,
-        status: payload.status ?? prev.status,
-        emergency_credit_active: payload.emergency_credit_active ?? prev.emergency_credit_active,
-        emergency_credit_limit: payload.emergency_credit_limit ?? prev.emergency_credit_limit,
-      } : prev);
+      setMeter((prev: any) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          balance: payload.balance ?? prev.balance,
+          status: payload.status ?? prev.status,
+          emergency_credit_active: payload.emergency_credit_active ?? prev.emergency_credit_active
+        }
+      })
 
-      // SURGICAL UPDATE 2: Consumption & Chart Data
       setConsumption((prev: any) => {
-        if (!prev) return payload;
+        if (!prev) return prev
         return {
           ...prev,
           today: payload.today ?? prev.today,
-          exportToday: payload.exportToday ?? prev.exportToday,
-          yesterday: payload.yesterday ?? prev.yesterday,
-          exportYesterday: payload.exportYesterday ?? prev.exportYesterday,
           thisWeek: payload.thisWeek ?? prev.thisWeek,
-          exportThisWeek: payload.exportThisWeek ?? prev.exportThisWeek,
           currentPower: payload.currentPower ?? prev.currentPower,
-          currentExport: payload.currentExport ?? prev.currentExport,
           prediction: payload.prediction ?? prev.prediction,
           chartData: payload.chartData ?? prev.chartData
-        };
-      });
-    };
+        }
+      })
+    }
 
-    socket.on('meter_update', handleMeterUpdate);
+    socket.on("meter_update", handleMeterUpdate)
 
     return () => {
-      socket.off('meter_update', handleMeterUpdate);
-      if (meter?.id) {
-        socket.emit('leave_meter', meter.id);
-      }
-    };
-  }, [meter?.id]);
+      socket.off("meter_update", handleMeterUpdate)
+      if (meter?.id) socket.emit("leave_meter", meter.id)
+    }
+  }, [meter?.id])
 
+  // Emergency Lifeline Credit Activation
   const handleActivateEmergency = async () => {
-    if (!meter) return;
-    setActivatingEmergency(true);
-    setEmergencySuccessMsg(null);
+    if (!meter) return
+    setActivatingEmergency(true)
+    setEmergencySuccessMsg(null)
     try {
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const token = localStorage.getItem("token")
+      const headers: Record<string, string> = { "Content-Type": "application/json" }
+      if (token) headers["Authorization"] = `Bearer ${token}`
 
       const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/emergency-credit`, {
-        method: 'POST',
-        credentials: 'include',
+        method: "POST",
+        credentials: "include",
         headers
-      });
-      const data = await res.json();
+      })
+      const data = await res.json()
       if (res.ok) {
-        setEmergencySuccessMsg(data.message || 'Emergency Credit activated! Power will remain connected.');
-        // State is updated automatically via WebSocket broadcast from backend
+        setEmergencySuccessMsg(data.message || "Emergency Lifeline Credit of Rs. 500 activated. Power remains connected.")
+        fetchMetersData(false)
       } else {
-        alert(data.message || 'Failed to activate emergency credit');
+        alert(data.message || "Unable to activate emergency credit.")
       }
     } catch (e) {
-      alert('Network error while activating emergency credit.');
+      alert("Network error while activating emergency credit.")
     } finally {
-      setActivatingEmergency(false);
+      setActivatingEmergency(false)
     }
-  };
+  }
 
-  const handleSimulate = async (kwhAmount: number) => {
-    if (!meter) return;
-    setSimulating(true);
-    setSimulationLog(null);
+  // Quick Adjust Budget & Alert Settings Modal Handlers
+  const handleOpenBudgetModal = () => {
+    setBudgetForm({
+      monthly_budget_lkr: userSettings.monthly_budget_lkr,
+      daily_kwh_budget: userSettings.daily_kwh_budget,
+      low_balance_threshold: userSettings.low_balance_threshold,
+      sms_notifications: userSettings.sms_notifications,
+      email_notifications: userSettings.email_notifications,
+      auto_emergency_credit: userSettings.auto_emergency_credit
+    })
+    setBudgetModalOpen(true)
+  }
+
+  const handleSaveBudget = async () => {
+    setSavingBudget(true)
     try {
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const token = localStorage.getItem("token")
+      const headers: Record<string, string> = { "Content-Type": "application/json" }
+      if (token) headers["Authorization"] = `Bearer ${token}`
 
-      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/simulate-consumption`, {
-        method: 'POST',
-        credentials: 'include',
+      const res = await fetch("http://localhost:3000/api/settings", {
+        method: "PATCH",
         headers,
-        body: JSON.stringify({ kwh: kwhAmount })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSimulationLog(`⚡ Recorded +${data.kwhAdded} kWh. Accrued Month Bill: Rs. ${Number(data.currentMonthBill || 0).toFixed(2)} (${data.tariffGroup || 'PUCSL'}). Prepaid Balance retained at Rs. ${Number(data.prepaidBalance || meter.balance).toFixed(2)}.`);
-        // Backend already emitted 'meter_update' via WebSocket; apply surgical fallback if needed
-        if (data.livePayload) {
-          setMeter((prev: any) => prev ? {
-            ...prev,
-            balance: data.livePayload.balance,
-            status: data.livePayload.status,
-            emergency_credit_active: data.livePayload.emergency_credit_active
-          } : prev);
-          setConsumption((prev: any) => prev ? {
-            ...prev,
-            today: data.livePayload.today,
-            thisWeek: data.livePayload.thisWeek,
-            prediction: data.livePayload.prediction,
-            chartData: data.livePayload.chartData
-          } : prev);
-        }
-      } else {
-        alert(data.message || 'Simulation failed');
-      }
-    } catch (e) {
-      alert('Network error during consumption simulation.');
-    } finally {
-      setSimulating(false);
-    }
-  };
-
-  const handleSettleCycle = async () => {
-    if (!meter) return;
-    const confirmSettle = window.confirm(
-      `Trigger Month-End Settlement for meter ${meter.meter_number}?\n\nThis will compute the official PUCSL monthly tariff bill and deduct it from your prepaid balance.`
-    );
-    if (!confirmSettle) return;
-
-    setSettlingCycle(true);
-    setSettleSuccessMsg(null);
-    try {
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/settle-cycle`, {
-        method: 'POST',
-        credentials: 'include',
-        headers
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSettleSuccessMsg(`✅ Month-End Cycle (${data.cycle}) settled: Rs. ${Number(data.bill?.totalCharge || 0).toFixed(2)} deducted for ${Number(data.netKwh || 0).toFixed(1)} kWh (${data.bill?.tariffGroup || 'PUCSL'}). New Prepaid Balance: Rs. ${Number(data.newBalance).toFixed(2)}.`);
-        fetchMetersData(false);
-      } else {
-        alert(data.message || 'Cycle settlement failed');
-      }
-    } catch (e) {
-      alert('Network error during cycle settlement.');
-    } finally {
-      setSettlingCycle(false);
-    }
-  };
-
-  const handleSetBalance = async (targetBalance: number) => {
-    if (!meter) return;
-    setSimulating(true);
-    setSimulationLog(null);
-    try {
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/set-balance`, {
-        method: 'POST',
-        credentials: 'include',
-        headers,
-        body: JSON.stringify({ balance: targetBalance })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSimulationLog(`🎯 Balance updated directly to Rs. ${Number(data.newBalance).toFixed(2)}. Status: ${data.status}.`);
-        // Instant surgical update without reloading
-        setMeter((prev: any) => prev ? {
+        credentials: "include",
+        body: JSON.stringify({
+          monthly_budget_lkr: budgetForm.monthly_budget_lkr,
+          daily_kwh_budget: budgetForm.daily_kwh_budget,
+          low_balance_threshold: budgetForm.low_balance_threshold,
+          sms_notifications: budgetForm.sms_notifications,
+          email_notifications: budgetForm.email_notifications,
+          auto_emergency_credit: budgetForm.auto_emergency_credit
+        })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setUserSettings((prev) => ({
           ...prev,
-          balance: data.newBalance,
-          status: data.status
-        } : prev);
+          ...budgetForm
+        }))
+        setBudgetSuccessMsg("Budget target and low balance alert preferences updated successfully.")
+        setTimeout(() => setBudgetSuccessMsg(null), 4000)
+        setBudgetModalOpen(false)
+        fetchMetersData(false)
       } else {
-        alert(data.message || 'Failed to set balance');
+        alert(data.message || "Failed to update budget settings.")
       }
-    } catch (e) {
-      alert('Network error updating balance.');
+    } catch (err) {
+      alert("Network error updating budget settings.")
     } finally {
-      setSimulating(false);
+      setSavingBudget(false)
     }
-  };
+  }
 
   if (loading) {
-    return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-yellow-400" /></div>
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
+      </div>
+    )
   }
 
   if (!meter) {
@@ -343,754 +318,804 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
           <Zap className="h-12 w-12 text-white/30" />
         </div>
         <div>
-          <h3 className="text-xl font-semibold text-white mb-2">No Meters Connected</h3>
-          <p className="text-white/50 text-sm max-w-xs">You haven't added a smart meter yet. Go to <strong className="text-white/70">Add Meter</strong> to link your first meter and start monitoring your usage.</p>
+          <h3 className="text-xl font-semibold text-white mb-2">No Meter Connected</h3>
+          <p className="text-white/50 text-sm max-w-xs mb-4">
+            Link your LECO smart electricity meter to start viewing live balance and consumption.
+          </p>
+          <Button
+            onClick={() => onNavigate?.("add-meter")}
+            className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-xs h-10 px-5 rounded-xl cursor-pointer"
+          >
+            Add Your Meter Now
+          </Button>
         </div>
       </div>
     )
   }
 
+  const balanceNumber = Number(meter.balance)
+  const lowThreshold = userSettings.low_balance_threshold || 300
+  const isLowBalance = balanceNumber <= lowThreshold && balanceNumber > 0
+  const isEmergencyActive = !!meter.emergency_credit_active
+  const isDisconnected = meter.status?.toLowerCase() === "disconnected" || balanceNumber < -500
+
+  // Estimated days remaining: clean calculation for general consumers
+  const daysEstimate = consumption?.prediction?.estimatedDaysRemaining 
+    ?? (meter.daily_average > 0 ? Math.max(1, Math.floor(balanceNumber / meter.daily_average)) : 14)
+
+  // Budget calculations for everyday consumer
+  const monthlyBudget = userSettings.monthly_budget_lkr || 3000
+  const currentAccruedBill = consumption?.prediction ? Number(consumption.prediction.currentCycleLiability || 0) : 0
+  const budgetSpentPercent = Math.min(100, Math.round((currentAccruedBill / monthlyBudget) * 100))
+  const remainingBudget = Math.max(0, monthlyBudget - currentAccruedBill)
+
+  const dailyTargetKwh = userSettings.daily_kwh_budget || 12
+  const todayUsedKwh = consumption ? Number(consumption.today || 0) : 0
+
+  // 7-day analytical summary values
+  const chartList = consumption?.chartData || []
+  const total7DayKwh = chartList.reduce((acc: number, curr: any) => acc + (Number(curr.import) || 0), 0)
+  const avg7DayKwh = chartList.length > 0 ? (total7DayKwh / chartList.length) : 0
+  const peak7DayKwh = chartList.length > 0 ? Math.max(...chartList.map((c: any) => Number(c.import) || 0)) : 0
+
+  const displayName = user.name || user.full_name || (user.email ? user.email.split("@")[0] : "Customer")
+
   return (
-    <div className="flex flex-col gap-5 sm:gap-6">
-      {/* Welcome & Live Status Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 sm:gap-4 mb-1">
-        <div>
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Welcome back, <span className="text-[#ff6b52]">{user.email.split('@')[0]}</span>
-            </h2>
-            <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-mono text-green-400 bg-green-500/10 border-green-500/20">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-              </span>
-              <Wifi className="h-3 w-3 ml-0.5" />
-              <span>REST Cloud Synced</span>
+    <div className="flex flex-col gap-6 max-w-7xl">
+      {/* 1. Executive Top Bar Card: Account Identity & Primary Actions */}
+      <div className="bg-[#141416] border border-white/10 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-yellow-400/[0.04] rounded-full blur-3xl pointer-events-none" />
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 shrink-0">
+                <Zap className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  Welcome back, <span className="text-yellow-400">{displayName}</span>
+                </h2>
+                <p className="text-xs text-white/50 mt-0.5">
+                  LECO Self Care Smart Electricity Portal • Monitored 24/7
+                </p>
+              </div>
+            </div>
+
+            {/* Essential Meta Pills */}
+            <div className="flex items-center gap-2 flex-wrap pt-0.5">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>{isDisconnected ? "Grid Disconnected" : "Grid Connected (Active)"}</span>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-white/80 font-mono">
+                <span className="text-white/40 font-sans">A/C:</span>
+                <strong className="text-white">{meter.account_number || "04291884"}</strong>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-white/80 font-mono">
+                <span className="text-white/40 font-sans">Meter:</span>
+                <strong className="text-white">{meter.meter_number}</strong>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-400/10 border border-yellow-400/20 text-xs text-yellow-400 font-semibold">
+                <span>{meter.tariff_type || "Domestic D-1 (PUCSL)"}</span>
+              </div>
+              <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.03] border border-white/5 text-xs text-white/50">
+                <Clock className="h-3.5 w-3.5 text-white/40" />
+                <span>{currentTime.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} • {currentTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
             </div>
           </div>
-          <p className="text-white/60 text-xs sm:text-sm mt-1">
-            {currentTime.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
-            <span className="mx-2">•</span>
-            {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-          </p>
+
+          {/* Primary Action Buttons */}
+          <div className="flex items-center gap-2.5 shrink-0 self-start lg:self-auto">
+            <Button
+              type="button"
+              onClick={handleOpenBudgetModal}
+              variant="outline"
+              className="bg-white/5 hover:bg-white/10 text-white border-white/15 text-xs font-semibold h-11 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-all hover:border-white/30"
+            >
+              <Sliders className="h-4 w-4 text-yellow-400" />
+              <span>Budget & Alerts</span>
+            </Button>
+            <Button
+              onClick={() => onNavigate?.("payments")}
+              className="bg-yellow-400 hover:bg-yellow-300 text-black font-black h-11 px-6 rounded-xl shadow-lg shadow-yellow-400/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2 text-sm"
+            >
+              <CreditCard className="h-4 w-4" />
+              <span>{t.overview.rechargeNow}</span>
+            </Button>
+          </div>
         </div>
-        <Button
-          onClick={() => onNavigate?.("payments")}
-          className="w-full sm:w-auto bg-[#992511] hover:bg-[#992511]/80 text-white shadow-lg transition-transform hover:scale-105 font-bold h-10 text-xs sm:text-sm cursor-pointer"
-        >
-          Quick Recharge Now
-        </Button>
       </div>
 
-      {/* Interactive Consumption & Balance Simulator Bar */}
-      <Card className="bg-gradient-to-r from-[#141416] via-[#1a1829] to-[#121217] border border-yellow-500/25 shadow-2xl text-white rounded-2xl overflow-hidden">
-        <div className="p-3.5 sm:p-4 bg-gradient-to-r from-yellow-500/10 via-red-500/10 to-transparent flex items-center justify-between border-b border-white/5">
+      {/* 2. Contextual Notification Banners (Only displayed when events occur) */}
+      {emergencySuccessMsg && (
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-between text-emerald-300 text-xs sm:text-sm animate-in fade-in">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-yellow-400/20 text-yellow-300 rounded-lg border border-yellow-400/30 shrink-0">
-              <Sliders className="h-4 w-4" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+            <span>{emergencySuccessMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setEmergencySuccessMsg(null)}
+            className="text-emerald-300 hover:text-white text-xs font-semibold underline cursor-pointer ml-3"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {budgetSuccessMsg && (
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-between text-emerald-300 text-xs sm:text-sm animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+            <span>{budgetSuccessMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setBudgetSuccessMsg(null)}
+            className="text-emerald-300 hover:text-white text-xs font-semibold underline cursor-pointer ml-3"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Lifeline Mode Active Alert */}
+      {isEmergencyActive && (
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-red-950/60 via-[#18181b] to-black/80 border border-red-500/40 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 shrink-0">
+              <LifeBuoy className="h-5 w-5 animate-pulse" />
             </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-xs sm:text-sm text-white">{t.overview.simulatorTitle}</span>
-                <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/40 text-[10px] py-0 px-1.5 font-mono">
-                  {t.overview.testSandbox}
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-white">{t.overview.emergencyCreditActiveTitle}</span>
+                <Badge className="bg-red-500/20 text-red-300 border-red-500/40 text-[10px] font-bold">
+                  Rs. 500 Protected
                 </Badge>
               </div>
-              <p className="text-[10px] sm:text-[11px] text-white/50 line-clamp-1 sm:line-clamp-none">
-                {t.overview.simulatorDesc}
+              <p className="text-xs text-white/60 mt-0.5">
+                Your power supply remains protected. Top up now to automatically clear the negative balance.
               </p>
             </div>
           </div>
           <Button
             size="sm"
-            variant="ghost"
-            onClick={() => setShowSimulator(!showSimulator)}
-            className="text-white/60 hover:text-white hover:bg-white/10 text-xs gap-1 shrink-0 cursor-pointer"
+            onClick={() => onNavigate?.("payments")}
+            className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold h-9 px-4 rounded-xl text-xs shrink-0 cursor-pointer shadow-md"
           >
-            {showSimulator ? (
-              <>{t.overview.hide} <ChevronUp className="h-3.5 w-3.5" /></>
-            ) : (
-              <>{t.overview.expand} <ChevronDown className="h-3.5 w-3.5" /></>
-            )}
-          </Button>
-        </div>
-
-        {showSimulator && (
-          <CardContent className="p-3.5 sm:p-4 space-y-3">
-            {/* Quick Consumption Buttons */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 sm:gap-4">
-              <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-                <span className="text-xs font-semibold text-white/70 flex items-center gap-1 mr-1">
-                  <Flame className="h-3.5 w-3.5 text-amber-400" /> Usage:
-                </span>
-                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                  <Button
-                    size="sm"
-                    disabled={simulating}
-                    onClick={() => handleSimulate(1)}
-                    className="bg-white/10 hover:bg-white/20 text-white border border-white/10 text-xs h-8 hover:scale-105 transition-all cursor-pointer"
-                  >
-                    +1 kWh
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={simulating}
-                    onClick={() => handleSimulate(5)}
-                    className="bg-yellow-400/20 hover:bg-yellow-400/30 text-yellow-300 border border-yellow-400/40 text-xs h-8 hover:scale-105 transition-all font-semibold cursor-pointer"
-                  >
-                    +5 kWh
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={simulating}
-                    onClick={() => handleSimulate(15)}
-                    className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/40 text-xs h-8 hover:scale-105 transition-all font-semibold cursor-pointer"
-                  >
-                    +15 kWh
-                  </Button>
-                  
-                  {/* Custom kWh input */}
-                  <div className="flex items-center gap-1.5 ml-1">
-                    <Input
-                      type="number"
-                      step="0.5"
-                      min="0.1"
-                      value={customKwh}
-                      onChange={(e) => setCustomKwh(e.target.value)}
-                      className="w-14 sm:w-16 h-8 text-xs bg-black/40 border-white/15 text-white focus-visible:ring-yellow-400/50"
-                    />
-                    <span className="text-xs text-white/60">kWh</span>
-                    <Button
-                      size="sm"
-                      disabled={simulating || !customKwh || parseFloat(customKwh) <= 0}
-                      onClick={() => handleSimulate(parseFloat(customKwh))}
-                      className="bg-[#992511] hover:bg-[#992511]/80 text-white text-xs h-8 px-2.5 ml-1 cursor-pointer"
-                    >
-                      <Play className="h-3 w-3 mr-1" /> Log kWh
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Balance Jump Presets */}
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 border-t lg:border-t-0 lg:border-l border-white/10 pt-2 lg:pt-0 lg:pl-4 w-full lg:w-auto">
-                <span className="text-xs font-semibold text-white/70 mr-1">
-                  Preset:
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={simulating}
-                  onClick={() => handleSetBalance(80)}
-                  className="bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20 text-xs h-8 cursor-pointer"
-                  title="Simulates low balance (< Rs. 100)"
-                >
-                  Rs. 80 (Low)
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={simulating}
-                  onClick={() => handleSetBalance(-50)}
-                  className="bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20 text-xs h-8 cursor-pointer"
-                  title="Simulates negative balance"
-                >
-                  -Rs. 50 (Debt)
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={simulating}
-                  onClick={() => handleSetBalance(1500)}
-                  className="bg-green-500/10 border-green-500/30 text-green-300 hover:bg-green-500/20 text-xs h-8 cursor-pointer"
-                  title="Resets balance to Rs. 1,500"
-                >
-                  <RotateCcw className="h-3 w-3 mr-1" /> Rs. 1,500
-                </Button>
-              </div>
-            </div>
-
-            {/* Simulation Feedback Log */}
-            {simulationLog && (
-              <div className="p-2.5 rounded-lg bg-yellow-400/10 border border-yellow-400/20 text-yellow-200 text-xs flex items-center justify-between animate-in fade-in duration-300">
-                <div className="flex items-center gap-2">
-                  <ArrowDownRight className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
-                  <span className="line-clamp-1">{simulationLog}</span>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setSimulationLog(null)}
-                  className="text-yellow-400 hover:text-white hover:bg-yellow-400/20 text-[10px] h-6 px-1.5 cursor-pointer"
-                >
-                  Clear
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        )}
-      </Card>
-
-      {/* Success Notification for Emergency Credit */}
-      {emergencySuccessMsg && (
-        <div className="p-3.5 sm:p-4 rounded-xl bg-green-500/15 border border-green-500/30 flex items-center justify-between text-green-300 text-xs sm:text-sm">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-green-400 shrink-0" />
-            <span>{emergencySuccessMsg}</span>
-          </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setEmergencySuccessMsg(null)}
-            className="text-green-300 hover:text-white hover:bg-green-500/20 text-xs cursor-pointer"
-          >
-            Dismiss
+            {t.overview.rechargeClearDebt}
           </Button>
         </div>
       )}
 
-      {/* Lifeline Mode Active Card */}
-      {meter?.emergency_credit_active && (
-        <Card className="bg-gradient-to-r from-red-950/40 via-amber-950/30 to-black/60 border border-red-500/40 shadow-xl text-white p-4 sm:p-5 rounded-2xl">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2.5 sm:p-3 bg-red-500/20 rounded-xl border border-red-500/30 text-red-400 shrink-0 mt-0.5">
-                <LifeBuoy className="h-5 w-5 sm:h-6 sm:w-6 animate-pulse" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="font-bold text-base sm:text-lg text-white">{t.overview.emergencyCreditActiveTitle}</h4>
-                  <Badge className="bg-red-500/20 text-red-300 border-red-500/40 text-xs animate-pulse">{t.overview.powerProtected}</Badge>
-                </div>
-                <p className="text-xs sm:text-sm text-white/70 mt-1 max-w-xl">
-                  {t.overview.emergencyCreditActiveDesc}
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-white/80">
-                  <div className="bg-black/30 px-2.5 py-1 rounded-lg border border-white/10">
-                    <span className="text-white/50">{t.overview.bufferUsed}: </span>
-                    <span className="font-mono font-bold text-amber-300">
-                      Rs. {consumption?.prediction ? Number(consumption.prediction.lifelineUsed).toFixed(2) : (Number(meter.balance) < 0 ? Math.abs(Number(meter.balance)).toFixed(2) : '0.00')}
-                    </span>
-                  </div>
-                  <div className="bg-black/30 px-2.5 py-1 rounded-lg border border-white/10">
-                    <span className="text-white/50">{t.overview.bufferLeft}: </span>
-                    <span className="font-mono font-bold text-green-400">
-                      Rs. {consumption?.prediction ? Number(consumption.prediction.lifelineRemaining).toFixed(2) : (500 - (Number(meter.balance) < 0 ? Math.abs(Number(meter.balance)) : 0)).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              </div>
+      {/* Low Balance Alert Banner */}
+      {!isEmergencyActive && isLowBalance && (
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-950/60 via-[#18181b] to-black/80 border border-amber-500/40 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+              <BellRing className="h-5 w-5 animate-bounce" />
             </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-amber-300">{t.overview.lowBalanceNotificationTitle}</span>
+                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] font-semibold">
+                  Below Rs. {lowThreshold}
+                </Badge>
+              </div>
+              <p className="text-xs text-white/60 mt-0.5">
+                Available balance is <strong className="text-amber-300 font-bold">Rs. {balanceNumber.toFixed(2)}</strong>. Top up or activate emergency credit.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
             <Button
-              onClick={() => onNavigate?.("payments")}
-              className="w-full sm:w-auto bg-amber-400 text-black hover:bg-amber-300 font-bold shrink-0 shadow-md transition-transform hover:scale-105 cursor-pointer text-xs sm:text-sm h-10"
-            >
-              {t.overview.rechargeClearDebt}
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Success Notification for Month-End Cycle Settlement */}
-      {settleSuccessMsg && (
-        <div className="p-3.5 sm:p-4 rounded-xl bg-yellow-400/15 border border-yellow-400/30 flex items-center justify-between text-yellow-300 text-xs sm:text-sm">
-          <div className="flex items-center gap-2">
-            <Receipt className="h-5 w-5 text-yellow-400 shrink-0" />
-            <span>{settleSuccessMsg}</span>
-          </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setSettleSuccessMsg(null)}
-            className="text-yellow-300 hover:text-white hover:bg-yellow-400/20 text-xs cursor-pointer"
-          >
-            Dismiss
-          </Button>
-        </div>
-      )}
-
-      {/* Low Balance Alert & Lifeline Mode Activation Offer */}
-      {!meter?.emergency_credit_active && (
-        Number(meter?.balance) <= 100 || (consumption?.prediction && Number(consumption.prediction.projectedNetBalance) <= 100)
-      ) && (
-        <Card className="bg-gradient-to-r from-amber-950/40 via-yellow-950/20 to-black/60 border border-yellow-500/30 shadow-lg text-white p-4 sm:p-5 rounded-2xl">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2.5 sm:p-3 bg-yellow-500/20 rounded-xl border border-yellow-500/30 text-yellow-400 shrink-0 mt-0.5">
-                <HeartPulse className="h-5 w-5 sm:h-6 sm:w-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="font-bold text-sm sm:text-base text-white">{t.overview.emergencyCreditAvailableTitle}</h4>
-                  <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/30 text-xs">{t.overview.lifelineProtection}</Badge>
-                </div>
-                <p className="text-xs sm:text-sm text-white/70 mt-1 max-w-xl">
-                  {t.overview.emergencyCreditAvailableDesc}
-                </p>
-              </div>
-            </div>
-            <Button
+              size="sm"
               onClick={handleActivateEmergency}
               disabled={activatingEmergency}
-              className="w-full sm:w-auto bg-yellow-400 hover:bg-yellow-300 text-black font-bold shrink-0 shadow-md transition-transform hover:scale-105 cursor-pointer text-xs sm:text-sm h-10"
+              variant="outline"
+              className="flex-1 sm:flex-initial bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/40 font-semibold h-9 px-3 rounded-xl text-xs cursor-pointer"
             >
               {activatingEmergency ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t.overview.activating}
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  Activating...
                 </>
               ) : (
-                <>
-                  <LifeBuoy className="mr-2 h-4 w-4" /> {t.overview.activateCredit}
-                </>
+                "Emergency Lifeline"
               )}
             </Button>
+            <Button
+              size="sm"
+              onClick={() => onNavigate?.("payments")}
+              className="flex-1 sm:flex-initial bg-yellow-400 hover:bg-yellow-300 text-black font-bold h-9 px-4 rounded-xl text-xs cursor-pointer shadow-md"
+            >
+              Recharge Now
+            </Button>
           </div>
-        </Card>
+        </div>
       )}
 
-      {/* Top Section - Balance and Quick Status */}
-      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Main Balance Card */}
-        <Card className="bg-gradient-to-br from-[#992511] via-[#66180a] to-[#250602] border-0 shadow-2xl text-white lg:col-span-2 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-6 opacity-15 sm:opacity-20 group-hover:opacity-30 transition-opacity pointer-events-none">
-            <Zap size={110} />
-          </div>
-          <CardHeader className="pb-2">
-            <div className="flex justify-between items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-white/90 text-sm sm:text-base font-bold">{t.overview.availableBalance}</CardTitle>
-                <span className="text-[10px] text-white/60 bg-white/10 px-2 py-0.5 rounded-full font-mono uppercase">
-                  {t.overview.prepaidWallet}
+      {/* 3. Core 3-Card KPI Tier: Clean, Harmonious & Scannable */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* KPI Card 1: Available Balance & Estimated Lifespan */}
+        <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                <Wallet className="h-4 w-4 text-yellow-400" />
+                {t.overview.availableBalance}
+              </span>
+              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 text-white/90 font-mono font-bold tracking-wider">
+                PREPAID
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className={`text-3xl sm:text-4xl font-black tracking-tight ${balanceNumber < 0 ? "text-amber-300" : "text-white"}`}>
+                Rs. {Math.abs(balanceNumber).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              </span>
+              {balanceNumber < 0 && (
+                <span className="text-[10px] font-bold text-amber-300 uppercase px-1.5 py-0.5 rounded bg-amber-400/20">
+                  Debt
                 </span>
-              </div>
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                {meter?.emergency_credit_active && (
-                  <Badge className="bg-red-500/30 text-red-200 border-red-500/50 text-[10px] sm:text-[11px] font-normal flex items-center gap-1 animate-pulse">
-                    <LifeBuoy className="h-3 w-3" />
-                    {t.overview.lifelineActive}
-                  </Badge>
-                )}
-                {consumption?.prediction && (
-                  <Badge className="bg-yellow-400/20 text-yellow-300 border-yellow-400/30 text-[10px] sm:text-[11px] font-medium flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" />
-                    {consumption.prediction.currentTariffGroup}
-                  </Badge>
-                )}
-              </div>
+              )}
             </div>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4 pt-1">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-              {/* Left Column: Primary Wallet Funds & Lifetime Forecast */}
-              <div className="flex flex-col justify-between">
-                <div>
-                  <div className="flex items-baseline gap-2 mb-1">
-                    <div className={`text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight ${Number(meter?.balance) < 0 ? 'text-amber-300' : 'text-white'}`}>
-                      {meter ? `Rs. ${Number(meter.balance).toLocaleString('en-US', {minimumFractionDigits: 2})}` : 'Rs. 0.00'}
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-white/60 mb-3">
-                    {t.overview.depositedCreditNotice}
-                  </p>
 
-                  <div className="flex flex-wrap items-center gap-2 text-white/80">
-                    <div className="flex items-center gap-1.5 bg-black/40 px-3 py-1.5 rounded-xl border border-white/10 text-xs text-white">
-                      <Clock className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
-                      <span>
-                        {consumption?.prediction
-                          ? (meter?.emergency_credit_active && Number(meter.balance) < 0
-                              ? `≈ ~${consumption.prediction.estimatedDaysRemaining} ${t.overview.daysRemainingBuffer}`
-                              : `≈ ~${consumption.prediction.estimatedDaysRemaining} ${t.overview.daysRemaining}`)
-                          : meter && meter.daily_average > 0
-                          ? `≈ ${Math.floor(meter.balance / meter.daily_average)} ${t.overview.daysRemaining}`
-                          : t.overview.calculating}
-                      </span>
-                    </div>
-                    {consumption?.prediction && (
-                      <span className="text-[11px] text-white/60">
-                        ({consumption.prediction.estimatedMinDays}–{consumption.prediction.estimatedMaxDays}d range)
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Projected Net Remaining at Cycle Close */}
-                <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
-                  <span className="text-white/70">{t.overview.projectedNetAfterSettlement}:</span>
-                  <span className={`font-mono font-bold ${
-                    consumption?.prediction && consumption.prediction.projectedNetBalance <= 0 
-                      ? 'text-red-300 animate-pulse' 
-                      : consumption?.prediction && consumption.prediction.projectedNetBalance <= 300
-                      ? 'text-amber-300'
-                      : 'text-green-300'
-                  }`}>
-                    Rs. {consumption?.prediction 
-                      ? Number(consumption.prediction.projectedNetBalance).toLocaleString('en-US', {minimumFractionDigits: 2}) 
-                      : Number(meter?.balance || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}
-                  </span>
-                </div>
-              </div>
-
-              {/* Right Column: Dedicated Current Month Accrued Bill Box */}
-              <div className="bg-black/40 p-3.5 sm:p-4 rounded-2xl border border-white/10 flex flex-col justify-between backdrop-blur-md">
-                <div>
-                  <div className="flex items-center justify-between gap-1 mb-1">
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-yellow-300">
-                      <Calendar className="h-3.5 w-3.5 text-yellow-400" />
-                      <span>{t.overview.currentMonthAccruedBill}</span>
-                    </div>
-                    <span className="text-[10px] text-white/50 uppercase tracking-wider font-mono">
-                      {t.overview.pucslTariff}
-                    </span>
-                  </div>
-
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span className="text-2xl sm:text-3xl font-extrabold text-amber-300 font-mono">
-                      Rs. {consumption?.prediction 
-                        ? Number(consumption.prediction.currentCycleLiability).toLocaleString('en-US', {minimumFractionDigits: 2})
-                        : '0.00'}
-                    </span>
-                    <span className="text-xs text-white/60">
-                      ({consumption?.prediction ? consumption.prediction.billingCycleConsumptionKwh : '0.0'} kWh)
-                    </span>
-                  </div>
-
-                  <div className="text-[11px] text-white/60 mt-2.5 flex flex-col gap-1">
-                    <div className="flex justify-between">
-                      <span>{t.overview.energyCharge}:</span>
-                      <span className="text-white font-mono">Rs. {consumption?.prediction ? Number(consumption.prediction.energyCharge || 0).toFixed(2) : '0.00'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>{t.overview.fixedCharge}:</span>
-                      <span className="text-white font-mono">Rs. {consumption?.prediction ? Number(consumption.prediction.fixedCharge || 0).toFixed(2) : '0.00'}</span>
-                    </div>
-                    <div className="flex justify-between text-yellow-200/80 pt-1 border-t border-white/5">
-                      <span>{t.overview.tariffGroup}:</span>
-                      <span className="font-semibold">{consumption?.prediction ? consumption.prediction.currentTariffGroup : 'Group A'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3.5 pt-2.5 border-t border-white/10 flex flex-col sm:flex-row gap-2">
-                  <Button
-                    onClick={() => onNavigate?.("payments")}
-                    className="flex-1 bg-yellow-400 text-black hover:bg-yellow-500 font-bold shadow-lg hover:scale-[1.02] transition-transform h-8 text-xs cursor-pointer"
-                  >
-                    {t.overview.rechargeNow}
-                  </Button>
-                  <Button
-                    onClick={handleSettleCycle}
-                    disabled={settlingCycle}
-                    variant="outline"
-                    className="bg-white/10 hover:bg-white/20 text-white border-white/20 h-8 text-xs font-semibold cursor-pointer"
-                    title="Deducts the accrued monthly bill from prepaid balance"
-                  >
-                    {settlingCycle ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Receipt className="h-3 w-3 mr-1 text-yellow-400" />}
-                    {t.overview.settleCycle}
-                  </Button>
-                </div>
-              </div>
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/5 text-xs text-white/80">
+              <Clock className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
+              <span>
+                Estimated Supply: <strong className="text-yellow-300 font-bold">~{daysEstimate} Days</strong>
+              </span>
             </div>
-          </CardContent>
+          </div>
+
+          <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
+            <span className="text-white/40 flex items-center gap-1">
+              <BellRing className="h-3 w-3 text-white/30" />
+              Alert at Rs. {lowThreshold}
+            </span>
+            <button
+              type="button"
+              onClick={() => onNavigate?.("history")}
+              className="text-yellow-400 hover:text-yellow-300 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
+            >
+              Payment History
+            </button>
+          </div>
         </Card>
 
-        {/* Current Status Card */}
-        <Card className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border-white/10 shadow-xl text-white hover:scale-[1.02] transition-transform duration-300">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">{t.overview.meterStatus}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div className="flex justify-between items-center">
-              <span className="text-white/60">{t.overview.connection}</span>
-              <Badge className="bg-green-500/20 text-green-400 hover:bg-green-500/30 border-green-500/50">
-                {meter ? meter.status : 'Active'}
-              </Badge>
+        {/* KPI Card 2: Monthly Electricity Bill & Budget Tracker */}
+        <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                <Target className="h-4 w-4 text-emerald-400" />
+                This Month's Bill & Budget
+              </span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                budgetSpentPercent > 90 ? "bg-red-500/10 border-red-500/30 text-red-400" :
+                budgetSpentPercent > 70 ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
+                "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+              }`}>
+                {budgetSpentPercent}% Spent
+              </span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-white/60">{t.overview.tariffPlan}</span>
-              <span className="text-xs font-semibold text-yellow-400">{t.overview.domesticBlock}</span>
+
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-3xl sm:text-4xl font-black tracking-tight text-white">
+                Rs. {currentAccruedBill.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              </span>
+              <span className="text-xs text-white/50">
+                ({consumption?.prediction?.billingCycleConsumptionKwh || "0"} kWh)
+              </span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-white/60">{t.overview.meterNo}</span>
-              <span className="font-mono text-sm">{meter ? meter.meter_number : 'N/A'}</span>
+
+            {/* Sleek Progress Bar */}
+            <div className="mt-4 space-y-1.5">
+              <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
+                    budgetSpentPercent > 90
+                      ? "from-amber-500 to-red-500"
+                      : budgetSpentPercent > 70
+                      ? "from-yellow-400 to-amber-500"
+                      : "from-emerald-400 to-teal-400"
+                  }`}
+                  style={{ width: `${Math.max(4, Math.min(100, budgetSpentPercent))}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[11px] text-white/50">
+                <span>Budget: Rs. {monthlyBudget.toLocaleString()}</span>
+                <span className="text-white/80 font-semibold">Rs. {remainingBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })} Left</span>
+              </div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-white/60">{t.overview.accountNo}</span>
-              <span className="font-mono text-sm">{meter ? meter.account_number : 'N/A'}</span>
+          </div>
+
+          <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
+            <span className="text-white/40">Tariff: PUCSL D-1 Block</span>
+            <button
+              type="button"
+              onClick={handleOpenBudgetModal}
+              className="text-yellow-400 hover:text-yellow-300 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
+            >
+              Adjust Budget
+            </button>
+          </div>
+        </Card>
+
+        {/* KPI Card 3: Today's Consumption & Active Power Draw */}
+        <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/5 rounded-full blur-3xl pointer-events-none" />
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                <Activity className="h-4 w-4 text-blue-400" />
+                Today's Usage & Active Load
+              </span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                todayUsedKwh > dailyTargetKwh 
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400" 
+                  : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+              }`}>
+                {todayUsedKwh > dailyTargetKwh ? "Over Target" : "Target OK"}
+              </span>
             </div>
-            <div className="flex justify-between items-center mt-1 pt-2 border-t border-white/10 text-xs text-white/40">
-              <span>{t.overview.billingCycle}</span>
-              <span className="text-green-400">{t.overview.pucslStandard}</span>
+
+            <div className="grid grid-cols-2 gap-4 mt-1">
+              <div>
+                <span className="text-xs text-white/50 block">Today's Energy</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-2xl sm:text-3xl font-black text-white">
+                    {consumption ? Number(consumption.today || 0).toFixed(1) : "0.0"}
+                  </span>
+                  <span className="text-xs font-semibold text-white/50">kWh</span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs text-white/50 block">Active Load</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-2xl sm:text-3xl font-black text-blue-400">
+                    {consumption ? Number(consumption.currentPower || 0).toFixed(2) : "0.00"}
+                  </span>
+                  <span className="text-xs font-semibold text-blue-400/60">kW</span>
+                </div>
+              </div>
             </div>
-          </CardContent>
+
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/5 text-xs text-white/80">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <span>
+                Target: <strong>{dailyTargetKwh} kWh / day</strong> ({Math.round((todayUsedKwh / dailyTargetKwh) * 100)}% used)
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
+            <span className="text-white/40">Avg: ~Rs. {Number(meter.daily_average || 145).toFixed(0)} / day</span>
+            <span className="text-white/60 font-mono">230V • 50Hz</span>
+          </div>
         </Card>
       </div>
 
-      {/* Electricity Consumption (Full Width) */}
-      <Card className="bg-[#0f0f11] border border-white/10 shadow-lg text-white hover:border-white/20 transition-colors duration-300">
-        <CardHeader className="pb-3 sm:pb-4">
-          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-            <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-400" />
-            {t.overview.electricityConsumption}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-6">
-            <div className="bg-[#18181b] p-4 sm:p-5 rounded-xl border border-white/5 shadow-inner">
-              <div className="text-white/50 text-[11px] uppercase tracking-wider font-semibold mb-1 sm:mb-2">{t.overview.todayNet}</div>
-              <div className="text-2xl sm:text-3xl font-black tracking-tight">
-                {consumption ? (parseFloat(consumption.today) - parseFloat(consumption.exportToday)).toFixed(1) : '0.0'} 
-                <span className="text-xs sm:text-sm font-normal text-white/50 ml-1">kWh</span>
+      {/* 4. Lower Tier: 7-Day Chart & Analytics Summary (Left 2/3) + Recent Activity (Right 1/3) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column (2/3 width): 7-Day Consumption Profile & Specs */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="bg-[#141416] border border-white/10 shadow-xl text-white rounded-3xl overflow-hidden">
+            <CardHeader className="p-5 sm:p-6 pb-2 border-b border-white/5 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-yellow-400" />
+                  7-Day Electricity Consumption Profile
+                </CardTitle>
+                <p className="text-xs text-white/50 mt-0.5">
+                  Daily smart meter energy readings in kilowatt-hours (kWh)
+                </p>
               </div>
-              <div className="text-xs mt-3 flex items-center justify-between border-t border-white/5 pt-2">
-                <span className="text-red-400 font-medium">{t.overview.inFlow}: {consumption?.today || '0.0'}</span>
-                <span className="text-green-400 font-medium">{t.overview.outFlow}: {consumption?.exportToday || '0.0'}</span>
-              </div>
-            </div>
-            <div className="bg-[#18181b] p-4 sm:p-5 rounded-xl border border-white/5 shadow-inner">
-              <div className="text-white/50 text-[11px] uppercase tracking-wider font-semibold mb-1 sm:mb-2">{t.overview.thisWeekNet}</div>
-              <div className="text-2xl sm:text-3xl font-black tracking-tight">
-                {consumption ? (parseFloat(consumption.thisWeek) - parseFloat(consumption.exportThisWeek)).toFixed(1) : '0.0'} 
-                <span className="text-xs sm:text-sm font-normal text-white/50 ml-1">kWh</span>
-              </div>
-              <div className="text-xs mt-3 flex items-center justify-between border-t border-white/5 pt-2">
-                <span className="text-red-400 font-medium">{t.overview.inFlow}: {consumption?.thisWeek || '0.0'}</span>
-                <span className="text-green-400 font-medium">{t.overview.outFlow}: {consumption?.exportThisWeek || '0.0'}</span>
-              </div>
-            </div>
-            <div className="bg-[#18181b] p-4 sm:p-5 rounded-xl border border-white/5 border-b-2 border-b-blue-500 shadow-inner relative overflow-hidden sm:col-span-2 lg:col-span-1">
-              <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                <Zap size={64} />
-              </div>
-              <div className="text-white/50 text-[11px] uppercase tracking-wider font-semibold mb-1 sm:mb-2">{t.overview.livePowerNet}</div>
-              <div className="text-2xl sm:text-3xl font-black tracking-tight text-blue-400">
-                {consumption ? (parseFloat(consumption.currentPower) - parseFloat(consumption.currentExport)).toFixed(2) : '0.00'} 
-                <span className="text-xs sm:text-sm font-normal text-blue-400/50 ml-1">kW</span>
-              </div>
-              <div className="text-xs mt-3 flex items-center justify-between border-t border-white/5 pt-2">
-                <span className="text-red-400 font-medium">{t.overview.inFlow}: {consumption?.currentPower || '0.00'}</span>
-                <span className="text-green-400 font-medium">{t.overview.outFlow}: {consumption?.currentExport || '0.00'}</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-            <h4 className="text-xs sm:text-sm font-medium text-white/80">{t.overview.usageComparison}</h4>
-            <div className="flex flex-col xs:flex-row justify-between xs:items-center text-xs sm:text-sm border-b border-white/10 pb-2 gap-1">
-              <span className="text-white/60">{t.overview.todayVsYesterday}</span>
-              <span className="font-semibold text-white">
-                {consumption ? (parseFloat(consumption.today) - parseFloat(consumption.exportToday)).toFixed(1) : '0.0'} kWh 
-                {consumption && (
-                  <span className={`text-xs ml-2 font-mono ${
-                    (parseFloat(consumption.today) - parseFloat(consumption.exportToday)) > 
-                    (parseFloat(consumption.yesterday) - parseFloat(consumption.exportYesterday)) 
-                      ? 'text-red-400' 
-                      : 'text-green-400'
-                  }`}>
-                    {(parseFloat(consumption.today) - parseFloat(consumption.exportToday)) > (parseFloat(consumption.yesterday) - parseFloat(consumption.exportYesterday)) ? '↑' : '↓'} 
-                    {Math.abs(
-                      (parseFloat(consumption.today) - parseFloat(consumption.exportToday)) - 
-                      (parseFloat(consumption.yesterday) - parseFloat(consumption.exportYesterday))
-                    ).toFixed(1)} kWh
-                  </span>
-                )}
+              <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-full bg-yellow-400/10 text-yellow-400 border border-yellow-400/20">
+                Weekly Trend
               </span>
-            </div>
-            <div className="flex flex-col xs:flex-row justify-between xs:items-center text-xs sm:text-sm border-b border-white/10 pb-2 gap-1">
-              <span className="text-white/60">{t.overview.thisWeekVsLastWeek}</span>
-              <span className="font-semibold text-white">
-                {consumption ? (parseFloat(consumption.thisWeek) - parseFloat(consumption.exportThisWeek)).toFixed(1) : '0.0'} kWh 
-                {consumption && (
-                  <span className={`text-xs ml-2 font-mono ${
-                    (parseFloat(consumption.thisWeek) - parseFloat(consumption.exportThisWeek)) > 
-                    (parseFloat(consumption.lastWeek) - parseFloat(consumption.exportLastWeek)) 
-                      ? 'text-red-400' 
-                      : 'text-green-400'
-                  }`}>
-                    {(parseFloat(consumption.thisWeek) - parseFloat(consumption.exportThisWeek)) > (parseFloat(consumption.lastWeek) - parseFloat(consumption.exportLastWeek)) ? '↑' : '↓'} 
-                    {Math.abs(
-                      (parseFloat(consumption.thisWeek) - parseFloat(consumption.exportThisWeek)) - 
-                      (parseFloat(consumption.lastWeek) - parseFloat(consumption.exportLastWeek))
-                    ).toFixed(1)} kWh
-                  </span>
-                )}
-              </span>
-            </div>
+            </CardHeader>
 
-            {/* PUCSL Lifetime Prediction Box */}
-            <div className="mt-4 p-4 sm:p-5 bg-[#121214] border border-yellow-400/20 rounded-xl text-white">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-yellow-400/10 text-yellow-400 shrink-0">
-                    <Battery className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-xs sm:text-sm text-white flex items-center gap-2 flex-wrap">
-                      <span>{t.overview.tariffLifetimePrediction}</span>
-                      {consumption?.prediction && (
-                        <Badge className={`text-[9px] uppercase font-semibold ${
-                          consumption.prediction.predictionConfidence === 'HIGH' 
-                            ? 'bg-green-500/20 text-green-400 border-green-500/30'
-                            : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-                        }`}>
-                          {consumption.prediction.predictionConfidence}
-                        </Badge>
-                      )}
-                    </h4>
-                    <p className="text-[11px] text-white/50">{t.overview.simulationNotice}</p>
-                  </div>
-                </div>
-                {consumption?.prediction && (
-                  <div className="text-left sm:text-right">
-                    <span className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider block">{t.overview.daysRemaining}</span>
-                    <span className="text-xl sm:text-2xl font-black text-yellow-400">
-                      ~{consumption.prediction.estimatedDaysRemaining} {t.overview.daysRemaining}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {consumption?.prediction ? (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-3 text-xs">
-                  <div className="bg-black/30 p-2 sm:p-2.5 rounded-lg border border-white/5">
-                    <span className="text-white/50 text-[10px] block">{t.overview.expectedRange}</span>
-                    <span className="font-bold text-white mt-0.5 block text-xs">
-                      {consumption.prediction.estimatedMinDays}–{consumption.prediction.estimatedMaxDays} {t.overview.daysRemaining}
-                    </span>
-                  </div>
-                  <div className="bg-black/30 p-2 sm:p-2.5 rounded-lg border border-white/5">
-                    <span className="text-white/50 text-[10px] block">{t.overview.currentTariff}</span>
-                    <span className="font-bold text-yellow-300 mt-0.5 block text-xs truncate">
-                      {consumption.prediction.currentTariffGroup}
-                    </span>
-                  </div>
-                  <div className="bg-black/30 p-2 sm:p-2.5 rounded-lg border border-white/5">
-                    <span className="text-white/50 text-[10px] block">Cycle Usage</span>
-                    <span className="font-bold text-white mt-0.5 block text-xs">
-                      {consumption.prediction.billingCycleConsumptionKwh} kWh / 30d
-                    </span>
-                  </div>
-                  <div className="bg-black/30 p-2 sm:p-2.5 rounded-lg border border-white/5">
-                    <span className="text-white/50 text-[10px] block">Avg Burn Rate</span>
-                    <span className="font-bold text-white mt-0.5 block text-xs">
-                      {consumption.prediction.averageDailyUsageKwh} kWh/day
-                    </span>
-                  </div>
-                </div>
+            <CardContent className="p-4 sm:p-6 pt-4 h-[260px] sm:h-[290px]">
+              {chartList && chartList.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartList} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="usageGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#facc15" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#facc15" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                    <XAxis dataKey="date" stroke="#666" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#666" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}k`} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#18181b", borderColor: "#333", borderRadius: "12px", color: "#fff" }}
+                      itemStyle={{ color: "#facc15", fontWeight: "bold", fontSize: "12px" }}
+                      labelStyle={{ color: "#888", fontSize: "11px", marginBottom: "3px" }}
+                      formatter={((value: any) => [`${Number(value || 0).toFixed(2)} kWh`, "Daily Usage"]) as any}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="import"
+                      name="Daily Usage"
+                      stroke="#facc15"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#usageGradient)"
+                      dot={{ fill: "#facc15", r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               ) : (
-                <div className="text-xs text-white/60 pt-2">
-                  Calculating non-linear tariff simulation...
+                <div className="flex h-full items-center justify-center text-white/40 text-xs">
+                  Usage telemetry syncing from your smart meter...
                 </div>
               )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Analytical Trends Chart */}
-        <Card className="bg-[#0f0f11] border border-white/10 shadow-lg text-white lg:col-span-2 hover:border-white/20 transition-colors duration-300">
-          <CardHeader className="pb-3 sm:pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-white/5">
-            <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2 text-white/90">
-              <TrendingUp className="h-4 w-4 text-blue-400" />
-              7-Day Power: In &amp; Out
-            </CardTitle>
-            <div className="flex items-center gap-3 sm:gap-4 text-xs flex-wrap">
-              <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-3.5 rounded-full bg-red-400"></span><span className="text-white/50">In (grid)</span></span>
-              <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-3.5 rounded-full bg-green-400"></span><span className="text-white/50">Out (solar)</span></span>
+            {/* Integrated 4-Metric Analytics Summary Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-black/40 border-t border-white/5 text-xs">
+              <div>
+                <span className="text-white/40 block text-[10px] uppercase font-semibold">7-Day Total</span>
+                <span className="font-mono font-bold text-white text-xs">{total7DayKwh.toFixed(1)} kWh</span>
+              </div>
+              <div>
+                <span className="text-white/40 block text-[10px] uppercase font-semibold">Daily Average</span>
+                <span className="font-mono font-bold text-white text-xs">{avg7DayKwh.toFixed(1)} kWh / day</span>
+              </div>
+              <div>
+                <span className="text-white/40 block text-[10px] uppercase font-semibold">Peak Day</span>
+                <span className="font-mono font-bold text-yellow-400 text-xs">{peak7DayKwh.toFixed(1)} kWh</span>
+              </div>
+              <div>
+                <span className="text-white/40 block text-[10px] uppercase font-semibold">Supply Relay</span>
+                <span className={`font-bold text-xs ${isDisconnected ? "text-red-400" : "text-emerald-400"}`}>
+                  {isDisconnected ? "Disconnected" : "Active (Closed)"}
+                </span>
+              </div>
             </div>
-          </CardHeader>
-          <CardContent className="pt-4 h-[250px] sm:h-[300px]">
-            {consumption?.chartData ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={consumption.chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorImport" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f87171" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#f87171" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorExport" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4ade80" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#4ade80" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#262626" vertical={false} />
-                  <XAxis dataKey="date" stroke="#888" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#888" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => `${value} kWh`} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#141416', borderColor: '#333', borderRadius: '8px' }}
-                    itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                    labelStyle={{ color: '#aaa', marginBottom: '2px', fontSize: '11px' }}
-                    formatter={((value: any) => [`${Number(value || 0).toFixed(2)} kWh`]) as any}
-                  />
-                  <Area type="monotone" dataKey="import" name="In (from grid)" stroke="#f87171" strokeWidth={2} fillOpacity={1} fill="url(#colorImport)" dot={false} />
-                  <Area type="monotone" dataKey="export" name="Out (to grid)" stroke="#4ade80" strokeWidth={2} fillOpacity={1} fill="url(#colorExport)" dot={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center text-white/50 text-xs">No trend data available</div>
-            )}
-          </CardContent>
-        </Card>
+          </Card>
+        </div>
 
-        {/* Alerts & Recent Activity */}
-        <div className="flex flex-col gap-6">
-          <Card className="bg-[#0f0f11] border border-white/10 shadow-lg text-white hover:border-white/20 transition-colors duration-300">
-            <CardHeader className="pb-3 border-b border-white/5">
-              <CardTitle className="text-base font-semibold flex items-center gap-2 text-white/90">
-                <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                Active Alerts
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {notifications.filter(n => n.type === 'alert').length === 0 ? (
-                <div className="text-sm text-white/50 text-center py-2">No active alerts</div>
+        {/* Right Column (1/3 width): Recent Activity & Event Ledger */}
+        <Card className="bg-[#141416] border border-white/10 shadow-xl text-white rounded-3xl p-5 sm:p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <HistoryIcon className="h-4 w-4 text-yellow-400" />
+                <h3 className="font-bold text-sm sm:text-base text-white">Recent Activity</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigate?.("history")}
+                className="text-xs text-yellow-400 hover:text-yellow-300 font-semibold transition-colors cursor-pointer flex items-center gap-0.5"
+              >
+                View All <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {notifications.length === 0 ? (
+                <div className="text-center py-12 text-xs text-white/40">
+                  No recent transactions or alerts.
+                </div>
               ) : (
-                notifications.filter(n => n.type === 'alert').slice(0, 3).map(alert => (
-                  <div key={alert.id} className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                    <div className="text-sm font-medium text-red-400">{alert.title}</div>
-                    <div className="text-xs text-red-400/70 mt-1">{alert.message}</div>
+                notifications.slice(0, 4).map((item) => (
+                  <div key={item.id} className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-start gap-3">
+                    <div className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 shrink-0 mt-0.5">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-white leading-tight truncate">
+                        {item.title}
+                      </p>
+                      <p className="text-[11px] text-white/60 mt-0.5 line-clamp-2">
+                        {item.message}
+                      </p>
+                      <span className="text-[10px] text-white/40 block mt-1 font-mono">
+                        {new Date(item.created_at || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
                   </div>
                 ))
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="bg-[#0f0f11] border border-white/10 shadow-lg text-white hover:border-white/20 transition-colors duration-300 flex-1">
-            <CardHeader className="pb-3 border-b border-white/5 flex flex-row items-center justify-between">
-              <CardTitle className="text-base font-semibold flex items-center gap-2 text-white/90">
-                <HistoryIcon className="h-4 w-4 text-white/50" />
-                Recent Activity
-              </CardTitle>
-              {onNavigate && (
-                <button
-                  type="button"
-                  onClick={() => onNavigate("history")}
-                  className="text-xs text-yellow-400/80 hover:text-yellow-400 hover:underline cursor-pointer"
-                >
-                  View All History →
-                </button>
-              )}
-            </CardHeader>
-            <CardContent>
-              <div className="relative border-l border-white/10 ml-3 space-y-6">
-                {notifications.filter(n => n.type !== 'alert').length === 0 ? (
-                  <div className="text-sm text-white/50 pl-4 py-2">No recent activity</div>
-                ) : (
-                  notifications.filter(n => n.type !== 'alert').slice(0, 5).map(activity => (
-                    <div key={activity.id} className="relative pl-6">
-                      <span className={`absolute -left-[9px] top-1 h-4 w-4 rounded-full ring-4 ring-[#1a1a1a] ${activity.type === 'success' ? 'bg-green-500' : 'bg-blue-500'}`}></span>
-                      <p className="text-sm font-medium">{activity.title}</p>
-                      <p className="text-xs text-white/70 mt-1">{activity.message}</p>
-                      <p className="text-[10px] text-white/40 mt-1">{new Date(activity.created_at).toLocaleString()}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs text-white/40">
+            <span className="flex items-center gap-1.5">
+              <PhoneCall className="h-3.5 w-3.5 text-yellow-400" />
+              LECO 24/7: <strong className="text-white/80">1910</strong>
+            </span>
+            <span className="text-[10px] text-white/30">
+              LECO Self Care
+            </span>
+          </div>
+        </Card>
       </div>
+
+      {/* 5. Quick Utility Shortcuts: Consumer Action Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <button
+          type="button"
+          onClick={() => onNavigate?.("payments")}
+          className="p-4 rounded-2xl bg-[#141416] border border-white/10 hover:border-yellow-400/50 hover:bg-white/[0.02] text-left transition-all cursor-pointer group flex flex-col justify-between min-h-[90px]"
+        >
+          <div className="flex items-center justify-between">
+            <CreditCard className="h-5 w-5 text-yellow-400 transition-transform group-hover:scale-110" />
+            <ChevronRight className="h-4 w-4 text-white/30 group-hover:text-yellow-400 transition-colors" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-white block">Instant Top-Up</span>
+            <span className="text-[11px] text-white/40">PayHere / Cards / Wallets</span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onNavigate?.("history")}
+          className="p-4 rounded-2xl bg-[#141416] border border-white/10 hover:border-yellow-400/50 hover:bg-white/[0.02] text-left transition-all cursor-pointer group flex flex-col justify-between min-h-[90px]"
+        >
+          <div className="flex items-center justify-between">
+            <FileText className="h-5 w-5 text-emerald-400 transition-transform group-hover:scale-110" />
+            <ChevronRight className="h-4 w-4 text-white/30 group-hover:text-emerald-400 transition-colors" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-white block">Payment Receipts</span>
+            <span className="text-[11px] text-white/40">View history & invoices</span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onNavigate?.("complaints")}
+          className="p-4 rounded-2xl bg-[#141416] border border-white/10 hover:border-yellow-400/50 hover:bg-white/[0.02] text-left transition-all cursor-pointer group flex flex-col justify-between min-h-[90px]"
+        >
+          <div className="flex items-center justify-between">
+            <AlertCircle className="h-5 w-5 text-amber-400 transition-transform group-hover:scale-110" />
+            <ChevronRight className="h-4 w-4 text-white/30 group-hover:text-amber-400 transition-colors" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-white block">Report Outage</span>
+            <span className="text-[11px] text-white/40">24/7 Fault breakdown</span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={handleOpenBudgetModal}
+          className="p-4 rounded-2xl bg-[#141416] border border-white/10 hover:border-yellow-400/50 hover:bg-white/[0.02] text-left transition-all cursor-pointer group flex flex-col justify-between min-h-[90px]"
+        >
+          <div className="flex items-center justify-between">
+            <Sliders className="h-5 w-5 text-blue-400 transition-transform group-hover:scale-110" />
+            <ChevronRight className="h-4 w-4 text-white/30 group-hover:text-blue-400 transition-colors" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-white block">Budget & Alerts</span>
+            <span className="text-[11px] text-white/40">SMS & spending limits</span>
+          </div>
+        </button>
+      </div>
+
+      {/* 7. Quick Adjust Budget & Alerts Modal */}
+      {budgetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#18181b] border border-white/15 rounded-3xl p-6 sm:p-7 max-w-lg w-full text-white shadow-2xl relative space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-yellow-400/10 text-yellow-400">
+                  <Sliders className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base sm:text-lg text-white">
+                    {t.overview.budgetSectionTitle}
+                  </h3>
+                  <p className="text-xs text-white/50">
+                    Set spending limits and prepaid notification triggers
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBudgetModalOpen(false)}
+                className="text-white/50 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+              {/* Monthly Budget */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="modal-monthly-budget" className="text-xs font-semibold text-white uppercase tracking-wider">
+                    {t.overview.monthlyBudgetTitle} (Rs.)
+                  </Label>
+                  <span className="text-xs font-bold text-yellow-400 font-mono">
+                    Rs. {budgetForm.monthly_budget_lkr.toLocaleString()}
+                  </span>
+                </div>
+                <Input
+                  id="modal-monthly-budget"
+                  type="number"
+                  min="500"
+                  max="100000"
+                  step="500"
+                  value={budgetForm.monthly_budget_lkr}
+                  onChange={(e) => setBudgetForm((prev) => ({ ...prev, monthly_budget_lkr: parseFloat(e.target.value) || 0 }))}
+                  className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl"
+                />
+                <div className="grid grid-cols-5 gap-1.5">
+                  {[2000, 3000, 5000, 8000, 10000].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setBudgetForm((prev) => ({ ...prev, monthly_budget_lkr: preset }))}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-semibold border transition-all text-center cursor-pointer ${
+                        budgetForm.monthly_budget_lkr === preset
+                          ? "bg-yellow-400 text-black border-yellow-400 font-bold"
+                          : "bg-black/30 border-white/10 text-white/70 hover:bg-black/50 hover:text-white"
+                      }`}
+                    >
+                      Rs. {preset >= 1000 ? `${preset / 1000}k` : preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Low Balance Alert Threshold */}
+              <div className="space-y-2 pt-2 border-t border-white/10">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="modal-low-threshold" className="text-xs font-semibold text-white uppercase tracking-wider">
+                    {t.overview.lowBalanceNotificationTitle} (Rs.)
+                  </Label>
+                  <span className="text-xs font-bold text-amber-400 font-mono">
+                    Alert at: Rs. {budgetForm.low_balance_threshold}
+                  </span>
+                </div>
+                <Input
+                  id="modal-low-threshold"
+                  type="number"
+                  min="50"
+                  max="5000"
+                  step="50"
+                  value={budgetForm.low_balance_threshold}
+                  onChange={(e) => setBudgetForm((prev) => ({ ...prev, low_balance_threshold: parseFloat(e.target.value) || 0 }))}
+                  className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl"
+                />
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[150, 300, 500, 1000].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setBudgetForm((prev) => ({ ...prev, low_balance_threshold: preset }))}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-semibold border transition-all text-center cursor-pointer ${
+                        budgetForm.low_balance_threshold === preset
+                          ? "bg-amber-400 text-black border-amber-400 font-bold"
+                          : "bg-black/30 border-white/10 text-white/70 hover:bg-black/50 hover:text-white"
+                      }`}
+                    >
+                      Rs. {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Daily Target kWh */}
+              <div className="space-y-2 pt-2 border-t border-white/10">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="modal-daily-budget" className="text-xs font-semibold text-white uppercase tracking-wider">
+                    {t.overview.dailyBudgetTitle} (kWh)
+                  </Label>
+                  <span className="text-xs font-bold text-yellow-400 font-mono">
+                    {budgetForm.daily_kwh_budget} kWh / day
+                  </span>
+                </div>
+                <Input
+                  id="modal-daily-budget"
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="1"
+                  value={budgetForm.daily_kwh_budget}
+                  onChange={(e) => setBudgetForm((prev) => ({ ...prev, daily_kwh_budget: parseFloat(e.target.value) || 1 }))}
+                  className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl"
+                />
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[8, 12, 18, 25].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setBudgetForm((prev) => ({ ...prev, daily_kwh_budget: preset }))}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-semibold border transition-all text-center cursor-pointer ${
+                        budgetForm.daily_kwh_budget === preset
+                          ? "bg-yellow-400 text-black border-yellow-400 font-bold"
+                          : "bg-black/30 border-white/10 text-white/70 hover:bg-black/50 hover:text-white"
+                      }`}
+                    >
+                      {preset} kWh
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notification Toggles */}
+              <div className="space-y-2.5 pt-2 border-t border-white/10">
+                <span className="text-xs font-semibold text-white uppercase tracking-wider block">
+                  Alert Channels & Protection
+                </span>
+
+                <div className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/5">
+                  <span className="text-xs text-white font-medium">SMS Low Balance Alerts</span>
+                  <button
+                    type="button"
+                    onClick={() => setBudgetForm((prev) => ({ ...prev, sms_notifications: !prev.sms_notifications }))}
+                    className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
+                      budgetForm.sms_notifications ? "bg-yellow-400" : "bg-white/20"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-black shadow-lg ring-0 transition duration-200 ${
+                        budgetForm.sms_notifications ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/5">
+                  <span className="text-xs text-white font-medium">Auto-Emergency Credit Activation</span>
+                  <button
+                    type="button"
+                    onClick={() => setBudgetForm((prev) => ({ ...prev, auto_emergency_credit: !prev.auto_emergency_credit }))}
+                    className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
+                      budgetForm.auto_emergency_credit ? "bg-yellow-400" : "bg-white/20"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-black shadow-lg ring-0 transition duration-200 ${
+                        budgetForm.auto_emergency_credit ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setBudgetModalOpen(false)}
+                className="bg-transparent border-white/20 text-white hover:bg-white/10 text-xs h-10 px-4 rounded-xl cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveBudget}
+                disabled={savingBudget}
+                className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-xs h-10 px-5 rounded-xl cursor-pointer shadow-lg"
+              >
+                {savingBudget ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

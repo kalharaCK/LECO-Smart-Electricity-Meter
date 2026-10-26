@@ -53,6 +53,7 @@ const getUserSettings = async (req, res) => {
         phone_number: settings.phone_number,
         low_balance_threshold: parseFloat(settings.low_balance_threshold || 300),
         daily_kwh_budget: parseFloat(settings.daily_kwh_budget || 12),
+        monthly_budget_lkr: parseFloat(settings.monthly_budget_lkr || 3000),
         auto_emergency_credit: settings.auto_emergency_credit,
         night_curfew_enabled: settings.night_curfew_enabled,
         email_notifications: settings.email_notifications,
@@ -81,6 +82,7 @@ const updateUserSettings = async (req, res) => {
       phone_number,
       low_balance_threshold,
       daily_kwh_budget,
+      monthly_budget_lkr,
       auto_emergency_credit,
       night_curfew_enabled,
       email_notifications,
@@ -90,6 +92,7 @@ const updateUserSettings = async (req, res) => {
 
     const parsedThreshold = low_balance_threshold !== undefined ? parseFloat(low_balance_threshold) : null;
     const parsedBudget = daily_kwh_budget !== undefined ? parseFloat(daily_kwh_budget) : null;
+    const parsedMonthlyBudget = monthly_budget_lkr !== undefined ? parseFloat(monthly_budget_lkr) : null;
 
     if (parsedThreshold !== null && (isNaN(parsedThreshold) || parsedThreshold < 0)) {
       return res.status(400).json({ success: false, message: 'Low balance threshold must be a positive number' });
@@ -97,6 +100,10 @@ const updateUserSettings = async (req, res) => {
 
     if (parsedBudget !== null && (isNaN(parsedBudget) || parsedBudget <= 0)) {
       return res.status(400).json({ success: false, message: 'Daily kWh budget must be greater than zero' });
+    }
+
+    if (parsedMonthlyBudget !== null && (isNaN(parsedMonthlyBudget) || parsedMonthlyBudget <= 0)) {
+      return res.status(400).json({ success: false, message: 'Monthly budget must be greater than zero' });
     }
 
     const cleanPhone = phone_number ? sanitizeString(phone_number, 20) : null;
@@ -107,22 +114,24 @@ const updateUserSettings = async (req, res) => {
         phone_number,
         low_balance_threshold,
         daily_kwh_budget,
+        monthly_budget_lkr,
         auto_emergency_credit,
         night_curfew_enabled,
         email_notifications,
         sms_notifications,
         weekly_report,
         updated_at
-      ) VALUES ($1, COALESCE($2, '+94 77 123 4567'), COALESCE($3, 300), COALESCE($4, 12), COALESCE($5, TRUE), COALESCE($6, TRUE), COALESCE($7, TRUE), COALESCE($8, TRUE), COALESCE($9, TRUE), CURRENT_TIMESTAMP)
+      ) VALUES ($1, COALESCE($2, '+94 77 123 4567'), COALESCE($3, 300), COALESCE($4, 12), COALESCE($5, 3000), COALESCE($6, TRUE), COALESCE($7, TRUE), COALESCE($8, TRUE), COALESCE($9, TRUE), COALESCE($10, TRUE), CURRENT_TIMESTAMP)
       ON CONFLICT (user_id) DO UPDATE SET
         phone_number = COALESCE($2, user_settings.phone_number),
         low_balance_threshold = COALESCE($3, user_settings.low_balance_threshold),
         daily_kwh_budget = COALESCE($4, user_settings.daily_kwh_budget),
-        auto_emergency_credit = COALESCE($5, user_settings.auto_emergency_credit),
-        night_curfew_enabled = COALESCE($6, user_settings.night_curfew_enabled),
-        email_notifications = COALESCE($7, user_settings.email_notifications),
-        sms_notifications = COALESCE($8, user_settings.sms_notifications),
-        weekly_report = COALESCE($9, user_settings.weekly_report),
+        monthly_budget_lkr = COALESCE($5, user_settings.monthly_budget_lkr),
+        auto_emergency_credit = COALESCE($6, user_settings.auto_emergency_credit),
+        night_curfew_enabled = COALESCE($7, user_settings.night_curfew_enabled),
+        email_notifications = COALESCE($8, user_settings.email_notifications),
+        sms_notifications = COALESCE($9, user_settings.sms_notifications),
+        weekly_report = COALESCE($10, user_settings.weekly_report),
         updated_at = CURRENT_TIMESTAMP
       RETURNING *`,
       [
@@ -130,6 +139,7 @@ const updateUserSettings = async (req, res) => {
         cleanPhone,
         parsedThreshold,
         parsedBudget,
+        parsedMonthlyBudget,
         auto_emergency_credit,
         night_curfew_enabled,
         email_notifications,

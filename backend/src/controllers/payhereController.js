@@ -5,6 +5,7 @@ const {
   verifyNotificationSignature 
 } = require('../services/payhereService');
 const { emitMeterUpdate, emitNotification } = require('../services/socketService');
+const smsService = require('../services/smsService');
 
 /**
  * 1. Initialize PayHere Checkout Session
@@ -215,6 +216,33 @@ const completePayhereCheckout = async (req, res) => {
       message: `Rs. ${rechargeAmount.toFixed(2)} credited to meter ${meter.meter_number}.`
     });
 
+    // Dispatch Payment Confirmation SMS via Text.lk
+    try {
+      const userMobQuery = await pool.query(
+        `SELECT COALESCE(u.mobile_number, s.phone_number) as phone 
+         FROM users u 
+         LEFT JOIN user_settings s ON u.id = s.user_id 
+         WHERE u.id = $1`,
+        [payment.user_id]
+      );
+      const customerPhone = userMobQuery.rows[0]?.phone;
+      if (customerPhone) {
+        smsService.sendEventSms({
+          recipient: customerPhone,
+          eventType: 'payment',
+          language: 'en',
+          data: {
+            amount: rechargeAmount.toFixed(2),
+            account_no: meter.account_number || meter.meter_number,
+            ref: orderId,
+            balance: newBalance.toFixed(2)
+          }
+        }).catch(err => console.error('[PayHere SMS Error]:', err.message));
+      }
+    } catch (smsErr) {
+      console.error('[PayHere SMS User Fetch Error]:', smsErr.message);
+    }
+
     return res.json({
       success: true,
       message: 'PayHere payment verified and credited successfully',
@@ -314,6 +342,33 @@ const handlePayhereNotify = async (req, res) => {
             balance: newBalance,
             status: newStatus
           });
+
+          // Dispatch Payment Confirmation SMS via Text.lk IPN
+          try {
+            const userMobQuery = await pool.query(
+              `SELECT COALESCE(u.mobile_number, s.phone_number) as phone 
+               FROM users u 
+               LEFT JOIN user_settings s ON u.id = s.user_id 
+               WHERE u.id = $1`,
+              [payment.user_id]
+            );
+            const customerPhone = userMobQuery.rows[0]?.phone;
+            if (customerPhone) {
+              smsService.sendEventSms({
+                recipient: customerPhone,
+                eventType: 'payment',
+                language: 'en',
+                data: {
+                  amount: parseFloat(payhere_amount).toFixed(2),
+                  account_no: meter.account_number || meter.meter_number,
+                  ref: payment_id || order_id,
+                  balance: newBalance.toFixed(2)
+                }
+              }).catch(err => console.error('[PayHere IPN SMS Error]:', err.message));
+            }
+          } catch (smsErr) {
+            console.error('[PayHere IPN SMS Error]:', smsErr.message);
+          }
         }
       } else {
         // Already credited by client handshake, update PayHere gateway details
