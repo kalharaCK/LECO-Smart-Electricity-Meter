@@ -281,4 +281,19 @@ const connectDb = async () => {
   }
 };
 
-module.exports = { pool, connectDb, initDb };
+const getPoolStats = () => ({
+  total: pool.totalCount,
+  idle: pool.idleCount,
+  waiting: pool.waitingCount,
+});
+
+const closePool = async () => {
+  try {
+    await pool.end();
+    console.log('[Database Pool] All connections closed successfully.');
+  } catch (err) {
+    console.error('[Database Pool Close Error]:', err.message);
+  }
+};
+
+module.exports = { pool, connectDb, initDb, getPoolStats, closePool };
