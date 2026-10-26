@@ -54,6 +54,7 @@ app.use(
     },
     noSniff: true,
     hidePoweredBy: true,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   })
 );
 
