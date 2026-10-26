@@ -10,6 +10,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const metricsRoutes = require('./routes/metricsRoutes');
 const predictionModule = require('./modules/prediction');
 const chatbotModule = require('./modules/chatbot');
 const { sanitizeInputs } = require('./middlewares/sanitizer');
@@ -103,6 +104,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatbotModule.router);
 app.use('/api/prediction', predictionModule.router);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/metrics', metricsRoutes);
 
 // PayHere Payment Gateway Handlers & Server-to-Server IPN Webhook
 app.post('/api/payments/payhere-notify', handlePayhereNotify);
