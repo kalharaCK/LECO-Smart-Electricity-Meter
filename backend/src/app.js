@@ -120,20 +120,9 @@ app.get('/api/health', async (req, res) => {
     databaseHealthy = false;
   }
 
-<<<<<<< HEAD
-  res.json({
-    status: 'ok',
-    service: 'LECO Self Care REST Engine',
-    database: {
-      status: dbStatus,
-      latencyMs: dbLatencyMs,
-      provider: 'Neon PostgreSQL'
-    },
-=======
   const health = createHealthResponse({
     databaseHealthy,
     dbLatencyMs,
->>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
     uptimeSeconds: Math.floor(process.uptime()),
   });
   res.status(health.httpStatus).json(health.body);
