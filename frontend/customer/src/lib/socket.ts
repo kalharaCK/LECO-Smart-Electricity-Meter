@@ -14,15 +14,15 @@ export const getSocket = (): Socket => {
     });
 
     socket.on('connect', () => {
-      console.log('⚡ Connected to LECO Smart Meter WebSocket:', socket?.id);
+      console.log('[Socket] Connected to LECO Smart Meter WebSocket:', socket?.id);
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('⚡ Disconnected from LECO WebSocket:', reason);
+      console.log('[Socket] Disconnected from LECO WebSocket:', reason);
     });
 
     socket.on('connect_error', (error) => {
-      console.warn('⚡ WebSocket connection error:', error.message);
+      console.warn('[Socket] WebSocket connection error:', error.message);
     });
   }
   return socket;
