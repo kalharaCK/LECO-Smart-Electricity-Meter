@@ -305,6 +305,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
       </div>
 
       {/* Interactive Consumption & Balance Simulator Bar */}
+      {import.meta.env.DEV && (
       <Card className="bg-gradient-to-r from-[#141416] via-[#1a1829] to-[#121217] border border-yellow-500/25 shadow-2xl text-white rounded-2xl overflow-hidden">
         <div className="p-3.5 sm:p-4 bg-gradient-to-r from-yellow-500/10 via-red-500/10 to-transparent flex items-center justify-between border-b border-white/5">
           <div className="flex items-center gap-2.5">
@@ -452,6 +453,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
           </CardContent>
         )}
       </Card>
+      )}
 
       {/* Success Notification for Emergency Credit */}
       {emergencySuccessMsg && (
