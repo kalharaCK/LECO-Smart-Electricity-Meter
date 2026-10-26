@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-// Re-export from modular prediction architecture for backwards compatibility
-module.exports = require('../modules/prediction/predictionService');
-=======
 const { calculateDomesticBill } = require('./tariffEngine');
 
 /**
@@ -267,4 +263,3 @@ module.exports = {
   simulateWalletLifetime,
   getWalletLifetimePrediction,
 };
->>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
