@@ -10,7 +10,8 @@ import {
   Calendar, 
   CreditCard, 
   TrendingUp, 
-  ShieldAlert
+  ShieldAlert,
+  RotateCcw
 } from "lucide-react"
 import { useDashboardI18n } from "@/lib/dashboardI18n"
 
@@ -45,6 +46,17 @@ export default function EnergyAssistantBot() {
       return prev
     })
   }, [t.bot.welcomeMessage])
+
+  const handleResetChat = () => {
+    setMessages([
+      {
+        id: "welcome-" + Date.now(),
+        role: "bot",
+        text: t.bot.welcomeMessage,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+    ])
+  }
 
   const suggestedPrompts = [
     { label: t.bot.promptDaysLeft, icon: Calendar },
@@ -251,14 +263,26 @@ export default function EnergyAssistantBot() {
               </div>
             </div>
 
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => setIsOpen(false)}
-              className="text-white/60 hover:text-white hover:bg-white/10 h-8 w-8 rounded-full"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={handleResetChat}
+                title="Restart conversation"
+                className="text-white/60 hover:text-white hover:bg-white/10 h-8 w-8 rounded-full cursor-pointer"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setIsOpen(false)}
+                title="Close chat"
+                className="text-white/60 hover:text-white hover:bg-white/10 h-8 w-8 rounded-full cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Messages Feed */}

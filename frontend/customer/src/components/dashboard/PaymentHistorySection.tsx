@@ -18,6 +18,7 @@ import {
   Calendar, 
   Zap,
   TrendingUp,
+  Download,
   X
 } from "lucide-react"
 import { useDashboardI18n } from "@/lib/dashboardI18n"
@@ -79,6 +80,80 @@ export default function PaymentHistorySection({
     navigator.clipboard.writeText(text)
     setCopiedId(text)
     setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  const exportToCsv = () => {
+    if (filteredPayments.length === 0) return
+    const headers = ["Date", "Time", "Transaction ID", "Meter Number", "Meter Name", "Payment Method", "Amount (LKR)", "Previous Balance (LKR)", "New Balance (LKR)", "Status"]
+    const rows = filteredPayments.map((p) => [
+      new Date(p.created_at).toLocaleDateString("en-US"),
+      new Date(p.created_at).toLocaleTimeString("en-US"),
+      p.transaction_id,
+      p.meter_number,
+      p.meter_name || "N/A",
+      p.payment_method,
+      Number(p.amount).toFixed(2),
+      Number(p.previous_balance).toFixed(2),
+      Number(p.new_balance).toFixed(2),
+      p.status || "completed"
+    ])
+    const csvContent = [headers.join(","), ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n")
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `LECO_Payment_History_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handlePrintReceipt = (receipt: PaymentRecord) => {
+    const printWindow = window.open("", "_blank", "width=600,height=700")
+    if (!printWindow) {
+      window.print()
+      return
+    }
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>LECO Payment Receipt - ${receipt.transaction_id}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 30px; color: #111; max-width: 480px; margin: 0 auto; }
+            .header { text-align: center; border-bottom: 2px dashed #ccc; padding-bottom: 16px; margin-bottom: 20px; }
+            .logo { height: 48px; margin-bottom: 8px; }
+            .title { font-size: 18px; font-weight: bold; margin: 0; color: #992511; }
+            .subtitle { font-size: 12px; color: #666; margin-top: 4px; }
+            .row { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
+            .row.total { font-size: 16px; font-weight: bold; border-top: 2px solid #111; border-bottom: 2px solid #111; margin-top: 12px; padding: 10px 0; }
+            .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #888; border-top: 1px dashed #ccc; padding-top: 16px; }
+            .badge { display: inline-block; padding: 2px 8px; background: #e6f4ea; color: #137333; border-radius: 4px; font-weight: bold; font-size: 11px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 class="title">Lanka Electricity Company (Pvt) Ltd</h1>
+            <p class="subtitle">Official Smart Meter Prepaid Payment Receipt</p>
+          </div>
+          <div class="row"><span>Transaction ID</span><strong>${receipt.transaction_id}</strong></div>
+          <div class="row"><span>Date & Time</span><span>${new Date(receipt.created_at).toLocaleString()}</span></div>
+          <div class="row"><span>Meter Number</span><strong>${receipt.meter_number} ${receipt.meter_name ? `(${receipt.meter_name})` : ''}</strong></div>
+          <div class="row"><span>Payment Channel</span><span>${receipt.payment_method}</span></div>
+          <div class="row"><span>Payment Status</span><span class="badge">${(receipt.status || 'completed').toUpperCase()}</span></div>
+          <div class="row"><span>Previous Balance</span><span>Rs. ${Number(receipt.previous_balance).toFixed(2)}</span></div>
+          <div class="row"><span>Top-Up Amount</span><strong>Rs. ${Number(receipt.amount).toFixed(2)}</strong></div>
+          <div class="row total"><span>New Meter Balance</span><span>Rs. ${Number(receipt.new_balance).toFixed(2)}</span></div>
+          <div class="footer">
+            <p>Thank you for using LECO Self Care Services.</p>
+            <p>For 24/7 inquiries, call 1910 or visit www.leco.lk</p>
+          </div>
+          <script>
+            window.onload = function() { window.print(); }
+          </script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
   }
 
   // Filtered payments
@@ -265,16 +340,28 @@ export default function PaymentHistorySection({
             </div>
           </div>
 
-          {/* Search bar */}
-          <div className="mt-3 relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
-            <Input
-              type="text"
-              placeholder={t.history.searchPlaceholder}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-black/30 border-white/10 text-white placeholder:text-white/40 pl-10 h-10 text-xs sm:text-sm focus-visible:ring-yellow-400 rounded-xl"
-            />
+          {/* Search bar and Export */}
+          <div className="mt-3 flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+              <Input
+                type="text"
+                placeholder={t.history.searchPlaceholder}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="bg-black/30 border-white/10 text-white placeholder:text-white/40 pl-10 h-10 text-xs sm:text-sm focus-visible:ring-yellow-400 rounded-xl"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={exportToCsv}
+              disabled={filteredPayments.length === 0}
+              className="bg-black/40 hover:bg-white/10 text-white border-white/15 h-10 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer shrink-0 transition-colors"
+            >
+              <Download className="h-4 w-4 text-yellow-400" />
+              <span>Export CSV</span>
+            </Button>
           </div>
         </CardHeader>
 
@@ -599,9 +686,7 @@ export default function PaymentHistorySection({
                 {t.history.closeBtn}
               </Button>
               <Button
-                onClick={() => {
-                  window.print()
-                }}
+                onClick={() => handlePrintReceipt(selectedReceipt)}
                 className="w-full sm:flex-1 bg-yellow-400 text-black hover:bg-yellow-500 font-bold h-10 text-xs sm:text-sm cursor-pointer"
               >
                 {t.history.viewReceipt}

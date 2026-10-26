@@ -13,7 +13,8 @@ import {
   Globe2, 
   Check, 
   Loader2,
-  FileText
+  FileText,
+  Download
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -249,6 +250,28 @@ export default function SmsGatewayManagement({
 
   const isUnicode = /[\u0D80-\u0DFF\u0B80-\u0BFF]/.test(activeMessage)
   const charLimit = isUnicode ? 70 : 160
+
+  const handleExportCsv = () => {
+    if (filteredLogs.length === 0) return
+    const headers = ["Time", "Recipient", "Event Type", "Language", "Message", "Status", "Units Charged"]
+    const rows = filteredLogs.map(l => [
+      new Date(l.created_at).toLocaleString("en-US"),
+      l.recipient,
+      l.event_type,
+      l.language,
+      l.message,
+      l.status,
+      l.cost || 1
+    ])
+    const csv = [headers.join(","), ...rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))].join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `LECO_SMS_Logs_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   if (loading && logs.length === 0 && !balance) {
     return (
@@ -691,6 +714,19 @@ export default function SmsGatewayManagement({
               className="border-white/10 bg-white/5 hover:bg-white/10 text-white text-xs h-9 px-3 rounded-xl cursor-pointer"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin text-yellow-400" : ""}`} />
+            </Button>
+
+            {/* Export CSV */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleExportCsv}
+              disabled={filteredLogs.length === 0}
+              className="border-white/10 bg-white/5 hover:bg-white/10 text-white text-xs h-9 px-3 rounded-xl cursor-pointer flex items-center gap-1.5"
+            >
+              <Download className="h-3.5 w-3.5 text-yellow-400" />
+              <span>Export CSV</span>
             </Button>
           </div>
         </div>

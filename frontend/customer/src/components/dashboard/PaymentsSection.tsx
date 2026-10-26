@@ -602,9 +602,20 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
               </div>
               <h3 className="text-xl font-bold mb-2">{t.payments.paymentFailed}</h3>
               <p className="text-white/70 mb-6">{errorMsg}</p>
-              <Button onClick={() => setStep("amount")} variant="outline" className="bg-transparent border-white/20 text-white hover:bg-white/10 cursor-pointer">
-                {t.addMeter.tryAgain}
-              </Button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Button onClick={() => setStep("amount")} variant="outline" className="w-full sm:w-auto bg-transparent border-white/20 text-white hover:bg-white/10 cursor-pointer">
+                  {t.addMeter.tryAgain}
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setPaymentMethod("card")
+                    setStep("payment")
+                  }}
+                  className="w-full sm:w-auto bg-yellow-400 text-black hover:bg-yellow-500 font-bold cursor-pointer"
+                >
+                  Choose Alternative Channel
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

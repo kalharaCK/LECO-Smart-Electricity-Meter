@@ -19,7 +19,8 @@ import {
   X,
   ChevronRight,
   Activity,
-  Layers
+  Layers,
+  Download
 } from "lucide-react"
 import type { StaffMeter } from "../types"
 
@@ -170,6 +171,48 @@ export default function MetersManagement({
     } finally {
       setActionLoading(false)
     }
+  }
+
+  const handleExportCsv = () => {
+    if (filteredMeters.length === 0) return
+    const headers = [
+      "ID",
+      "Meter Number",
+      "Account Number",
+      "Label",
+      "Customer Email",
+      "Customer Phone",
+      "Status",
+      "Balance (LKR)",
+      "Today (kWh)",
+      "Total (kWh)",
+      "Tariff",
+      "Lifeline Active",
+      "Open Complaints"
+    ]
+    const rows = filteredMeters.map((m) => [
+      m.id,
+      m.meter_number,
+      m.account_number,
+      m.name || "Main Meter",
+      m.customer_email || "N/A",
+      m.phone_number || "N/A",
+      m.status,
+      parseFloat(String(m.balance)).toFixed(2),
+      parseFloat(String(m.today_kwh)).toFixed(2),
+      parseFloat(String(m.total_kwh)).toFixed(1),
+      m.tariff_type || "N/A",
+      m.emergency_credit_active ? "Yes" : "No",
+      m.open_complaints_count || 0
+    ])
+    const csvContent = [headers.join(","), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(","))].join("\n")
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `LECO_Smart_Meters_Fleet_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -334,6 +377,16 @@ export default function MetersManagement({
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-yellow-400" : ""}`} />
             Refresh
+          </Button>
+
+          <Button
+            onClick={handleExportCsv}
+            disabled={filteredMeters.length === 0}
+            variant="outline"
+            className="bg-black/40 border-white/5 hover:bg-white/10 text-white h-9 px-3 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <Download className="h-3.5 w-3.5 text-yellow-400" />
+            Export Fleet CSV
           </Button>
         </div>
       </div>

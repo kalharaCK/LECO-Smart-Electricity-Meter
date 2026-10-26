@@ -19,6 +19,7 @@ const { createTrustedOriginGuard } = require('./middlewares/csrfProtection');
 const { createHealthResponse } = require('./services/healthStatus');
 const { requireAuth } = require('./middlewares/authMiddleware');
 const { handlePayhereNotify, initPayhereCheckout, completePayhereCheckout } = require('./controllers/payhereController');
+const { getPaymentHistory } = require('./controllers/meterController');
 const { pool } = require('./config/db');
 
 const app = express();
@@ -110,6 +111,7 @@ app.use('/api/metrics', metricsRoutes);
 app.post('/api/payments/payhere-notify', handlePayhereNotify);
 app.post('/api/payments/payhere-init', requireAuth, initPayhereCheckout);
 app.post('/api/payments/payhere-complete', requireAuth, completePayhereCheckout);
+app.get('/api/payments/history', requireAuth, getPaymentHistory);
 
 // 7. REST Health & Diagnostics Check
 app.get('/api/health', async (req, res) => {
