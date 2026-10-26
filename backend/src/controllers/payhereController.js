@@ -351,41 +351,67 @@ const getStaffPayhereTransactions = async (req, res) => {
  * POST /api/staff/payments/:id/verify-payhere
  */
 const verifyStaffPayhereTransaction = async (req, res) => {
+  let client;
+  let transactionStarted = false;
+  let meterUpdate = null;
   try {
     const { id } = req.params;
     const { action, notes } = req.body; // action: 'approve' | 'flag' | 'reject'
     const staffEmail = req.user.email || 'Staff';
+    const paymentId = Number(id);
+    if (!Number.isSafeInteger(paymentId) || paymentId <= 0) {
+      return res.status(400).json({ success: false, message: 'Valid transaction ID is required' });
+    }
+    if (action !== 'approve' && action !== 'reject') {
+      return res.status(400).json({ success: false, message: 'Valid action (approve | reject) required' });
+    }
 
-    const payQuery = await pool.query(
+    client = await pool.connect();
+    await client.query('BEGIN');
+    transactionStarted = true;
+    const payQuery = await client.query(
       `SELECT p.*, m.meter_number, m.balance AS current_meter_balance, m.status AS current_meter_status 
        FROM payments p 
        LEFT JOIN meters m ON p.meter_id = m.id 
-       WHERE p.id = $1`,
-      [id]
+       WHERE p.id = $1 FOR UPDATE OF p`,
+      [paymentId]
     );
 
     if (payQuery.rows.length === 0) {
+      await client.query('ROLLBACK');
+      transactionStarted = false;
       return res.status(404).json({ success: false, message: 'Transaction record not found' });
     }
 
     const payment = payQuery.rows[0];
 
     if (action === 'approve') {
-      let newBalance = parseFloat(payment.current_meter_balance);
+      let newBalance = Number(payment.new_balance);
       let newStatus = payment.current_meter_status;
 
       // If was not yet credited, credit the meter balance
       if (payment.status !== 'Success') {
-        newBalance = parseFloat(payment.current_meter_balance) + parseFloat(payment.amount);
-        newStatus = newBalance > 0 ? 'Connected' : payment.current_meter_status;
+        const meterQuery = await client.query(
+          'SELECT id, balance, status FROM meters WHERE id = $1 FOR UPDATE',
+          [payment.meter_id]
+        );
+        if (!meterQuery.rows.length) {
+          await client.query('ROLLBACK');
+          transactionStarted = false;
+          return res.status(404).json({ success: false, message: 'Payment meter not found' });
+        }
+        const meter = meterQuery.rows[0];
+        newBalance = Number((Number(meter.balance) + Number(payment.amount)).toFixed(2));
+        newStatus = newBalance > 0 ? 'Connected' : meter.status;
 
-        await pool.query(
+        await client.query(
           `UPDATE meters SET balance = $1, status = $2 WHERE id = $3`,
           [newBalance, newStatus, payment.meter_id]
         );
+        meterUpdate = { meterId: payment.meter_id, balance: newBalance, status: newStatus };
       }
 
-      await pool.query(
+      if (payment.status !== 'Success') await client.query(
         `UPDATE payments 
          SET status = 'Success', 
              new_balance = $1, 
@@ -401,12 +427,10 @@ const verifyStaffPayhereTransaction = async (req, res) => {
         ]
       );
 
-      // Emit telemetry update
-      emitMeterUpdate(payment.meter_id, {
-        meterId: payment.meter_id,
-        balance: newBalance,
-        status: newStatus
-      });
+      await client.query('COMMIT');
+      transactionStarted = false;
+
+      if (meterUpdate) emitMeterUpdate(payment.meter_id, meterUpdate);
 
       return res.json({
         success: true,
@@ -414,7 +438,12 @@ const verifyStaffPayhereTransaction = async (req, res) => {
         newBalance
       });
     } else if (action === 'reject') {
-      await pool.query(
+      if (payment.status === 'Success') {
+        await client.query('ROLLBACK');
+        transactionStarted = false;
+        return res.status(409).json({ success: false, message: 'A successful payment cannot be rejected' });
+      }
+      await client.query(
         `UPDATE payments 
          SET status = 'Failed', 
              verified_at = CURRENT_TIMESTAMP, 
@@ -423,6 +452,8 @@ const verifyStaffPayhereTransaction = async (req, res) => {
          WHERE id = $3`,
         [`Staff Auditor: ${staffEmail}`, notes || 'Rejected by LECO Staff Auditor', payment.id]
       );
+      await client.query('COMMIT');
+      transactionStarted = false;
 
       return res.json({
         success: true,
@@ -430,10 +461,12 @@ const verifyStaffPayhereTransaction = async (req, res) => {
       });
     }
 
-    return res.status(400).json({ success: false, message: 'Valid action (approve | reject) required' });
   } catch (err) {
     console.error('[Staff PayHere Verify Error]:', err);
-    return res.status(500).json({ success: false, error: err.message });
+    if (transactionStarted && client) await client.query('ROLLBACK').catch(() => undefined);
+    return res.status(500).json({ success: false, error: 'Unable to update the payment record.' });
+  } finally {
+    client?.release();
   }
 };
 
