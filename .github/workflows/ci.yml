@@ -1,0 +1,57 @@
+name: LECO Smart Meter CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-backend:
+    name: Backend Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run Node Tests
+        working-directory: backend
+        run: npm test
+        env:
+          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
+          JWT_SECRET: ci-secret-key-that-is-at-least-thirty-two-chars-long
+
+  build-frontends:
+    name: Frontend Build & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build Customer Portal
+        working-directory: frontend/customer
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build Staff Portal
+        working-directory: frontend/staff
+        run: |
+          npm ci
+          npm run build
