@@ -48,8 +48,7 @@ const signup = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Customer account created successfully',
-      user: newUser.rows[0],
-      token
+      user: newUser.rows[0]
     });
   } catch (err) {
     console.error('[Signup Error]:', err);
@@ -86,8 +85,7 @@ const login = async (req, res) => {
     res.json({
       success: true,
       message: 'Login successful',
-      user: { id: user.id, email: user.email, role: user.role },
-      token
+      user: { id: user.id, email: user.email, role: user.role }
     });
   } catch (err) {
     console.error('[Login Error]:', err);
@@ -136,8 +134,7 @@ const staffLogin = async (req, res) => {
     res.json({
       success: true,
       message: 'Staff authentication successful',
-      user: { id: user.id, email: user.email, role: user.role },
-      token
+      user: { id: user.id, email: user.email, role: user.role }
     });
   } catch (err) {
     console.error('[Staff Login Error]:', err);
@@ -186,8 +183,7 @@ const customerLogin = async (req, res) => {
     res.json({
       success: true,
       message: 'Customer login successful',
-      user: { id: user.id, email: user.email, role: user.role },
-      token
+      user: { id: user.id, email: user.email, role: user.role }
     });
   } catch (err) {
     console.error('[Customer Login Error]:', err);
@@ -211,49 +207,10 @@ const getMe = async (req, res) => {
     if (userResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
-    const token = jwt.sign(
-      { id: userResult.rows[0].id, email: userResult.rows[0].email, role: userResult.rows[0].role },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-    res.json({ success: true, user: userResult.rows[0], token });
+    res.json({ success: true, user: userResult.rows[0] });
   } catch (err) {
     console.error('[getMe Error]:', err);
     res.status(500).json({ success: false, error: 'Server error' });
-  }
-};
-
-const getSessionToken = async (req, res) => {
-  try {
-    const email = req.body?.email || req.query?.email;
-    if (email) {
-      const userRes = await pool.query('SELECT id, email, role FROM users WHERE email = $1', [email.trim().toLowerCase()]);
-      if (userRes.rows.length > 0) {
-        const u = userRes.rows[0];
-        const freshToken = jwt.sign(
-          { id: u.id, email: u.email, role: u.role },
-          process.env.JWT_SECRET,
-          { expiresIn: '1d' }
-        );
-        return res.json({ success: true, token: freshToken, user: u });
-      }
-    }
-
-    let token = req.cookies?.token;
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const userRes = await pool.query('SELECT id, email, role FROM users WHERE id = $1', [decoded.id]);
-        if (userRes.rows.length > 0) {
-          return res.json({ success: true, token, user: userRes.rows[0] });
-        }
-      } catch (e) {}
-    }
-
-    return res.status(401).json({ success: false, message: 'No active session found' });
-  } catch (err) {
-    console.error('[Session Token Error]:', err);
-    res.status(500).json({ success: false, error: 'Server error retrieving session token' });
   }
 };
 
@@ -263,6 +220,5 @@ module.exports = {
   staffLogin, 
   customerLogin, 
   logout, 
-  getMe, 
-  getSessionToken 
+  getMe
 };
