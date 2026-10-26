@@ -152,100 +152,6 @@ const completePayhereCheckout = async (req, res) => {
       });
     }
 
-<<<<<<< HEAD
-    // Retrieve associated meter
-    const meterQuery = await pool.query('SELECT * FROM meters WHERE id = $1', [payment.meter_id]);
-    if (meterQuery.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Associated meter not found' });
-    }
-    const meter = meterQuery.rows[0];
-
-    const currentBalance = parseFloat(meter.balance);
-    const rechargeAmount = parseFloat(payment.amount);
-    const newBalance = currentBalance + rechargeAmount;
-
-    // Determine status & emergency credit settlement
-    let newStatus = meter.status;
-    let emergencyCreditActive = meter.emergency_credit_active;
-    if (newBalance > 0) {
-      newStatus = 'Connected';
-      emergencyCreditActive = false;
-    }
-
-    // Update meter balance & status
-    await pool.query(
-      `UPDATE meters 
-       SET balance = $1, status = $2, emergency_credit_active = $3 
-       WHERE id = $4`,
-      [newBalance, newStatus, emergencyCreditActive, meter.id]
-    );
-
-    // Update payment record to Success
-    await pool.query(
-      `UPDATE payments 
-       SET status = 'Success', 
-           new_balance = $1, 
-           payhere_payment_id = COALESCE($2, payhere_payment_id, 'PH-CLIENT-' || EXTRACT(EPOCH FROM NOW())),
-           verified_at = CURRENT_TIMESTAMP,
-           verified_by = 'PayHere Client Handshake'
-       WHERE id = $3`,
-      [newBalance, paymentId || null, payment.id]
-    );
-
-    // Insert alert notification
-    await pool.query(
-      `INSERT INTO notifications (user_id, meter_id, type, title, message)
-       VALUES ($1, $2, 'success', 'PayHere Recharge Successful', $3)`,
-      [
-        payment.user_id,
-        meter.id,
-        `Payment of Rs. ${rechargeAmount.toFixed(2)} completed via PayHere. New balance: Rs. ${newBalance.toFixed(2)}.`
-      ]
-    );
-
-    // Broadcast live telemetry
-    emitMeterUpdate(meter.id, {
-      meterId: meter.id,
-      balance: newBalance,
-      status: newStatus,
-      emergency_credit_active: emergencyCreditActive
-    });
-
-    emitNotification(payment.user_id, {
-      type: 'success',
-      title: 'PayHere Recharge Successful',
-      message: `Rs. ${rechargeAmount.toFixed(2)} credited to meter ${meter.meter_number}.`
-    });
-
-    // Dispatch Payment Confirmation SMS via Text.lk
-    try {
-      const userMobQuery = await pool.query(
-        `SELECT COALESCE(u.mobile_number, s.phone_number) as phone 
-         FROM users u 
-         LEFT JOIN user_settings s ON u.id = s.user_id 
-         WHERE u.id = $1`,
-        [payment.user_id]
-      );
-      const customerPhone = userMobQuery.rows[0]?.phone;
-      if (customerPhone) {
-        smsService.sendEventSms({
-          recipient: customerPhone,
-          eventType: 'payment',
-          language: 'en',
-          data: {
-            amount: rechargeAmount.toFixed(2),
-            account_no: meter.account_number || meter.meter_number,
-            ref: orderId,
-            balance: newBalance.toFixed(2)
-          }
-        }).catch(err => console.error('[PayHere SMS Error]:', err.message));
-      }
-    } catch (smsErr) {
-      console.error('[PayHere SMS User Fetch Error]:', smsErr.message);
-    }
-
-=======
->>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
     return res.json({
       success: true,
       message: 'PayHere payment verified and credited successfully',
@@ -330,73 +236,10 @@ const handlePayhereNotify = async (req, res) => {
         return res.status(400).send('Payment details do not match the order');
       }
 
-<<<<<<< HEAD
-    if (code === 2) {
-      // Payment Successful (Code 2)
-      if (payment.status !== 'Success') {
-        const meterQuery = await pool.query('SELECT * FROM meters WHERE id = $1', [payment.meter_id]);
-        if (meterQuery.rows.length > 0) {
-          const meter = meterQuery.rows[0];
-          const newBalance = parseFloat(meter.balance) + parseFloat(payhere_amount);
-          const newStatus = newBalance > 0 ? 'Connected' : meter.status;
-
-          await pool.query(
-            `UPDATE meters SET balance = $1, status = $2 WHERE id = $3`,
-            [newBalance, newStatus, meter.id]
-          );
-
-          await pool.query(
-            `UPDATE payments 
-             SET status = 'Success', 
-                 new_balance = $1, 
-                 payhere_payment_id = $2,
-                 payment_method = COALESCE($3, payment_method),
-                 card_holder_name = $4,
-                 card_no = $5,
-                 verified_at = CURRENT_TIMESTAMP,
-                 verified_by = 'PayHere Verified IPN'
-             WHERE id = $6`,
-            [newBalance, payment_id, method, card_holder_name || null, card_no || null, payment.id]
-          );
-
-          emitMeterUpdate(meter.id, {
-            meterId: meter.id,
-            balance: newBalance,
-            status: newStatus
-          });
-
-          // Dispatch Payment Confirmation SMS via Text.lk IPN
-          try {
-            const userMobQuery = await pool.query(
-              `SELECT COALESCE(u.mobile_number, s.phone_number) as phone 
-               FROM users u 
-               LEFT JOIN user_settings s ON u.id = s.user_id 
-               WHERE u.id = $1`,
-              [payment.user_id]
-            );
-            const customerPhone = userMobQuery.rows[0]?.phone;
-            if (customerPhone) {
-              smsService.sendEventSms({
-                recipient: customerPhone,
-                eventType: 'payment',
-                language: 'en',
-                data: {
-                  amount: parseFloat(payhere_amount).toFixed(2),
-                  account_no: meter.account_number || meter.meter_number,
-                  ref: payment_id || order_id,
-                  balance: newBalance.toFixed(2)
-                }
-              }).catch(err => console.error('[PayHere IPN SMS Error]:', err.message));
-            }
-          } catch (smsErr) {
-            console.error('[PayHere IPN SMS Error]:', smsErr.message);
-          }
-=======
       if (code === 2 && payment.status !== 'Success') {
         if (payment.status !== 'Pending') {
           await client.query('ROLLBACK');
           return res.status(409).send('Order is not awaiting payment');
->>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
         }
         const meterQuery = await client.query('SELECT * FROM meters WHERE id = $1 FOR UPDATE', [payment.meter_id]);
         if (!meterQuery.rows.length) throw new Error('Payment meter not found');
