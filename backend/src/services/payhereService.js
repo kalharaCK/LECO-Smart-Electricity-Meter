@@ -67,11 +67,15 @@ const verifyNotificationSignature = ({
   const rawString = `${merchant_id}${order_id}${payhere_amount}${payhere_currency}${status_code}${hashedSecret}`;
   const localMd5Sig = md5(rawString).toUpperCase();
 
-  const isValid = localMd5Sig === (md5sig || '').toUpperCase();
+  const receivedMd5Sig = String(md5sig || '').toUpperCase();
+  const expectedBuffer = Buffer.from(localMd5Sig, 'ascii');
+  const receivedBuffer = Buffer.from(receivedMd5Sig, 'ascii');
+  const isValid = receivedBuffer.length === expectedBuffer.length &&
+    crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
   return {
     isValid,
     localMd5Sig,
-    receivedMd5Sig: md5sig
+    receivedMd5Sig
   };
 };
 
