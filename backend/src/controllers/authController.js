@@ -1,11 +1,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/db');
-<<<<<<< HEAD
 const smsService = require('../services/smsService');
-=======
 const { validateNewPassword } = require('../services/passwordPolicy');
->>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
 
 // Secure Cookie Configuration
 const getCookieOptions = () => {
@@ -66,13 +63,8 @@ const signup = async (req, res) => {
     }
 
     const token = jwt.sign(
-<<<<<<< HEAD
       { id: newUser.rows[0].id, email: newUser.rows[0].email, role: newUser.rows[0].role, full_name: newUser.rows[0].full_name },
       process.env.JWT_SECRET || 'super_secret_jwt_key',
-=======
-      { id: newUser.rows[0].id, email: newUser.rows[0].email, role: newUser.rows[0].role },
-      process.env.JWT_SECRET,
->>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
       { expiresIn: '1d' }
     );
 
@@ -596,16 +588,7 @@ const getMe = async (req, res) => {
     if (userResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
-<<<<<<< HEAD
-    const token = jwt.sign(
-      { id: userResult.rows[0].id, email: userResult.rows[0].email, role: userResult.rows[0].role, full_name: userResult.rows[0].full_name },
-      process.env.JWT_SECRET || 'super_secret_jwt_key',
-      { expiresIn: '1d' }
-    );
-    res.json({ success: true, user: userResult.rows[0], token });
-=======
     res.json({ success: true, user: userResult.rows[0] });
->>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
   } catch (err) {
     console.error('[getMe Error]:', err);
     res.status(500).json({ success: false, error: 'Server error' });
