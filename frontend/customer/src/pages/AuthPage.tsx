@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,6 +20,10 @@ import { getTranslations, type Language } from "@/lib/i18n"
 import bgImage from "@/assets/background.webp"
 
 export default function AuthPage() {
+  useEffect(() => {
+    localStorage.removeItem("token")
+  }, [])
+
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -69,11 +73,8 @@ export default function AuthPage() {
       }
       
       if (isLogin) {
-        // Store user and token in localStorage for cross-port client authorization
+        // Store display data only; the HTTP-only cookie is the session credential.
         localStorage.setItem("user", JSON.stringify(data.user))
-        if (data.token) {
-          localStorage.setItem("token", data.token)
-        }
         
         setMessage({ type: "success", text: t.alerts.loginSuccess })
         
@@ -84,9 +85,6 @@ export default function AuthPage() {
       } else {
         if (data.user) {
           localStorage.setItem("user", JSON.stringify(data.user))
-        }
-        if (data.token) {
-          localStorage.setItem("token", data.token)
         }
         setMessage({ type: "success", text: t.alerts.signupSuccess })
       }

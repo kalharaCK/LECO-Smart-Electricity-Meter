@@ -96,12 +96,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
   }
 
   const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
-    const token = localStorage.getItem("token")
-    const headers: Record<string, string> = { ...extraHeaders }
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`
-    }
-    return headers
+    return { ...extraHeaders }
   }
 
   // Fetch all settings and user profile

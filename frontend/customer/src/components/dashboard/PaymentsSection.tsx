@@ -51,13 +51,8 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
   useEffect(() => {
     const fetchMeters = async () => {
       try {
-        const token = localStorage.getItem("token")
-        const headers: Record<string, string> = {}
-        if (token) headers["Authorization"] = `Bearer ${token}`
-
         const res = await fetch("http://localhost:3000/api/meters", {
           credentials: "include",
-          headers,
         })
         if (res.ok) {
           const data: Meter[] = await res.json()
@@ -82,11 +77,9 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
     if (!selectedMeterId) return
     setErrorMsg("")
 
-    const token = localStorage.getItem("token")
     const authHeaders: Record<string, string> = {
       "Content-Type": "application/json",
     }
-    if (token) authHeaders["Authorization"] = `Bearer ${token}`
 
     // If customer selected PayHere Online Gateway
     if (paymentMethod === "payhere") {

@@ -84,11 +84,9 @@ export default function EnergyAssistantBot() {
     setIsTyping(true)
 
     try {
-      const token = localStorage.getItem("token")
       const headers: Record<string, string> = {
         "Content-Type": "application/json"
       }
-      if (token) headers["Authorization"] = `Bearer ${token}`
 
       // History mapping
       const history = messages.slice(-6).map((m) => ({

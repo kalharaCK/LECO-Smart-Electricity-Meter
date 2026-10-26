@@ -122,12 +122,7 @@ export default function ComplaintsSection() {
   const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: "success" | "error" } | null>(null)
 
   const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
-    const token = localStorage.getItem("token")
-    const headers: Record<string, string> = { ...extraHeaders }
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`
-    }
-    return headers
+    return { ...extraHeaders }
   }
 
   // Fetch Complaints from Backend

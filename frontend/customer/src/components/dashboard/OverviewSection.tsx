@@ -37,67 +37,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
   const fetchMetersData = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
     try {
-      let token = localStorage.getItem('token');
-      let needsFreshToken = !token;
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          if (payload.role !== 'customer') {
-            needsFreshToken = true;
-          }
-        } catch (e) {
-          needsFreshToken = true;
-        }
-      }
-
-      if (needsFreshToken && user?.email) {
-        try {
-          const tokenRes = await fetch('http://localhost:3000/api/auth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: user.email })
-          });
-          if (tokenRes.ok) {
-            const tokenData = await tokenRes.json();
-            if (tokenData.token) {
-              localStorage.setItem('token', tokenData.token);
-              token = tokenData.token;
-            }
-          }
-        } catch (e) {
-          console.error('Session auto-recovery failed:', e);
-        }
-      }
-
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      let res = await fetch('http://localhost:3000/api/meters', {
-        headers
-      });
-
-      // If unauthorized or failed, attempt one recovery cycle
-      if ((res.status === 401 || !res.ok) && user?.email) {
-        try {
-          const tokenRes = await fetch('http://localhost:3000/api/auth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: user.email })
-          });
-          if (tokenRes.ok) {
-            const tokenData = await tokenRes.json();
-            if (tokenData.token) {
-              localStorage.setItem('token', tokenData.token);
-              headers['Authorization'] = `Bearer ${tokenData.token}`;
-              res = await fetch('http://localhost:3000/api/meters', {
-                headers
-              });
-            }
-          }
-        } catch (retryErr) {
-          console.error('Retry fetch meters failed:', retryErr);
-        }
-      }
+      const res = await fetch('http://localhost:3000/api/meters', { credentials: 'include' });
 
       if (res.ok) {
         const data = await res.json();
@@ -108,14 +48,14 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
           
           // Fetch consumption stats for this meter
           const consRes = await fetch(`http://localhost:3000/api/meters/${firstMeter.id}/consumption`, {
-            headers
+            credentials: 'include'
           });
           if (consRes.ok) {
             setConsumption(await consRes.json());
           }
           // Fetch notifications
           const notifRes = await fetch("http://localhost:3000/api/notifications", {
-            headers
+            credentials: 'include'
           });
           if (notifRes.ok) {
             setNotifications(await notifRes.json());
@@ -129,7 +69,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     } finally {
       if (isInitial) setLoading(false);
     }
-  }, [user?.email]);
+  }, []);
 
   useEffect(() => {
     fetchMetersData(true);
@@ -196,16 +136,10 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     setActivatingEmergency(true);
     setEmergencySuccessMsg(null);
     try {
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
       const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/emergency-credit`, {
         method: 'POST',
         credentials: 'include',
-        headers
+        headers: { 'Content-Type': 'application/json' }
       });
       const data = await res.json();
       if (res.ok) {
@@ -226,14 +160,10 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     setSimulating(true);
     setSimulationLog(null);
     try {
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
       const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/simulate-consumption`, {
         method: 'POST',
         credentials: 'include',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kwh: kwhAmount })
       });
       const data = await res.json();
@@ -275,14 +205,10 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     setSettlingCycle(true);
     setSettleSuccessMsg(null);
     try {
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
       const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/settle-cycle`, {
         method: 'POST',
         credentials: 'include',
-        headers
+        headers: { 'Content-Type': 'application/json' }
       });
       const data = await res.json();
       if (res.ok) {
@@ -303,14 +229,10 @@ export default function OverviewSection({ refreshKey, onNavigate }: { refreshKey
     setSimulating(true);
     setSimulationLog(null);
     try {
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
       const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/set-balance`, {
         method: 'POST',
         credentials: 'include',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ balance: targetBalance })
       });
       const data = await res.json();
