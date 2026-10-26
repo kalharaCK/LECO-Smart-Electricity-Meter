@@ -12,6 +12,7 @@ const complaintRoutes = require('./routes/complaintRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const { sanitizeInputs } = require('./middlewares/sanitizer');
 const { errorHandler } = require('./middlewares/errorHandler');
+const { createTrustedOriginGuard } = require('./middlewares/csrfProtection');
 const { requireAuth } = require('./middlewares/authMiddleware');
 const { handlePayhereNotify, initPayhereCheckout, completePayhereCheckout } = require('./controllers/payhereController');
 const { pool } = require('./config/db');
@@ -73,6 +74,7 @@ app.use(cors({
 
 // 4. Body parsing & cookie middleware
 app.use(cookieParser());
+app.use(createTrustedOriginGuard(corsOrigins));
 app.use(express.json({ limit: '200kb' }));
 app.use(express.urlencoded({ extended: true, limit: '200kb' }));
 
