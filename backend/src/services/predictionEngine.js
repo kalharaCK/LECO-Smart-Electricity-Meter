@@ -11,15 +11,28 @@ const { calculateDomesticBill } = require('./tariffEngine');
  * @returns {{ predictedKWh: number, avgDailyKwh: number, confidence: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE' }}
  */
 function predictDailyConsumption(dailyHistory, targetDate = new Date()) {
-  if (!dailyHistory || dailyHistory.length === 0) {
+  if (!Array.isArray(dailyHistory) || dailyHistory.length === 0) {
     return { predictedKWh: 0, avgDailyKwh: 0, confidence: 'NONE' };
   }
 
-  const validDays = dailyHistory.map(d => ({
-    ...d,
-    consumption: Math.max(0, Number(d.consumption) || 0),
-    dayOfWeek: typeof d.dayOfWeek === 'number' ? d.dayOfWeek : new Date(d.date).getDay()
-  }));
+  const validDays = dailyHistory
+    .filter(d => d && typeof d === 'object')
+    .map(d => {
+      const parsedConsumption = Number(d.consumption);
+      const parsedDayOfWeek = typeof d.dayOfWeek === 'number' ? d.dayOfWeek : NaN;
+      const dateDayOfWeek = new Date(d.date).getDay();
+      return {
+        ...d,
+        consumption: Number.isFinite(parsedConsumption) ? Math.max(0, parsedConsumption) : 0,
+        dayOfWeek: Number.isInteger(parsedDayOfWeek) && parsedDayOfWeek >= 0 && parsedDayOfWeek <= 6
+          ? parsedDayOfWeek
+          : dateDayOfWeek
+      };
+    });
+
+  if (validDays.length === 0) {
+    return { predictedKWh: 0, avgDailyKwh: 0, confidence: 'NONE' };
+  }
 
   const count = validDays.length;
   let confidence = 'LOW';

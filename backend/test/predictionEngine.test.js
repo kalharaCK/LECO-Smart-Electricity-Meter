@@ -14,6 +14,20 @@ test('empty history returns no prediction', () => {
   });
 });
 
+test('malformed history rows do not crash or produce non-finite estimates', () => {
+  assert.equal(predictDailyConsumption(null).confidence, 'NONE');
+  const prediction = predictDailyConsumption([
+    null,
+    { consumption: Infinity, dayOfWeek: 1 },
+    { consumption: -4, dayOfWeek: 99, date: 'invalid-date' },
+    {},
+  ], new Date('2025-01-06T12:00:00Z'));
+
+  assert.ok(Number.isFinite(prediction.predictedKWh));
+  assert.ok(Number.isFinite(prediction.avgDailyKwh));
+  assert.ok(prediction.predictedKWh >= 0.1);
+});
+
 test('seven days of history use the medium-confidence prediction', () => {
   const history = Array.from({ length: 7 }, (_, index) => ({
     date: `2025-01-${String(5 - index).padStart(2, '0')}`,

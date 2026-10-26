@@ -24,8 +24,8 @@ test('domestic tariff applies the expected fixed charge and group at each bounda
   }
 });
 
-test('negative or nonnumeric usage cannot create invalid charges', () => {
-  for (const input of [-10, NaN, 'not-a-number']) {
+test('invalid or non-finite usage cannot create invalid charges', () => {
+  for (const input of [-10, Infinity, -Infinity, NaN, 'not-a-number']) {
     const bill = calculateDomesticBill(input);
     assert.equal(bill.kwh, 0);
     assert.equal(bill.totalCharge, 80);

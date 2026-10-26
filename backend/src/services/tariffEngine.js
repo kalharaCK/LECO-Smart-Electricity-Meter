@@ -28,7 +28,8 @@
  * @returns {{ group: string, energyCharge: number, fixedCharge: number, totalCharge: number, effectiveRate: number }}
  */
 function calculateDomesticBill(kwh) {
-  const usage = Math.max(0, Number(kwh) || 0);
+  const parsedUsage = Number(kwh);
+  const usage = Number.isFinite(parsedUsage) ? Math.max(0, parsedUsage) : 0;
 
   let group = "";
   let energyCharge = 0;
