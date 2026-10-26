@@ -83,23 +83,16 @@ const getIo = () => io;
  * @param {object} payload 
  */
 const emitMeterUpdate = (meterId, payload) => {
-<<<<<<< HEAD
   setImmediate(() => {
     try {
       if (io && meterId) {
         io.to(`meter_${meterId}`).emit('meter_update', payload);
-        io.emit('meter_update', { meterId, ...payload });
+        io.to('all_meters').emit('meter_update', { meterId, ...payload });
       }
     } catch (err) {
       console.warn('[SocketService] Non-critical socket emitMeterUpdate error:', err.message);
     }
   });
-=======
-  if (io && meterId) {
-    io.to(`meter_${meterId}`).emit('meter_update', payload);
-    io.to('all_meters').emit('meter_update', { meterId, ...payload });
-  }
->>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
 };
 
 /**
@@ -109,22 +102,15 @@ const emitMeterUpdate = (meterId, payload) => {
  * @param {object} notification 
  */
 const emitNotification = (userId, notification) => {
-<<<<<<< HEAD
   setImmediate(() => {
     try {
       if (io && userId) {
         io.to(`user_${userId}`).emit('notification', notification);
-        io.emit('notification', { userId, ...notification });
       }
     } catch (err) {
       console.warn('[SocketService] Non-critical socket emitNotification error:', err.message);
     }
   });
-=======
-  if (io && userId) {
-    io.to(`user_${userId}`).emit('notification', notification);
-  }
->>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
 };
 
 /**
@@ -141,17 +127,11 @@ const emitComplaintUpdate = (userId, complaint) => {
           io.to(`user_${userId}`).emit('complaint_update', complaint);
         }
         io.to('staff_room').emit('complaint_update', complaint);
-        io.emit('complaint_update', complaint);
       }
     } catch (err) {
       console.warn('[SocketService] Non-critical socket emitComplaintUpdate error:', err.message);
     }
-<<<<<<< HEAD
   });
-=======
-    io.to('staff_room').emit('complaint_update', complaint);
-  }
->>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
 };
 
 module.exports = {
