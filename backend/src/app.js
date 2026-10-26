@@ -13,6 +13,7 @@ const settingsRoutes = require('./routes/settingsRoutes');
 const { sanitizeInputs } = require('./middlewares/sanitizer');
 const { errorHandler } = require('./middlewares/errorHandler');
 const { createTrustedOriginGuard } = require('./middlewares/csrfProtection');
+const { createHealthResponse } = require('./services/healthStatus');
 const { requireAuth } = require('./middlewares/authMiddleware');
 const { handlePayhereNotify, initPayhereCheckout, completePayhereCheckout } = require('./controllers/payhereController');
 const { pool } = require('./config/db');
@@ -106,27 +107,22 @@ app.post('/api/payments/payhere-complete', requireAuth, completePayhereCheckout)
 
 // 7. REST Health & Diagnostics Check
 app.get('/api/health', async (req, res) => {
-  let dbStatus = 'healthy';
+  let databaseHealthy = true;
   let dbLatencyMs = 0;
   try {
     const start = Date.now();
     await pool.query('SELECT 1');
     dbLatencyMs = Date.now() - start;
   } catch (err) {
-    dbStatus = 'degraded: ' + err.message;
+    databaseHealthy = false;
   }
 
-  res.json({
-    status: 'ok',
-    service: 'LECO Smart AMI REST Engine',
-    database: {
-      status: dbStatus,
-      latencyMs: dbLatencyMs,
-      provider: 'Neon PostgreSQL'
-    },
+  const health = createHealthResponse({
+    databaseHealthy,
+    dbLatencyMs,
     uptimeSeconds: Math.floor(process.uptime()),
-    timestamp: new Date().toISOString()
   });
+  res.status(health.httpStatus).json(health.body);
 });
 
 // 8. 404 Handler for unknown endpoints
