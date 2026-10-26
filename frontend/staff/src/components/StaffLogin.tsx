@@ -7,7 +7,7 @@ import { ShieldCheck, Lock, Mail, Loader2, AlertTriangle, ArrowRight, Eye, EyeOf
 import type { StaffUser } from "../types"
 
 interface StaffLoginProps {
-  onLoginSuccess: (user: StaffUser, token: string) => void
+  onLoginSuccess: (user: StaffUser) => void
 }
 
 export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
@@ -40,10 +40,8 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
 
       const data = await res.json()
       if (res.ok && data.user) {
-        const token = data.token || ""
-        localStorage.setItem("staff_token", token)
         localStorage.setItem("staff_user", JSON.stringify(data.user))
-        onLoginSuccess(data.user, token)
+        onLoginSuccess(data.user)
       } else {
         setErrorMsg(data.error || data.message || "Invalid staff credentials")
       }
