@@ -203,19 +203,22 @@ const initDb = async () => {
 
   } catch (err) {
     console.error('[Database Init Error]:', err.message);
+    throw err;
   }
 };
 
 const connectDb = async () => {
+  let client;
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
     const result = await client.query('SELECT NOW()');
-    client.release();
     console.log('[Database Connected] Neon PostgreSQL:', result.rows[0].now);
     await initDb();
   } catch (err) {
     console.error('[Database Connection Error]:', err.message);
     throw err;
+  } finally {
+    client?.release();
   }
 };
 
