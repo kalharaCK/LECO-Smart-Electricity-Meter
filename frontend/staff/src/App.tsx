@@ -17,12 +17,7 @@ import type { StaffMeter, StaffComplaint, StaffUser, PayhereTransaction } from "
 
 export function App() {
   const [user, setUser] = useState<StaffUser | null>(null)
-<<<<<<< HEAD
-  const [token, setToken] = useState<string>("")
   const [activeTab, setActiveTab] = useState<"meters" | "complaints" | "payhere" | "sms">("meters")
-=======
-  const [activeTab, setActiveTab] = useState<"meters" | "complaints" | "payhere">("meters")
->>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
 
   // Data states
   const [meters, setMeters] = useState<StaffMeter[]>([])
