@@ -181,7 +181,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
       showToast(t.settings.passwordsDoNotMatch, "error")
       return
     }
-    if (newPassword.length < 6) {
+    if (newPassword.length < 10) {
       showToast(t.settings.passwordMinLength, "error")
       return
     }

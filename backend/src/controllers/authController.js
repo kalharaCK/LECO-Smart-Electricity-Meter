@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/db');
+const { validateNewPassword } = require('../services/passwordPolicy');
 
 // Secure Cookie Configuration
 const getCookieOptions = () => {
@@ -19,6 +20,8 @@ const signup = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ success: false, error: 'Email and password are required' });
     }
+    const passwordError = validateNewPassword(password);
+    if (passwordError) return res.status(400).json({ success: false, error: passwordError });
     
     // Check if user exists
     const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email.trim().toLowerCase()]);

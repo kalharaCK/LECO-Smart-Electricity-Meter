@@ -566,7 +566,7 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       savedSuccess: "Settings saved successfully!",
       logoutBtn: "Sign Out",
       passwordsDoNotMatch: "New passwords do not match",
-      passwordMinLength: "Password must be at least 6 characters",
+      passwordMinLength: "Password must be at least 10 characters",
       showPasswords: "Show Passwords",
     },
     bot: {
@@ -852,7 +852,7 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       savedSuccess: "සැකසුම් සාර්ථකව සුරකින ලදී!",
       logoutBtn: "ගිණුමෙන් පිටවන්න",
       passwordsDoNotMatch: "නව මුරපද නොගැළපේ",
-      passwordMinLength: "මුරපදය අවම වශයෙන් අක්ෂර 6ක් විය යුතුය",
+      passwordMinLength: "මුරපදය අවම වශයෙන් අක්ෂර 10ක් විය යුතුය",
       showPasswords: "මුරපදය පෙන්වන්න",
     },
     bot: {
@@ -1138,7 +1138,7 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       savedSuccess: "அமைப்புகள் வெற்றிகரமாக சேமிக்கப்பட்டன!",
       logoutBtn: "வெளியேறு",
       passwordsDoNotMatch: "புதிய கடவுச்சொற்கள் பொருந்தவில்லை",
-      passwordMinLength: "கடவுச்சொல் குறைந்தபட்சம் 6 எழுத்துகளாக இருக்க வேண்டும்",
+      passwordMinLength: "கடவுச்சொல் குறைந்தபட்சம் 10 எழுத்துகளாக இருக்க வேண்டும்",
       showPasswords: "கடவுச்சொற்களைக் காட்டு",
     },
     bot: {
