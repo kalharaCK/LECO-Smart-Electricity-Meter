@@ -11,11 +11,15 @@ const md5 = (str) => crypto.createHash('md5').update(str).digest('hex');
  * Get configured PayHere merchant credentials
  */
 const getMerchantConfig = () => {
-  const merchantId = process.env.PAYHERE_MERCHANT_ID || '1236689';
-  const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || 'leco_payhere_merchant_secret_sandbox_2026';
+  const merchantId = process.env.PAYHERE_MERCHANT_ID;
+  const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET;
   const isSandbox = process.env.PAYHERE_SANDBOX !== 'false';
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+
+  if (!merchantId || !merchantSecret) {
+    throw new Error('PAYHERE_MERCHANT_ID and PAYHERE_MERCHANT_SECRET must be configured.');
+  }
 
   return {
     merchantId,
@@ -63,11 +67,15 @@ const verifyNotificationSignature = ({
   const rawString = `${merchant_id}${order_id}${payhere_amount}${payhere_currency}${status_code}${hashedSecret}`;
   const localMd5Sig = md5(rawString).toUpperCase();
 
-  const isValid = localMd5Sig === (md5sig || '').toUpperCase();
+  const receivedMd5Sig = String(md5sig || '').toUpperCase();
+  const expectedBuffer = Buffer.from(localMd5Sig, 'ascii');
+  const receivedBuffer = Buffer.from(receivedMd5Sig, 'ascii');
+  const isValid = receivedBuffer.length === expectedBuffer.length &&
+    crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
   return {
     isValid,
     localMd5Sig,
-    receivedMd5Sig: md5sig
+    receivedMd5Sig
   };
 };
 

@@ -91,6 +91,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
   const fetchMetersData = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true)
     try {
+<<<<<<< HEAD
       let token = localStorage.getItem("token")
       const headers: Record<string, string> = {}
       if (token) headers["Authorization"] = `Bearer ${token}`
@@ -120,6 +121,33 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
           } catch (e) {
             console.error("Error fetching consumption:", e)
           }
+=======
+      const res = await fetch('http://localhost:3000/api/meters', { credentials: 'include' });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.length > 0) {
+          const firstMeter = data[0];
+          activeMeterIdRef.current = firstMeter.id;
+          setMeter((prev: any) => ({ ...(prev || {}), ...firstMeter }));
+          
+          // Fetch consumption stats for this meter
+          const consRes = await fetch(`http://localhost:3000/api/meters/${firstMeter.id}/consumption`, {
+            credentials: 'include'
+          });
+          if (consRes.ok) {
+            setConsumption(await consRes.json());
+          }
+          // Fetch notifications
+          const notifRes = await fetch("http://localhost:3000/api/notifications", {
+            credentials: 'include'
+          });
+          if (notifRes.ok) {
+            setNotifications(await notifRes.json());
+          }
+        } else {
+          setMeter(null);
+>>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
         }
       }
 
@@ -167,7 +195,11 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
     } finally {
       if (isInitial) setLoading(false)
     }
+<<<<<<< HEAD
   }, [])
+=======
+  }, []);
+>>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
 
   useEffect(() => {
     fetchMetersData(true)
@@ -227,6 +259,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
     setActivatingEmergency(true)
     setEmergencySuccessMsg(null)
     try {
+<<<<<<< HEAD
       const token = localStorage.getItem("token")
       const headers: Record<string, string> = { "Content-Type": "application/json" }
       if (token) headers["Authorization"] = `Bearer ${token}`
@@ -237,6 +270,14 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
         headers
       })
       const data = await res.json()
+=======
+      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/emergency-credit`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+>>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
       if (res.ok) {
         setEmergencySuccessMsg(data.message || "Emergency Lifeline Credit of Rs. 500 activated. Power remains connected.")
         fetchMetersData(false)
@@ -266,6 +307,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
   const handleSaveBudget = async () => {
     setSavingBudget(true)
     try {
+<<<<<<< HEAD
       const token = localStorage.getItem("token")
       const headers: Record<string, string> = { "Content-Type": "application/json" }
       if (token) headers["Authorization"] = `Bearer ${token}`
@@ -286,6 +328,88 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
       const data = await res.json()
       if (res.ok && data.success) {
         setUserSettings((prev) => ({
+=======
+      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/simulate-consumption`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kwh: kwhAmount })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSimulationLog(`⚡ Recorded +${data.kwhAdded} kWh. Accrued Month Bill: Rs. ${Number(data.currentMonthBill || 0).toFixed(2)} (${data.tariffGroup || 'PUCSL'}). Prepaid Balance retained at Rs. ${Number(data.prepaidBalance || meter.balance).toFixed(2)}.`);
+        // Backend already emitted 'meter_update' via WebSocket; apply surgical fallback if needed
+        if (data.livePayload) {
+          setMeter((prev: any) => prev ? {
+            ...prev,
+            balance: data.livePayload.balance,
+            status: data.livePayload.status,
+            emergency_credit_active: data.livePayload.emergency_credit_active
+          } : prev);
+          setConsumption((prev: any) => prev ? {
+            ...prev,
+            today: data.livePayload.today,
+            thisWeek: data.livePayload.thisWeek,
+            prediction: data.livePayload.prediction,
+            chartData: data.livePayload.chartData
+          } : prev);
+        }
+      } else {
+        alert(data.message || 'Simulation failed');
+      }
+    } catch (e) {
+      alert('Network error during consumption simulation.');
+    } finally {
+      setSimulating(false);
+    }
+  };
+
+  const handleSettleCycle = async () => {
+    if (!meter) return;
+    const confirmSettle = window.confirm(
+      `Trigger Month-End Settlement for meter ${meter.meter_number}?\n\nThis will compute the official PUCSL monthly tariff bill and deduct it from your prepaid balance.`
+    );
+    if (!confirmSettle) return;
+
+    setSettlingCycle(true);
+    setSettleSuccessMsg(null);
+    try {
+      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/settle-cycle`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSettleSuccessMsg(`✅ Month-End Cycle (${data.cycle}) settled: Rs. ${Number(data.bill?.totalCharge || 0).toFixed(2)} deducted for ${Number(data.netKwh || 0).toFixed(1)} kWh (${data.bill?.tariffGroup || 'PUCSL'}). New Prepaid Balance: Rs. ${Number(data.newBalance).toFixed(2)}.`);
+        fetchMetersData(false);
+      } else {
+        alert(data.message || 'Cycle settlement failed');
+      }
+    } catch (e) {
+      alert('Network error during cycle settlement.');
+    } finally {
+      setSettlingCycle(false);
+    }
+  };
+
+  const handleSetBalance = async (targetBalance: number) => {
+    if (!meter) return;
+    setSimulating(true);
+    setSimulationLog(null);
+    try {
+      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/set-balance`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ balance: targetBalance })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSimulationLog(`🎯 Balance updated directly to Rs. ${Number(data.newBalance).toFixed(2)}. Status: ${data.status}.`);
+        // Instant surgical update without reloading
+        setMeter((prev: any) => prev ? {
+>>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
           ...prev,
           ...budgetForm
         }))
@@ -427,9 +551,16 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* 2. Contextual Notification Banners (Only displayed when events occur) */}
       {emergencySuccessMsg && (
         <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-between text-emerald-300 text-xs sm:text-sm animate-in fade-in">
+=======
+      {/* Interactive Consumption & Balance Simulator Bar */}
+      {import.meta.env.DEV && (
+      <Card className="bg-gradient-to-r from-[#141416] via-[#1a1829] to-[#121217] border border-yellow-500/25 shadow-2xl text-white rounded-2xl overflow-hidden">
+        <div className="p-3.5 sm:p-4 bg-gradient-to-r from-yellow-500/10 via-red-500/10 to-transparent flex items-center justify-between border-b border-white/5">
+>>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
           <div className="flex items-center gap-2.5">
             <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
             <span>{emergencySuccessMsg}</span>
@@ -484,7 +615,149 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
             onClick={() => onNavigate?.("payments")}
             className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold h-9 px-4 rounded-xl text-xs shrink-0 cursor-pointer shadow-md"
           >
+<<<<<<< HEAD
             {t.overview.rechargeClearDebt}
+=======
+            {showSimulator ? (
+              <>{t.overview.hide} <ChevronUp className="h-3.5 w-3.5" /></>
+            ) : (
+              <>{t.overview.expand} <ChevronDown className="h-3.5 w-3.5" /></>
+            )}
+          </Button>
+        </div>
+
+        {showSimulator && (
+          <CardContent className="p-3.5 sm:p-4 space-y-3">
+            {/* Quick Consumption Buttons */}
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                <span className="text-xs font-semibold text-white/70 flex items-center gap-1 mr-1">
+                  <Flame className="h-3.5 w-3.5 text-amber-400" /> Usage:
+                </span>
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <Button
+                    size="sm"
+                    disabled={simulating}
+                    onClick={() => handleSimulate(1)}
+                    className="bg-white/10 hover:bg-white/20 text-white border border-white/10 text-xs h-8 hover:scale-105 transition-all cursor-pointer"
+                  >
+                    +1 kWh
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={simulating}
+                    onClick={() => handleSimulate(5)}
+                    className="bg-yellow-400/20 hover:bg-yellow-400/30 text-yellow-300 border border-yellow-400/40 text-xs h-8 hover:scale-105 transition-all font-semibold cursor-pointer"
+                  >
+                    +5 kWh
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={simulating}
+                    onClick={() => handleSimulate(15)}
+                    className="bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/40 text-xs h-8 hover:scale-105 transition-all font-semibold cursor-pointer"
+                  >
+                    +15 kWh
+                  </Button>
+                  
+                  {/* Custom kWh input */}
+                  <div className="flex items-center gap-1.5 ml-1">
+                    <Input
+                      type="number"
+                      step="0.5"
+                      min="0.1"
+                      value={customKwh}
+                      onChange={(e) => setCustomKwh(e.target.value)}
+                      className="w-14 sm:w-16 h-8 text-xs bg-black/40 border-white/15 text-white focus-visible:ring-yellow-400/50"
+                    />
+                    <span className="text-xs text-white/60">kWh</span>
+                    <Button
+                      size="sm"
+                      disabled={simulating || !customKwh || parseFloat(customKwh) <= 0}
+                      onClick={() => handleSimulate(parseFloat(customKwh))}
+                      className="bg-[#992511] hover:bg-[#992511]/80 text-white text-xs h-8 px-2.5 ml-1 cursor-pointer"
+                    >
+                      <Play className="h-3 w-3 mr-1" /> Log kWh
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Balance Jump Presets */}
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 border-t lg:border-t-0 lg:border-l border-white/10 pt-2 lg:pt-0 lg:pl-4 w-full lg:w-auto">
+                <span className="text-xs font-semibold text-white/70 mr-1">
+                  Preset:
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={simulating}
+                  onClick={() => handleSetBalance(80)}
+                  className="bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20 text-xs h-8 cursor-pointer"
+                  title="Simulates low balance (< Rs. 100)"
+                >
+                  Rs. 80 (Low)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={simulating}
+                  onClick={() => handleSetBalance(-50)}
+                  className="bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20 text-xs h-8 cursor-pointer"
+                  title="Simulates negative balance"
+                >
+                  -Rs. 50 (Debt)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={simulating}
+                  onClick={() => handleSetBalance(1500)}
+                  className="bg-green-500/10 border-green-500/30 text-green-300 hover:bg-green-500/20 text-xs h-8 cursor-pointer"
+                  title="Resets balance to Rs. 1,500"
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" /> Rs. 1,500
+                </Button>
+              </div>
+            </div>
+
+            {/* Simulation Feedback Log */}
+            {simulationLog && (
+              <div className="p-2.5 rounded-lg bg-yellow-400/10 border border-yellow-400/20 text-yellow-200 text-xs flex items-center justify-between animate-in fade-in duration-300">
+                <div className="flex items-center gap-2">
+                  <ArrowDownRight className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
+                  <span className="line-clamp-1">{simulationLog}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSimulationLog(null)}
+                  className="text-yellow-400 hover:text-white hover:bg-yellow-400/20 text-[10px] h-6 px-1.5 cursor-pointer"
+                >
+                  Clear
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+      )}
+
+      {/* Success Notification for Emergency Credit */}
+      {emergencySuccessMsg && (
+        <div className="p-3.5 sm:p-4 rounded-xl bg-green-500/15 border border-green-500/30 flex items-center justify-between text-green-300 text-xs sm:text-sm">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-green-400 shrink-0" />
+            <span>{emergencySuccessMsg}</span>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setEmergencySuccessMsg(null)}
+            className="text-green-300 hover:text-white hover:bg-green-500/20 text-xs cursor-pointer"
+          >
+            Dismiss
+>>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
           </Button>
         </div>
       )}

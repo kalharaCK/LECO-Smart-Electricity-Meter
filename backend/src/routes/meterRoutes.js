@@ -15,7 +15,7 @@ const {
   toggleMeterRelay,
   staffTopupMeter
 } = require('../controllers/meterController');
-const { requireAuth, requireCustomer, requireStaff } = require('../middlewares/authMiddleware');
+const { requireAuth, requireCustomer, requireStaff, developmentOnly } = require('../middlewares/authMiddleware');
 const { meterLinkRateLimiter } = require('../middlewares/rateLimiter');
 const { validateMeterInput } = require('../middlewares/sanitizer');
 
@@ -39,9 +39,9 @@ router.get('/', requireCustomer, getUserMeters);
 router.post('/add', requireCustomer, meterLinkRateLimiter, validateMeterInput, addMeter);
 router.patch('/:meterId/name', requireCustomer, updateMeterName);
 router.post('/:meterId/emergency-credit', requireCustomer, activateEmergencyCredit);
-router.post('/:meterId/simulate-consumption', requireCustomer, simulateConsumption);
-router.post('/:meterId/settle-cycle', requireCustomer, settleMonthlyCycle);
-router.post('/:meterId/set-balance', requireCustomer, setMeterBalance);
+router.post('/:meterId/simulate-consumption', requireCustomer, developmentOnly, simulateConsumption);
+router.post('/:meterId/settle-cycle', requireCustomer, developmentOnly, settleMonthlyCycle);
+router.post('/:meterId/set-balance', requireCustomer, developmentOnly, setMeterBalance);
 router.get('/payments/history', requireCustomer, getPaymentHistory);
 router.get('/:meterId/consumption', requireCustomer, getMeterConsumption);
 router.get('/:meterId/prediction', requireCustomer, getMeterPrediction);

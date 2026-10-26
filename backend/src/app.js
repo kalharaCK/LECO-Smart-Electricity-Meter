@@ -14,6 +14,8 @@ const predictionModule = require('./modules/prediction');
 const chatbotModule = require('./modules/chatbot');
 const { sanitizeInputs } = require('./middlewares/sanitizer');
 const { errorHandler } = require('./middlewares/errorHandler');
+const { createTrustedOriginGuard } = require('./middlewares/csrfProtection');
+const { createHealthResponse } = require('./services/healthStatus');
 const { requireAuth } = require('./middlewares/authMiddleware');
 const { handlePayhereNotify, initPayhereCheckout, completePayhereCheckout } = require('./controllers/payhereController');
 const { pool } = require('./config/db');
@@ -56,28 +58,26 @@ app.use(
 );
 
 // 3. CORS Configuration supporting Customer (5173) and Staff (5174) portals
-const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173',
-  process.env.STAFF_FRONTEND_URL || 'http://localhost:5174',
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174'
-];
+const production = process.env.NODE_ENV === 'production';
+const corsOrigins = production
+  ? [process.env.FRONTEND_URL, process.env.STAFF_FRONTEND_URL].filter(Boolean)
+  : [process.env.FRONTEND_URL || 'http://localhost:5173', process.env.STAFF_FRONTEND_URL || 'http://localhost:5174',
+      'http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'];
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow server-to-server or curl requests without origin
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || corsOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(null, true); // Permissive for local dev multi-port access
+    return callback(new Error('Origin is not allowed by CORS'));
   },
   credentials: true
 }));
 
 // 4. Body parsing & cookie middleware
 app.use(cookieParser());
+app.use(createTrustedOriginGuard(corsOrigins));
 app.use(express.json({ limit: '200kb' }));
 app.use(express.urlencoded({ extended: true, limit: '200kb' }));
 
@@ -110,16 +110,17 @@ app.post('/api/payments/payhere-complete', requireAuth, completePayhereCheckout)
 
 // 7. REST Health & Diagnostics Check
 app.get('/api/health', async (req, res) => {
-  let dbStatus = 'healthy';
+  let databaseHealthy = true;
   let dbLatencyMs = 0;
   try {
     const start = Date.now();
     await pool.query('SELECT 1');
     dbLatencyMs = Date.now() - start;
   } catch (err) {
-    dbStatus = 'degraded: ' + err.message;
+    databaseHealthy = false;
   }
 
+<<<<<<< HEAD
   res.json({
     status: 'ok',
     service: 'LECO Self Care REST Engine',
@@ -128,9 +129,14 @@ app.get('/api/health', async (req, res) => {
       latencyMs: dbLatencyMs,
       provider: 'Neon PostgreSQL'
     },
+=======
+  const health = createHealthResponse({
+    databaseHealthy,
+    dbLatencyMs,
+>>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
     uptimeSeconds: Math.floor(process.uptime()),
-    timestamp: new Date().toISOString()
   });
+  res.status(health.httpStatus).json(health.body);
 });
 
 // 8. 404 Handler for unknown endpoints

@@ -17,8 +17,12 @@ import type { StaffMeter, StaffComplaint, StaffUser, PayhereTransaction } from "
 
 export function App() {
   const [user, setUser] = useState<StaffUser | null>(null)
+<<<<<<< HEAD
   const [token, setToken] = useState<string>("")
   const [activeTab, setActiveTab] = useState<"meters" | "complaints" | "payhere" | "sms">("meters")
+=======
+  const [activeTab, setActiveTab] = useState<"meters" | "complaints" | "payhere">("meters")
+>>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
 
   // Data states
   const [meters, setMeters] = useState<StaffMeter[]>([])
@@ -31,27 +35,20 @@ export function App() {
   // Cross-tab jump
   const [complaintMeterFilter, setComplaintMeterFilter] = useState("")
 
-  const getAuthHeaders = useCallback((extra: Record<string, string> = {}) => {
-    const savedToken = token || localStorage.getItem("staff_token") || ""
-    const headers: Record<string, string> = { ...extra }
-    if (savedToken) {
-      headers["Authorization"] = `Bearer ${savedToken}`
-    }
-    return headers
-  }, [token])
+  const getAuthHeaders = useCallback((extra: Record<string, string> = {}) => ({ ...extra }), [])
 
-  // Load existing session from localStorage
+  // Restore the session from the HTTP-only cookie.
   useEffect(() => {
-    const savedUser = localStorage.getItem("staff_user")
-    const savedToken = localStorage.getItem("staff_token")
-    if (savedUser && savedToken) {
-      try {
-        setUser(JSON.parse(savedUser))
-        setToken(savedToken)
-      } catch (e) {
-        console.error("Error parsing staff user from localStorage", e)
-      }
-    }
+    localStorage.removeItem("staff_token")
+    fetch("http://localhost:3000/api/auth/me", { credentials: "include" })
+      .then(async (res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.user && ["staff", "admin"].includes(data.user.role?.toLowerCase())) {
+          setUser(data.user)
+          localStorage.setItem("staff_user", JSON.stringify(data.user))
+        } else localStorage.removeItem("staff_user")
+      })
+      .catch(() => localStorage.removeItem("staff_user"))
   }, [])
 
   // Fetch Meters
@@ -182,11 +179,10 @@ export function App() {
     }
   }, [user, fetchMeters])
 
-  const handleLogout = () => {
-    localStorage.removeItem("staff_token")
+  const handleLogout = async () => {
+    await fetch("http://localhost:3000/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => undefined)
     localStorage.removeItem("staff_user")
     setUser(null)
-    setToken("")
   }
 
   // Cross-tab jump from Meter to Complaints
@@ -199,9 +195,8 @@ export function App() {
   if (!user) {
     return (
       <StaffLogin
-        onLoginSuccess={(loggedInUser, loggedInToken) => {
+        onLoginSuccess={(loggedInUser) => {
           setUser(loggedInUser)
-          setToken(loggedInToken)
         }}
       />
     )

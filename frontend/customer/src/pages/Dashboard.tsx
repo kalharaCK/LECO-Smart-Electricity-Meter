@@ -110,69 +110,24 @@ function DashboardInner() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
-    const userData = localStorage.getItem("user")
-    
-    if (!userData) {
-      navigate("/")
-      return
-    }
+    localStorage.removeItem("token")
+    const initializeSession = async () => {
+      try {
+        const res = await fetch("http://localhost:3000/api/auth/me", { credentials: "include" })
+        if (!res.ok) throw new Error("Session expired")
+        const { user: sessionUser } = await res.json()
+        if (sessionUser.role !== "customer" && sessionUser.role !== "user") throw new Error("Customer session required")
+        setUser(sessionUser)
+        localStorage.setItem("user", JSON.stringify(sessionUser))
 
-    try {
-      const parsedUser = JSON.parse(userData)
-      setUser(parsedUser)
-      
-      const initializeAuthAndData = async () => {
-        let token = localStorage.getItem("token")
-        let needsNewToken = !token
-        if (token) {
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]))
-            if (payload.role !== 'customer') {
-              needsNewToken = true
-            }
-          } catch (e) {
-            needsNewToken = true
-          }
-        }
-
-        if (needsNewToken && parsedUser?.email) {
-          try {
-            const tokenRes = await fetch("http://localhost:3000/api/auth/token", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email: parsedUser.email })
-            })
-            if (tokenRes.ok) {
-              const data = await tokenRes.json()
-              if (data.token) {
-                localStorage.setItem("token", data.token)
-                token = data.token
-                setRefreshKey(k => k + 1)
-              }
-            }
-          } catch (err) {
-            console.error("Auto token recovery failed:", err)
-          }
-        }
-
-        try {
-          const headers: Record<string, string> = {}
-          if (token) headers["Authorization"] = `Bearer ${token}`
-          const res = await fetch("http://localhost:3000/api/notifications", {
-            headers
-          })
-          if (res.ok) {
-            setNotifications(await res.json())
-          }
-        } catch (e) {
-          console.error(e)
-        }
+        const notifRes = await fetch("http://localhost:3000/api/notifications", { credentials: "include" })
+        if (notifRes.ok) setNotifications(await notifRes.json())
+      } catch (error) {
+        localStorage.removeItem("user")
+        navigate("/")
       }
-
-      initializeAuthAndData()
-    } catch (e) {
-      navigate("/")
     }
+    void initializeSession()
   }, [navigate])
 
   const handleSelectSection = (sectionId: string) => {
@@ -184,14 +139,9 @@ function DashboardInner() {
 
   const markAsRead = async (id: number) => {
     try {
-      const token = localStorage.getItem("token")
-      const headers: Record<string, string> = {}
-      if (token) headers["Authorization"] = `Bearer ${token}`
-
       await fetch(`http://localhost:3000/api/notifications/${id}/read`, {
         method: "PUT",
-        credentials: "include",
-        headers
+        credentials: "include"
       })
       setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n))
     } catch (e) {
@@ -210,7 +160,6 @@ function DashboardInner() {
     } catch (e) {
       console.error(e)
     } finally {
-      localStorage.removeItem("token")
       localStorage.removeItem("user")
       navigate("/")
     }

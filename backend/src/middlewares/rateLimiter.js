@@ -1,12 +1,16 @@
 const rateLimit = require('express-rate-limit');
 
+const AUTH_WINDOW_MS = 15 * 60 * 1000;
+const AUTH_MAX_ATTEMPTS = 20;
+const METER_LINK_MAX_ATTEMPTS = 10;
+
 /**
  * Phase 4: Defend Against Automated Attacks (Brute Force)
  * Rate Limiter for Authentication endpoints (/api/auth/login, /api/login, /api/signup)
  */
 const authRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window per IP
+  windowMs: AUTH_WINDOW_MS,
+  max: AUTH_MAX_ATTEMPTS,
   standardHeaders: true, // Draft-6 RateLimit headers
   legacyHeaders: false, // Disable X-RateLimit-* headers
   statusCode: 429,
@@ -26,8 +30,8 @@ const authRateLimiter = rateLimit({
  * Rate Limiter for Smart Meter linking & PIN verification (/api/meters/add)
  */
 const meterLinkRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // 50 requests per window per IP
+  windowMs: AUTH_WINDOW_MS,
+  max: METER_LINK_MAX_ATTEMPTS,
   standardHeaders: true,
   legacyHeaders: false,
   statusCode: 429,
@@ -63,6 +67,9 @@ const complaintRateLimiter = rateLimit({
 module.exports = {
   authRateLimiter,
   meterLinkRateLimiter,
-  complaintRateLimiter
+  complaintRateLimiter,
+  AUTH_WINDOW_MS,
+  AUTH_MAX_ATTEMPTS,
+  METER_LINK_MAX_ATTEMPTS
 };
 

@@ -7,12 +7,12 @@ import { ShieldCheck, Lock, Mail, Loader2, AlertTriangle, ArrowRight, Eye, EyeOf
 import type { StaffUser } from "../types"
 
 interface StaffLoginProps {
-  onLoginSuccess: (user: StaffUser, token: string) => void
+  onLoginSuccess: (user: StaffUser) => void
 }
 
 export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
-  const [email, setEmail] = useState("staff@leco.lk")
-  const [password, setPassword] = useState("staff123")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -31,7 +31,7 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
     setErrorMsg(null)
 
     try {
-      const res = await fetch("http://localhost:3000/api/auth/login", {
+      const res = await fetch("http://localhost:3000/api/auth/staff-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -40,10 +40,8 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
 
       const data = await res.json()
       if (res.ok && data.user) {
-        const token = data.token || ""
-        localStorage.setItem("staff_token", token)
         localStorage.setItem("staff_user", JSON.stringify(data.user))
-        onLoginSuccess(data.user, token)
+        onLoginSuccess(data.user)
       } else {
         setErrorMsg(data.error || data.message || "Invalid staff credentials")
       }
@@ -156,7 +154,7 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
           </form>
 
           {/* Quick Demo Access */}
-          <div className="pt-3 border-t border-white/10 text-center space-y-2">
+          {import.meta.env.DEV && <div className="pt-3 border-t border-white/10 text-center space-y-2">
             <span className="text-[11px] text-white/60 block">One-Click Demonstration Access</span>
             <Button
               type="button"
@@ -168,7 +166,7 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
               <ShieldCheck className="h-3.5 w-3.5 text-yellow-400" />
               Quick Login as Field Operations Staff (staff@leco.lk)
             </Button>
-          </div>
+          </div>}
         </CardContent>
       </Card>
     </div>

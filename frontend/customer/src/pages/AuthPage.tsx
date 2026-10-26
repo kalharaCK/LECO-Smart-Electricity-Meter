@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import {
@@ -35,6 +35,10 @@ import { OtpInputBoxes } from "@/components/OtpInputBoxes"
 import bgImage from "@/assets/background.webp"
 
 export default function AuthPage() {
+  useEffect(() => {
+    localStorage.removeItem("token")
+  }, [])
+
   const navigate = useNavigate()
   
   // View mode: 'auth' (Login / Register tabs) or 'forgot_password'
@@ -106,10 +110,29 @@ export default function AuthPage() {
       if (!res.ok) {
         throw new Error(data.error || t.alerts.genericError)
       }
+<<<<<<< HEAD
 
       localStorage.setItem("user", JSON.stringify(data.user))
       if (data.token) {
         localStorage.setItem("token", data.token)
+=======
+      
+      if (isLogin) {
+        // Store display data only; the HTTP-only cookie is the session credential.
+        localStorage.setItem("user", JSON.stringify(data.user))
+        
+        setMessage({ type: "success", text: t.alerts.loginSuccess })
+        
+        // Navigate to dashboard after short delay
+        setTimeout(() => {
+          navigate("/dashboard")
+        }, 600)
+      } else {
+        if (data.user) {
+          localStorage.setItem("user", JSON.stringify(data.user))
+        }
+        setMessage({ type: "success", text: t.alerts.signupSuccess })
+>>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
       }
 
       setMessage({ type: "success", text: t.alerts.loginSuccess })

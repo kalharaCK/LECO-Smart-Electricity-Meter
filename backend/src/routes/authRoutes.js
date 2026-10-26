@@ -10,8 +10,7 @@ const {
   staffLogin, 
   customerLogin, 
   logout, 
-  getMe, 
-  getSessionToken 
+  getMe
 } = require('../controllers/authController');
 const { requireAuth } = require('../middlewares/authMiddleware');
 const { authRateLimiter } = require('../middlewares/rateLimiter');
@@ -34,7 +33,5 @@ router.post('/staff-login', authRateLimiter, staffLogin);
 router.post('/customer-login', authRateLimiter, customerLogin);
 router.post('/logout', logout);
 router.get('/me', requireAuth, getMe);
-router.post('/token', getSessionToken);
-router.get('/token', getSessionToken);
 
 module.exports = router;

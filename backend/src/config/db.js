@@ -1,7 +1,10 @@
 const { Pool } = require('pg');
 
-const defaultDbUrl = 'postgresql://neondb_owner:npg_ANkWi13sFrGy@ep-autumn-paper-b4lli3x5-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require';
-const connectionString = process.env.DATABASE_URL || defaultDbUrl;
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error('DATABASE_URL must be configured before starting the backend.');
+}
 
 const pool = new Pool({
   connectionString,
@@ -161,6 +164,19 @@ const initDb = async () => {
 
     const bcrypt = require('bcryptjs');
 
+    // Security migrations run in every environment; only demo data is development-only.
+    const unhashedMeters = await pool.query(`SELECT id, pin FROM meters WHERE pin NOT LIKE '$2%'`);
+    for (const meter of unhashedMeters.rows) {
+      const hashed = await bcrypt.hash(meter.pin, 10);
+      await pool.query('UPDATE meters SET pin = $1 WHERE id = $2', [hashed, meter.id]);
+    }
+    if (unhashedMeters.rows.length > 0) {
+      console.log(`[Security] Migrated ${unhashedMeters.rows.length} legacy meter PIN(s) to bcrypt hashes.`);
+    }
+
+    // Demo accounts are strictly for local development and must never be seeded in production.
+    if (process.env.NODE_ENV === 'production') return;
+
     // 1. Seed / Verify Staff Account (staff@leco.lk / staff123)
     const staffCheck = await pool.query(`SELECT id FROM users WHERE email = 'staff@leco.lk'`);
     if (staffCheck.rows.length === 0) {
@@ -236,30 +252,24 @@ const initDb = async () => {
       }
     }
 
-    // 4. Migrate any unhashed legacy meter PINs
-    const unhashedMeters = await pool.query(`SELECT id, pin FROM meters WHERE pin NOT LIKE '$2%'`);
-    if (unhashedMeters.rows.length > 0) {
-      for (const m of unhashedMeters.rows) {
-        const hashed = await bcrypt.hash(m.pin, 10);
-        await pool.query('UPDATE meters SET pin = $1 WHERE id = $2', [hashed, m.id]);
-      }
-      console.log(`[Security] Migrated ${unhashedMeters.rows.length} legacy meter PIN(s) to bcrypt hashes.`);
-    }
-
   } catch (err) {
     console.error('[Database Init Error]:', err.message);
+    throw err;
   }
 };
 
 const connectDb = async () => {
+  let client;
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
     const result = await client.query('SELECT NOW()');
-    client.release();
     console.log('[Database Connected] Neon PostgreSQL:', result.rows[0].now);
     await initDb();
   } catch (err) {
     console.error('[Database Connection Error]:', err.message);
+    throw err;
+  } finally {
+    client?.release();
   }
 };
 

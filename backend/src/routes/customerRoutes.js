@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireCustomer } = require('../middlewares/authMiddleware');
+const { requireCustomer, developmentOnly } = require('../middlewares/authMiddleware');
 const { 
   getUserMeters, 
   addMeter, 
@@ -34,9 +34,9 @@ router.get('/meters/:meterId/consumption', getMeterConsumption);
 router.get('/meters/:meterId/prediction', getMeterPrediction);
 router.post('/meters/:meterId/recharge', rechargeMeter);
 router.post('/meters/:meterId/emergency-credit', activateEmergencyCredit);
-router.post('/meters/:meterId/simulate-consumption', simulateConsumption);
-router.post('/meters/:meterId/settle-cycle', settleMonthlyCycle);
-router.post('/meters/:meterId/set-balance', setMeterBalance);
+router.post('/meters/:meterId/simulate-consumption', developmentOnly, simulateConsumption);
+router.post('/meters/:meterId/settle-cycle', developmentOnly, settleMonthlyCycle);
+router.post('/meters/:meterId/set-balance', developmentOnly, setMeterBalance);
 
 // Payments & Ledger
 router.get('/payments/history', getPaymentHistory);

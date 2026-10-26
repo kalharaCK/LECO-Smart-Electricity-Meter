@@ -32,7 +32,7 @@ const translations = {
     policyP1:
       "Lanka Electricity Company (Pvt) Ltd. (LECO) uses essential cookies and browser local storage strictly for operational, security, and smart metering purposes under the Sri Lanka Personal Data Protection Act No. 9 of 2022.",
     policyP2:
-      "Stored items include encrypted session tokens ('token'), customer language preferences ('customer_lang'), and privacy consent records ('leco_cookie_consent'). No third-party commercial marketing or external tracking cookies are deployed."
+      "The active session is held in an HTTP-only cookie. Browser storage contains customer language preferences ('customer_lang') and privacy consent records ('leco_cookie_consent'). No third-party commercial marketing or external tracking cookies are deployed."
   },
   si: {
     title: "කුකීස් සැකසීම්",
@@ -55,7 +55,7 @@ const translations = {
     policyP1:
       "ලංකා විදුලි පුද්ගලික සමාගම (LECO) 2022 අංක 09 දරන ශ්‍රී ලංකා පුද්ගලික දත්ත ආරක්ෂණ පනතට අනුකූලව අත්‍යවශ්‍ය කුකීස් සහ බ්‍රවුසර මතකය පමණක් ආරක්ෂිතව භාවිතා කරයි.",
     policyP2:
-      "ආරක්ෂිත පිවිසුම් යතුර (token), භාෂා මනාපය (customer_lang) සහ එකඟතාව පමණක් ගබඩා කරනු ලැබේ. කිසිදු තෙවන පාර්ශවීය දැන්වීම් කුකීස් මෙහි අඩංගු නොවේ."
+      "සැසිය HTTP-only කුකියක සුරක්ෂිතව තබා ඇත. බ්‍රවුසර මතකයේ භාෂා මනාපයන් සහ එකඟතා වාර්තා පමණක් ගබඩා වේ. තෙවන පාර්ශවීය දැන්වීම් කුකීස් භාවිත නොවේ."
   },
   ta: {
     title: "குக்கீ அமைப்புகள்",
@@ -78,7 +78,7 @@ const translations = {
     policyP1:
       "இலங்கை மின்சார தனியார் நிறுவனம் (LECO) 2022 ஆம் ஆண்டின் 09 ஆம் இலக்க தனிநபர் தரவு பாதுகாப்பு சட்டத்தின் கீழ் அத்தியாவசிய குக்கீகளை மட்டுமே பயன்படுத்துகிறது.",
     policyP2:
-      "பாதுகாப்பான உள்நுழைவு டோக்கன், மொழி விருப்பம் மற்றும் ஒப்புதல் மட்டுமே சேமிக்கப்படும். விளம்பர குக்கீகள் எதுவும் பயன்படுத்தப்படுவதில்லை."
+      "உள்நுழைவு அமர்வு HTTP-only குக்கியில் வைக்கப்படுகிறது. உலாவி சேமிப்பகத்தில் மொழி விருப்பங்களும் ஒப்புதல் பதிவுகளும் மட்டுமே வைக்கப்படும். மூன்றாம் தரப்பு விளம்பர குக்கீகள் பயன்படுத்தப்படுவதில்லை."
   }
 }
 

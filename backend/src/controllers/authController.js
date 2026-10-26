@@ -1,7 +1,11 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/db');
+<<<<<<< HEAD
 const smsService = require('../services/smsService');
+=======
+const { validateNewPassword } = require('../services/passwordPolicy');
+>>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
 
 // Secure Cookie Configuration
 const getCookieOptions = () => {
@@ -20,6 +24,8 @@ const signup = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ success: false, error: 'Email and password are required' });
     }
+    const passwordError = validateNewPassword(password);
+    if (passwordError) return res.status(400).json({ success: false, error: passwordError });
     
     // Check if user exists
     const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email.trim().toLowerCase()]);
@@ -60,8 +66,13 @@ const signup = async (req, res) => {
     }
 
     const token = jwt.sign(
+<<<<<<< HEAD
       { id: newUser.rows[0].id, email: newUser.rows[0].email, role: newUser.rows[0].role, full_name: newUser.rows[0].full_name },
       process.env.JWT_SECRET || 'super_secret_jwt_key',
+=======
+      { id: newUser.rows[0].id, email: newUser.rows[0].email, role: newUser.rows[0].role },
+      process.env.JWT_SECRET,
+>>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
       { expiresIn: '1d' }
     );
 
@@ -70,8 +81,7 @@ const signup = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Customer account created successfully',
-      user: newUser.rows[0],
-      token
+      user: newUser.rows[0]
     });
   } catch (err) {
     console.error('[Signup Error]:', err);
@@ -433,7 +443,7 @@ const login = async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'super_secret_jwt_key',
+      process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
@@ -453,8 +463,7 @@ const login = async (req, res) => {
     res.json({
       success: true,
       message: 'Login successful',
-      user: { id: user.id, email: user.email, role: user.role },
-      token
+      user: { id: user.id, email: user.email, role: user.role }
     });
   } catch (err) {
     console.error('[Login Error]:', err);
@@ -494,7 +503,7 @@ const staffLogin = async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'super_secret_jwt_key',
+      process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
@@ -503,8 +512,7 @@ const staffLogin = async (req, res) => {
     res.json({
       success: true,
       message: 'Staff authentication successful',
-      user: { id: user.id, email: user.email, role: user.role },
-      token
+      user: { id: user.id, email: user.email, role: user.role }
     });
   } catch (err) {
     console.error('[Staff Login Error]:', err);
@@ -544,7 +552,7 @@ const customerLogin = async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'super_secret_jwt_key',
+      process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
@@ -564,8 +572,7 @@ const customerLogin = async (req, res) => {
     res.json({
       success: true,
       message: 'Customer login successful',
-      user: { id: user.id, email: user.email, role: user.role },
-      token
+      user: { id: user.id, email: user.email, role: user.role }
     });
   } catch (err) {
     console.error('[Customer Login Error]:', err);
@@ -589,49 +596,19 @@ const getMe = async (req, res) => {
     if (userResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
+<<<<<<< HEAD
     const token = jwt.sign(
       { id: userResult.rows[0].id, email: userResult.rows[0].email, role: userResult.rows[0].role, full_name: userResult.rows[0].full_name },
       process.env.JWT_SECRET || 'super_secret_jwt_key',
       { expiresIn: '1d' }
     );
     res.json({ success: true, user: userResult.rows[0], token });
+=======
+    res.json({ success: true, user: userResult.rows[0] });
+>>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
   } catch (err) {
     console.error('[getMe Error]:', err);
     res.status(500).json({ success: false, error: 'Server error' });
-  }
-};
-
-const getSessionToken = async (req, res) => {
-  try {
-    const email = req.body?.email || req.query?.email;
-    if (email) {
-      const userRes = await pool.query('SELECT id, email, role FROM users WHERE email = $1', [email.trim().toLowerCase()]);
-      if (userRes.rows.length > 0) {
-        const u = userRes.rows[0];
-        const freshToken = jwt.sign(
-          { id: u.id, email: u.email, role: u.role },
-          process.env.JWT_SECRET || 'super_secret_jwt_key',
-          { expiresIn: '1d' }
-        );
-        return res.json({ success: true, token: freshToken, user: u });
-      }
-    }
-
-    let token = req.cookies?.token;
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_jwt_key');
-        const userRes = await pool.query('SELECT id, email, role FROM users WHERE id = $1', [decoded.id]);
-        if (userRes.rows.length > 0) {
-          return res.json({ success: true, token, user: userRes.rows[0] });
-        }
-      } catch (e) {}
-    }
-
-    return res.status(401).json({ success: false, message: 'No active session found' });
-  } catch (err) {
-    console.error('[Session Token Error]:', err);
-    res.status(500).json({ success: false, error: 'Server error retrieving session token' });
   }
 };
 
@@ -646,6 +623,5 @@ module.exports = {
   staffLogin, 
   customerLogin, 
   logout, 
-  getMe, 
-  getSessionToken 
+  getMe
 };

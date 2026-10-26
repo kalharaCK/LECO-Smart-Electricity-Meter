@@ -23,9 +23,7 @@ export default function AddMeterSection({
 
   const fetchMeters = async () => {
     try {
-      const token = localStorage.getItem("token")
       const headers: Record<string, string> = {}
-      if (token) headers["Authorization"] = `Bearer ${token}`
 
       const res = await fetch("http://localhost:3000/api/meters", {
         credentials: "include",
@@ -53,11 +51,9 @@ export default function AddMeterSection({
 
   const handleAdd = async () => {
     try {
-      const token = localStorage.getItem("token")
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       }
-      if (token) headers["Authorization"] = `Bearer ${token}`
 
       const res = await fetch("http://localhost:3000/api/meters/add", {
         method: "POST",
