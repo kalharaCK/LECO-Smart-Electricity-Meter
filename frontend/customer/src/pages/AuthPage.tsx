@@ -110,29 +110,9 @@ export default function AuthPage() {
       if (!res.ok) {
         throw new Error(data.error || t.alerts.genericError)
       }
-<<<<<<< HEAD
-
       localStorage.setItem("user", JSON.stringify(data.user))
       if (data.token) {
         localStorage.setItem("token", data.token)
-=======
-      
-      if (isLogin) {
-        // Store display data only; the HTTP-only cookie is the session credential.
-        localStorage.setItem("user", JSON.stringify(data.user))
-        
-        setMessage({ type: "success", text: t.alerts.loginSuccess })
-        
-        // Navigate to dashboard after short delay
-        setTimeout(() => {
-          navigate("/dashboard")
-        }, 600)
-      } else {
-        if (data.user) {
-          localStorage.setItem("user", JSON.stringify(data.user))
-        }
-        setMessage({ type: "success", text: t.alerts.signupSuccess })
->>>>>>> 302581256bf6422ea2558bb918434fa41d2493c5
       }
 
       setMessage({ type: "success", text: t.alerts.loginSuccess })
