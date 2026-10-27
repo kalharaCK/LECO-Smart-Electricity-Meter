@@ -98,6 +98,16 @@ async function broadcastMeterState(meterId) {
       [meterId]
     );
 
+    // Query latest real telemetry reading for live power and solar export
+    const latestLogRes = await pool.query(
+      `SELECT consumption, energy_export FROM consumption_logs 
+       WHERE meter_id = $1 
+       ORDER BY reading_date DESC, reading_hour DESC LIMIT 1`,
+      [meterId]
+    );
+    const livePower = latestLogRes.rows.length > 0 ? parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2) : '0.00';
+    const liveExport = latestLogRes.rows.length > 0 ? parseFloat(latestLogRes.rows[0].energy_export || 0).toFixed(2) : '0.00';
+
     const payload = {
       meterId: Number(meterId),
       balance: balance,
@@ -110,8 +120,8 @@ async function broadcastMeterState(meterId) {
       exportYesterday: parseFloat(yesterdayResult.rows[0]?.total_export || 0).toFixed(1),
       thisWeek: parseFloat(weekResult.rows[0]?.total_import || 0).toFixed(1),
       exportThisWeek: parseFloat(weekResult.rows[0]?.total_export || 0).toFixed(1),
-      currentPower: (Math.random() * 1.5 + 0.5).toFixed(2),
-      currentExport: (new Date().getHours() >= 8 && new Date().getHours() <= 17) ? (Math.random() * 2.0).toFixed(2) : '0.00',
+      currentPower: livePower,
+      currentExport: liveExport,
       chartData: chartResult.rows.map(r => ({
         date: r.date,
         import: parseFloat(r.import || 0),
@@ -211,54 +221,15 @@ const addMeter = async (req, res) => {
 
     const newMeter = result.rows[0];
 
-    // Seed mock consumption data for the past 30 days
-    const client = await pool.connect();
+    // Send legitimate initial connection notification
     try {
-      await client.query('BEGIN');
-      const today = new Date();
-      const rows = [];
-      for (let i = 0; i < 30; i++) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
-        
-        // 24 hours of data - realistic Sri Lankan domestic household (avg ~4.5 kWh/day)
-        for (let h = 0; h < 24; h++) {
-          const baseHour = (h >= 23 || h < 6) ? 0.08 : (h >= 18 && h <= 22) ? 0.28 : 0.18;
-          const consumption = Math.max(0.02, baseHour + (Math.random() * 0.1 - 0.05)).toFixed(2);
-          let energyExport = '0.00';
-          if (h >= 9 && h <= 16) {
-            energyExport = (Math.random() * 0.25 + 0.10).toFixed(2);
-          }
-          rows.push({ dateStr, h, consumption, energyExport });
-        }
-      }
-
-      // Ultra-fast single-roundtrip batch insert via PostgreSQL UNNEST
-      await client.query(
-        `INSERT INTO consumption_logs (meter_id, reading_date, reading_hour, consumption, energy_export)
-         SELECT $1, unnest($2::date[]), unnest($3::int[]), unnest($4::numeric[]), unnest($5::numeric[])`,
-        [
-          newMeter.id,
-          rows.map(r => r.dateStr),
-          rows.map(r => r.h),
-          rows.map(r => r.consumption),
-          rows.map(r => r.energyExport)
-        ]
+      await pool.query(
+        `INSERT INTO notifications (user_id, meter_id, type, title, message) 
+         VALUES ($1, $2, 'success', 'Meter Connected', $3)`,
+        [userId, newMeter.id, `Smart meter ${meterNumber} has been successfully connected to your account.`]
       );
-      await client.query('COMMIT');
-
-      // Seed mock notifications
-      await client.query('BEGIN');
-      await client.query(`INSERT INTO notifications (user_id, meter_id, type, title, message) VALUES ($1, $2, $3, $4, $5)`, [userId, newMeter.id, 'success', 'Meter Connected', `Smart meter ${meterNumber} has been successfully connected to your account.`]);
-      await client.query(`INSERT INTO notifications (user_id, meter_id, type, title, message) VALUES ($1, $2, $3, $4, $5)`, [userId, newMeter.id, 'alert', 'Low Balance Warning', `Your balance is below Rs. 2,000. Consider recharging soon.`]);
-      await client.query(`INSERT INTO notifications (user_id, meter_id, type, title, message) VALUES ($1, $2, $3, $4, $5)`, [userId, newMeter.id, 'info', 'High Export Detected', `You had a peak solar export of 1.8 kW yesterday.`]);
-      await client.query('COMMIT');
-    } catch (e) {
-      await client.query('ROLLBACK');
-      console.error('Failed to seed data:', e);
-    } finally {
-      client.release();
+    } catch (notifErr) {
+      console.warn('[AddMeter Notification Warning]:', notifErr.message);
     }
 
     res.status(201).json({ message: 'Meter added successfully', meter: newMeter });
@@ -325,9 +296,15 @@ const getMeterConsumption = async (req, res) => {
       [meterId]
     );
 
-    // Get current power (just use the latest hour reading or mock based on time)
-    const currentPower = (Math.random() * 1.5 + 0.5).toFixed(2); // Mock current kW draw
-    const currentExport = (new Date().getHours() >= 8 && new Date().getHours() <= 17) ? (Math.random() * 2.0).toFixed(2) : '0.00';
+    // Query latest real telemetry reading for live power and solar export
+    const latestLogRes = await pool.query(
+      `SELECT consumption, energy_export FROM consumption_logs 
+       WHERE meter_id = $1 
+       ORDER BY reading_date DESC, reading_hour DESC LIMIT 1`,
+      [meterId]
+    );
+    const currentPower = latestLogRes.rows.length > 0 ? parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2) : '0.00';
+    const currentExport = latestLogRes.rows.length > 0 ? parseFloat(latestLogRes.rows[0].energy_export || 0).toFixed(2) : '0.00';
 
     // Fetch daily history for LECO wallet lifetime prediction (Net consumption: Import - Export)
     const historyResult = await pool.query(
@@ -1130,7 +1107,7 @@ const getAllMetersForStaff = async (req, res) => {
         u.email AS customer_email,
         u.role AS customer_role,
         u.created_at AS customer_since,
-        COALESCE(u.mobile_number, us.phone_number, '+94 77 123 4567') AS phone_number,
+        COALESCE(u.mobile_number, us.phone_number, '') AS phone_number,
         COALESCE(us.tariff_type, 'Domestic D-1 (PUCSL Block Tariff)') AS tariff_type,
         COALESCE(us.low_balance_threshold, 300.00) AS low_balance_threshold,
         COALESCE(us.daily_kwh_budget, 12.00) AS daily_kwh_budget,

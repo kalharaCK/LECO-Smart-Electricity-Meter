@@ -149,7 +149,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
           const sData = await settingsRes.json()
           if (sData.settings) {
             setUserSettings({
-              phone_number: sData.settings.phone_number || "+94 77 123 4567",
+              phone_number: sData.settings.phone_number || "",
               low_balance_threshold: Number(sData.settings.low_balance_threshold) || 300,
               daily_kwh_budget: Number(sData.settings.daily_kwh_budget) || 12,
               monthly_budget_lkr: Number(sData.settings.monthly_budget_lkr) || 3000,
@@ -377,9 +377,10 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
   const isEmergencyActive = !!meter.emergency_credit_active
   const isDisconnected = meter.status?.toLowerCase() === "disconnected" || balanceNumber < -500
 
-  // Estimated days remaining: clean calculation for general consumers
-  const daysEstimate = consumption?.prediction?.estimatedDaysRemaining 
-    ?? (meter.daily_average > 0 ? Math.max(1, Math.floor(balanceNumber / meter.daily_average)) : 14)
+  // Estimated days remaining: synced with ML online ensemble and real meter telemetry
+  const daysEstimate = consumption?.prediction?.ml?.expectedRemainingDays 
+    ?? consumption?.prediction?.estimatedDaysRemaining 
+    ?? (meter.daily_average > 0 ? Math.max(0, Math.floor(balanceNumber / meter.daily_average)) : 0)
 
   // Budget calculations for everyday consumer
   const monthlyBudget = userSettings.monthly_budget_lkr || 3000
@@ -427,7 +428,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
               </div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-white/80 font-mono">
                 <span className="text-white/40 font-sans">A/C:</span>
-                <strong className="text-white">{meter.account_number || "04291884"}</strong>
+                <strong className="text-white">{meter.account_number || meter.meter_number || "N/A"}</strong>
               </div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-white/80 font-mono">
                 <span className="text-white/40 font-sans">Meter:</span>
@@ -631,7 +632,11 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
               {consumption?.prediction?.ml?.isAvailable && consumption.prediction.ml.predictedExhaustionTime && (
                 <div className="text-[10px] text-white/50 px-1 flex items-center justify-between">
                   <span>Exhaustion: {new Date(consumption.prediction.ml.predictedExhaustionTime).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-                  <span className="font-mono text-emerald-400/80">{(Number(consumption.prediction.ml.confidenceScore || 0.85) * 100).toFixed(0)}% Conf.</span>
+                  <span className="font-mono text-emerald-400/80">
+                    {consumption.prediction.ml.confidenceScore != null
+                      ? `${(Number(consumption.prediction.ml.confidenceScore) * 100).toFixed(0)}% Conf.`
+                      : "Calibrated"}
+                  </span>
                 </div>
               )}
             </div>
@@ -761,7 +766,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
           </div>
 
           <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
-            <span className="text-white/40">Avg: ~Rs. {Number(meter.daily_average || 145).toFixed(0)} / day</span>
+            <span className="text-white/40">Avg: ~Rs. {Number(meter.daily_average || (avg7DayKwh > 0 ? (avg7DayKwh * 35).toFixed(0) : 0)).toFixed(0)} / day</span>
             <span className="text-white/60 font-mono">230V • 50Hz</span>
           </div>
         </Card>

@@ -91,7 +91,7 @@ async def get_prepaid_lifetime(
                     if m_row:
                         curr_balance = float(m_row["balance"] or 0.0)
                     else:
-                        curr_balance = 1000.0  # default fallback
+                        curr_balance = 0.0
 
                     # Calculate cumulative kWh in current month
                     c_row = await conn.fetchrow(
@@ -105,10 +105,10 @@ async def get_prepaid_lifetime(
                     )
                     if c_row:
                         current_cycle_kwh = float(c_row["cycle_kwh"] or 0.0)
-                        current_cycle_day = int(c_row["cycle_day"] or 1)
+                        current_cycle_day = int(c_row["cycle_day"] or datetime.now(timezone.utc).day)
             except Exception as db_err:
                 logger.warning(f"DB lookup fallback for prepaid meter {meter_id}: {db_err}")
-                curr_balance = 1000.0
+                curr_balance = 0.0
 
         result = orchestrator.prepaid_engine.simulate_depletion(
             ensemble=ensemble,
@@ -132,10 +132,11 @@ async def get_postpaid_forecast(meter_id: int):
     try:
         ensemble = await orchestrator.get_or_create_ensemble(meter_id)
         history = await orchestrator.get_recent_history(meter_id, limit=72)
+        now = datetime.now(timezone.utc)
 
-        already_consumed = 45.0
-        cycle_day = 15
-        daily_avg = 8.5
+        already_consumed = 0.0
+        cycle_day = now.day
+        daily_avg = 0.0
 
         try:
             async with get_connection() as conn:
@@ -150,20 +151,20 @@ async def get_postpaid_forecast(meter_id: int):
                 )
                 if c_row and c_row["cycle_kwh"] is not None:
                     already_consumed = float(c_row["cycle_kwh"])
-                    cycle_day = int(c_row["cycle_day"] or 15)
+                    cycle_day = int(c_row["cycle_day"] or now.day)
 
                 # Daily average
                 avg_row = await conn.fetchrow(
-                    "SELECT COALESCE(daily_average, 8.5) as d_avg FROM meters WHERE id = $1",
+                    "SELECT COALESCE(daily_average, 0.0) as d_avg FROM meters WHERE id = $1",
                     meter_id
                 )
                 if avg_row:
-                    daily_avg = float(avg_row["d_avg"] or 8.5)
+                    daily_avg = float(avg_row["d_avg"] or 0.0)
         except Exception as db_err:
             logger.warning(f"DB lookup fallback for postpaid meter {meter_id}: {db_err}")
 
         # Quick 24h total
-        h24 = orchestrator.forecast_engine.forecast_next_24h(ensemble, datetime.now(timezone.utc), history)
+        h24 = orchestrator.forecast_engine.forecast_next_24h(ensemble, now, history)
         next_24h_kwh = h24["total_predicted_24h_kwh"]
 
         bill_forecast = orchestrator.postpaid_engine.forecast_bill(
@@ -190,8 +191,8 @@ async def get_recharge_demand(meter_id: int):
         history = await orchestrator.get_recent_history(meter_id, limit=72)
 
         curr_balance = 0.0
-        daily_avg = 8.5
-        prev_cycle_kwh = 120.0
+        daily_avg = 0.0
+        prev_cycle_kwh = 0.0
 
         try:
             async with get_connection() as conn:
@@ -200,11 +201,11 @@ async def get_recharge_demand(meter_id: int):
                 )
                 if m_row:
                     curr_balance = float(m_row["balance"] or 0.0)
-                    daily_avg = float(m_row["daily_average"] or 8.5)
+                    daily_avg = float(m_row["daily_average"] or 0.0)
 
                 p_row = await conn.fetchrow(
                     """
-                    SELECT COALESCE(SUM(consumption), 120.0) as prev_kwh
+                    SELECT COALESCE(SUM(consumption), 0.0) as prev_kwh
                     FROM consumption_logs
                     WHERE meter_id = $1 
                       AND reading_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
@@ -213,7 +214,7 @@ async def get_recharge_demand(meter_id: int):
                     meter_id
                 )
                 if p_row:
-                    prev_cycle_kwh = float(p_row["prev_kwh"] or 120.0)
+                    prev_cycle_kwh = float(p_row["prev_kwh"] or 0.0)
         except Exception as db_err:
             logger.warning(f"DB lookup fallback for demand meter {meter_id}: {db_err}")
 

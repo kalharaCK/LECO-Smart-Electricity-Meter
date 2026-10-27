@@ -154,7 +154,8 @@ export function App() {
                   ...m,
                   balance: payload.balance ?? m.balance,
                   status: payload.status ?? m.status,
-                  emergency_credit_active: payload.emergency_credit_active ?? m.emergency_credit_active
+                  emergency_credit_active: payload.emergency_credit_active ?? m.emergency_credit_active,
+                  today_kwh: payload.today !== undefined ? parseFloat(String(payload.today)) : m.today_kwh
                 }
               : m
           )

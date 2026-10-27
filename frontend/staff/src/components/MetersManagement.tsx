@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -54,6 +54,58 @@ export default function MetersManagement({
   const [topupAmount, setTopupAmount] = useState<number>(500)
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null)
   const [downloadingStatement, setDownloadingStatement] = useState(false)
+
+  // ML Online Intelligence state
+  const [mlStatus, setMlStatus] = useState<any>(null)
+  const [mlPrepaid, setMlPrepaid] = useState<any>(null)
+  const [loadingMl, setLoadingMl] = useState(false)
+
+  // Keep active meter synchronized live with incoming fleet updates from WebSocket
+  useEffect(() => {
+    if (activeMeterDetail) {
+      const latest = meters.find((m) => m.id === activeMeterDetail.id)
+      if (latest) {
+        setActiveMeterDetail(latest)
+      }
+    }
+  }, [meters])
+
+  // Fetch ML online status & forecast when activeMeterDetail opens
+  useEffect(() => {
+    if (!activeMeterDetail) {
+      setMlStatus(null)
+      setMlPrepaid(null)
+      return
+    }
+    let isMounted = true
+    setLoadingMl(true)
+    Promise.allSettled([
+      fetch(`http://localhost:3000/api/prediction/ml/status/${activeMeterDetail.id}`, {
+        headers: getAuthHeaders(),
+        credentials: "include"
+      }).then((r) => (r.ok ? r.json() : null)),
+      fetch(`http://localhost:3000/api/prediction/ml/prepaid/${activeMeterDetail.id}`, {
+        headers: getAuthHeaders(),
+        credentials: "include"
+      }).then((r) => (r.ok ? r.json() : null))
+    ])
+      .then(([statusRes, prepaidRes]) => {
+        if (!isMounted) return
+        if (statusRes.status === "fulfilled" && statusRes.value?.status) {
+          setMlStatus(statusRes.value.status)
+        }
+        if (prepaidRes.status === "fulfilled" && prepaidRes.value?.result) {
+          setMlPrepaid(prepaidRes.value.result)
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoadingMl(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [activeMeterDetail?.id])
 
   const handleDownloadStatementPdf = async (meter: StaffMeter) => {
     try {
@@ -480,7 +532,7 @@ export default function MetersManagement({
                       {meter.customer_email}
                     </div>
                     <div className="text-[11px] text-white/50 font-mono mt-0.5">
-                      {meter.phone_number || "+94 77 123 4567"}
+                      {meter.phone_number || "Not Registered"}
                     </div>
                   </div>
 
@@ -641,7 +693,7 @@ export default function MetersManagement({
                   <div className="flex justify-between items-center">
                     <span className="text-white/50">SMS Alert Phone:</span>
                     <span className="font-mono text-white font-semibold">
-                      {activeMeterDetail.phone_number || "+94 77 123 4567"}
+                      {activeMeterDetail.phone_number || "Not Registered"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -797,6 +849,97 @@ export default function MetersManagement({
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Quadrant 5: Adaptive ML Online Forecasting Engine */}
+              <div className="md:col-span-2 bg-[#121214] border border-yellow-400/20 rounded-2xl p-4 space-y-3 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/5 rounded-full blur-2xl pointer-events-none" />
+                <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                  <div className="flex items-center gap-2 text-yellow-400 font-bold uppercase text-[11px] tracking-wider">
+                    <Cpu className="h-4 w-4" />
+                    Adaptive ML Online Forecasting Engine
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {loadingMl ? (
+                      <span className="flex items-center gap-1.5 text-[11px] text-white/50 font-mono">
+                        <Loader2 className="h-3 w-3 animate-spin text-yellow-400" />
+                        Synchronizing Model...
+                      </span>
+                    ) : mlStatus ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        {mlStatus.stage || "ONLINE"}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-white/40 font-mono">Cold-Start Ready</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+                  <div className="bg-black/30 border border-white/5 rounded-xl p-3">
+                    <span className="text-[11px] text-white/50 block">Predicted Supply Horizon</span>
+                    <span className="text-sm font-bold font-mono text-white mt-0.5 block">
+                      {mlPrepaid?.expected_remaining_days != null
+                        ? `${Number(mlPrepaid.expected_remaining_days).toFixed(1)} Days`
+                        : "Calculating..."}
+                    </span>
+                    <span className="text-[10px] text-white/40 block mt-0.5 truncate">
+                      {mlPrepaid?.exhaustion_timestamp
+                        ? new Date(mlPrepaid.exhaustion_timestamp).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })
+                        : "Continuous tracking"}
+                    </span>
+                  </div>
+
+                  <div className="bg-black/30 border border-white/5 rounded-xl p-3">
+                    <span className="text-[11px] text-white/50 block">Dynamic Daily Burn Rate</span>
+                    <span className="text-sm font-bold font-mono text-yellow-300 mt-0.5 block">
+                      {mlPrepaid?.daily_burn_rate_lkr != null
+                        ? `Rs. ${Number(mlPrepaid.daily_burn_rate_lkr).toFixed(2)}/day`
+                        : "Analyzing..."}
+                    </span>
+                    <span className="text-[10px] text-white/40 block mt-0.5">
+                      Tariff Tier Progressive
+                    </span>
+                  </div>
+
+                  <div className="bg-black/30 border border-white/5 rounded-xl p-3">
+                    <span className="text-[11px] text-white/50 block">Telemetry Samples</span>
+                    <span className="text-sm font-bold font-mono text-emerald-400 mt-0.5 block">
+                      {mlStatus?.samples_seen ?? 0} Observations
+                    </span>
+                    <span className="text-[10px] text-white/40 block mt-0.5">
+                      Real-Time Streaming
+                    </span>
+                  </div>
+
+                  <div className="bg-black/30 border border-white/5 rounded-xl p-3">
+                    <span className="text-[11px] text-white/50 block">ADWIN Drift & Anomalies</span>
+                    <span className="text-sm font-bold font-mono text-sky-400 mt-0.5 block">
+                      {mlStatus?.drift_events_detected ?? 0} Drifts / {mlStatus?.total_anomalies_flagged ?? 0} Anomalies
+                    </span>
+                    <span className="text-[10px] text-white/40 block mt-0.5">
+                      Concept Drift Immune
+                    </span>
+                  </div>
+                </div>
+
+                {mlStatus?.ensemble_weights && (
+                  <div className="bg-black/20 border border-white/5 rounded-xl p-2.5 flex flex-wrap items-center justify-between text-[11px] gap-2">
+                    <span className="text-white/50 font-medium">Model Fusion Weights:</span>
+                    <div className="flex items-center gap-3 font-mono">
+                      <span className="text-white/80">EWMA: <strong className="text-yellow-400">{((mlStatus.ensemble_weights.ewma || 0) * 100).toFixed(0)}%</strong></span>
+                      <span className="text-white/80">Kalman: <strong className="text-yellow-400">{((mlStatus.ensemble_weights.kalman || 0) * 100).toFixed(0)}%</strong></span>
+                      <span className="text-white/80">Linear: <strong className="text-yellow-400">{((mlStatus.ensemble_weights.linear || 0) * 100).toFixed(0)}%</strong></span>
+                      <span className="text-white/80">Tree: <strong className="text-yellow-400">{((mlStatus.ensemble_weights.forest || 0) * 100).toFixed(0)}%</strong></span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

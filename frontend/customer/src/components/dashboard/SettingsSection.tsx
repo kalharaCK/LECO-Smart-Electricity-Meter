@@ -71,7 +71,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
   const [user, setUser] = useState<UserProfile | null>(null)
 
   // Settings State
-  const [phoneNumber, setPhoneNumber] = useState("+94 77 123 4567")
+  const [phoneNumber, setPhoneNumber] = useState("")
   const [lowBalanceThreshold, setLowBalanceThreshold] = useState<number>(300)
   const [dailyKwhBudget, setDailyKwhBudget] = useState<number>(12)
   const [monthlyBudgetLkr, setMonthlyBudgetLkr] = useState<number>(3000)
@@ -113,7 +113,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
       if (res.ok) {
         const data = await res.json()
         if (data.settings) {
-          setPhoneNumber(data.settings.phone_number || "+94 77 123 4567")
+          setPhoneNumber(data.settings.phone_number || "")
           setLowBalanceThreshold(data.settings.low_balance_threshold ?? 300)
           setDailyKwhBudget(data.settings.daily_kwh_budget ?? 12)
           setMonthlyBudgetLkr(data.settings.monthly_budget_lkr ? Number(data.settings.monthly_budget_lkr) : 3000)
@@ -522,7 +522,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                       id="alert-phone-input"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+94 77 123 4567"
+                      placeholder="e.g. 0771234567"
                       className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl"
                     />
                   </div>

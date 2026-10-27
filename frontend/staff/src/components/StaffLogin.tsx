@@ -53,12 +53,6 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
     }
   }
 
-  const fillQuickAccess = () => {
-    setEmail("staff@leco.lk")
-    setPassword("staff123")
-    handleLogin(undefined, "staff@leco.lk", "staff123")
-  }
-
   return (
     <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4 relative overflow-hidden text-white font-sans selection:bg-[#992511]/30">
       {/* Background glow effects */}
@@ -152,21 +146,6 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
               )}
             </Button>
           </form>
-
-          {/* Quick Demo Access */}
-          {import.meta.env.DEV && <div className="pt-3 border-t border-white/10 text-center space-y-2">
-            <span className="text-[11px] text-white/60 block">One-Click Demonstration Access</span>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={fillQuickAccess}
-              disabled={loading}
-              className="w-full bg-black/40 hover:bg-black/60 border-white/20 text-white text-xs h-9 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
-            >
-              <ShieldCheck className="h-3.5 w-3.5 text-yellow-400" />
-              Quick Login as Field Operations Staff (staff@leco.lk)
-            </Button>
-          </div>}
         </CardContent>
       </Card>
     </div>

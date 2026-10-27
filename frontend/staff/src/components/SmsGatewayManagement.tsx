@@ -43,12 +43,22 @@ export default function SmsGatewayManagement({
   const [selectedTemplate, setSelectedTemplate] = useState<string>("low_balance")
   const [recipient, setRecipient] = useState<string>("")
   const [customMessage, setCustomMessage] = useState<string>("")
-  const [accountNo, setAccountNo] = useState<string>("ACC-883921")
-  const [amount, setAmount] = useState<string>("1500.00")
-  const [balanceVal, setBalanceVal] = useState<string>("2450.00")
+  const [accountNo, setAccountNo] = useState<string>("")
+  const [amount, setAmount] = useState<string>("500.00")
+  const [balanceVal, setBalanceVal] = useState<string>("0.00")
   const [refNo, setRefNo] = useState<string>("PAY-" + Date.now().toString().slice(-4))
   const [sendingSms, setSendingSms] = useState(false)
   const [dispatchAlert, setDispatchAlert] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  // Automatically sync Dispatch Studio recipient and account with live meters
+  useEffect(() => {
+    if (meters && meters.length > 0 && !accountNo) {
+      const first = meters[0]
+      setRecipient(first.phone_number || "")
+      setAccountNo(first.account_number || first.meter_number || "")
+      setBalanceVal(parseFloat(String(first.balance || 0)).toFixed(2))
+    }
+  }, [meters, accountNo])
 
   // Broadcast Low Balance states
   const [broadcastThreshold, setBroadcastThreshold] = useState<number>(300)
@@ -294,10 +304,10 @@ export default function SmsGatewayManagement({
             <div>
               <p className="text-xs font-semibold text-white/50 uppercase tracking-wider">SMS Balance Units</p>
               <h3 className="text-2xl font-bold text-white mt-1">
-                {balance?.remaining_balance ?? "593"} <span className="text-xs font-normal text-yellow-400">Units</span>
+                {balance?.remaining_balance != null ? balance.remaining_balance : "0"} <span className="text-xs font-normal text-yellow-400">Units</span>
               </h3>
               <p className="text-[11px] text-white/40 mt-1">
-                Expires: {balance?.expired_on ?? "5th Jul 26"}
+                {balance?.expired_on ? `Expires: ${balance.expired_on}` : "Gateway Active"}
               </p>
             </div>
             <div className="p-3 bg-yellow-400/10 border border-yellow-400/20 rounded-2xl text-yellow-400">
