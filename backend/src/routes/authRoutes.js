@@ -13,19 +13,19 @@ const {
   getMe
 } = require('../controllers/authController');
 const { requireAuth } = require('../middlewares/authMiddleware');
-const { authRateLimiter } = require('../middlewares/rateLimiter');
+const { authRateLimiter, otpSendRateLimiter, otpVerifyRateLimiter } = require('../middlewares/rateLimiter');
 
 const router = express.Router();
 
 // Registration & OTP verification
-router.post('/register/send-otp', authRateLimiter, sendRegisterOtp);
-router.post('/register', authRateLimiter, registerWithProfile);
+router.post('/register/send-otp', authRateLimiter, otpSendRateLimiter, sendRegisterOtp);
+router.post('/register', authRateLimiter, otpVerifyRateLimiter, registerWithProfile);
 router.post('/signup', authRateLimiter, signup);
 
 // Forgot Password Flow with NIC, Mobile & OTP
-router.post('/forgot-password/send-otp', authRateLimiter, sendForgotPasswordOtp);
-router.post('/forgot-password/verify-otp', authRateLimiter, verifyForgotPasswordOtp);
-router.post('/forgot-password/reset', authRateLimiter, resetPasswordWithOtp);
+router.post('/forgot-password/send-otp', authRateLimiter, otpSendRateLimiter, sendForgotPasswordOtp);
+router.post('/forgot-password/verify-otp', authRateLimiter, otpVerifyRateLimiter, verifyForgotPasswordOtp);
+router.post('/forgot-password/reset', authRateLimiter, otpVerifyRateLimiter, resetPasswordWithOtp);
 
 // Standard Login & Sessions
 router.post('/login', authRateLimiter, login);

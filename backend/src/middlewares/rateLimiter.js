@@ -1,10 +1,30 @@
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 
 const AUTH_WINDOW_MS = 15 * 60 * 1000;
 const AUTH_MAX_ATTEMPTS = 20;
 const METER_LINK_MAX_ATTEMPTS = 10;
 const CHAT_WINDOW_MS = 15 * 60 * 1000;
 const CHAT_MAX_REQUESTS = 20;
+const OTP_WINDOW_MS = 15 * 60 * 1000;
+
+const otpSendRateLimiter = rateLimit({
+  windowMs: OTP_WINDOW_MS,
+  limit: 3,
+  keyGenerator: (req) => `otp-send:${String(req.body?.mobile_number || req.body?.mobile || req.body?.nic || '').trim().toUpperCase()}:${ipKeyGenerator(req.ip)}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many verification codes requested. Please try again later.' }
+});
+
+const otpVerifyRateLimiter = rateLimit({
+  windowMs: OTP_WINDOW_MS,
+  limit: 5,
+  keyGenerator: (req) => `otp-verify:${String(req.body?.mobile_number || req.body?.mobile || req.body?.nic || '').trim().toUpperCase()}:${ipKeyGenerator(req.ip)}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many verification attempts. Please request a new code later.' }
+});
 
 /**
  * Phase 4: Defend Against Automated Attacks (Brute Force)
@@ -85,10 +105,13 @@ module.exports = {
   meterLinkRateLimiter,
   complaintRateLimiter,
   chatRateLimiter,
+  otpSendRateLimiter,
+  otpVerifyRateLimiter,
   AUTH_WINDOW_MS,
   AUTH_MAX_ATTEMPTS,
   METER_LINK_MAX_ATTEMPTS,
   CHAT_WINDOW_MS,
-  CHAT_MAX_REQUESTS
+  CHAT_MAX_REQUESTS,
+  OTP_WINDOW_MS
 };
 
