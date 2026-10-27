@@ -21,6 +21,7 @@ import ComplaintsSection from "../components/dashboard/ComplaintsSection"
 import PaymentHistorySection from "../components/dashboard/PaymentHistorySection"
 import SettingsSection from "../components/dashboard/SettingsSection"
 import EnergyAssistantBot from "../components/chat/EnergyAssistantBot"
+import MeterSwitcherDropdown from "../components/dashboard/MeterSwitcherDropdown"
 import { LanguageSelector } from "@/components/LanguageSelector"
 import { 
   DashboardI18nProvider, 
@@ -317,6 +318,12 @@ function DashboardInner() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3.5 relative shrink-0">
+            {/* Multi-Premises / Meter Switcher */}
+            <MeterSwitcherDropdown
+              onSelectMeter={() => setRefreshKey((k) => k + 1)}
+              onAddMeter={() => handleSelectSection("add-meter")}
+            />
+
             {/* Standard Language Selector */}
             <LanguageSelector 
               currentLanguage={language} 

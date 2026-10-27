@@ -109,7 +109,8 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
       if (res.ok) {
         const data = await res.json()
         if (data && data.length > 0) {
-          const activeMeter = data[0]
+          const savedMeterId = localStorage.getItem("active_meter_id")
+          const activeMeter = (savedMeterId && data.find((m: any) => String(m.id) === String(savedMeterId))) || data[0]
           setMeter(activeMeter)
           activeMeterIdRef.current = activeMeter.id
 
