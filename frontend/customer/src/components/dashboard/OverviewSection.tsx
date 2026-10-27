@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import TariffSlabCard from "./TariffSlabCard"
 import PeakHoursAdvisoryWidget from "./PeakHoursAdvisoryWidget"
+import PowerLoadGauge from "./PowerLoadGauge"
 
 interface UserSettingsState {
   phone_number?: string
@@ -772,13 +773,20 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
         </Card>
       </div>
 
-      {/* 4. Tariff Slab & Peak Hours Time-of-Use Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* 4. Smart Grid Analytics & Consumer Advisory Tier */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         <TariffSlabCard 
           currentMonthlyKwh={Number(consumption?.prediction?.billingCycleConsumptionKwh ?? (Number(meter.daily_average || 4.2) * 18))} 
           tariffType={meter.tariff_type} 
         />
         <PeakHoursAdvisoryWidget />
+        <PowerLoadGauge 
+          currentPowerKw={Number(consumption?.currentPower || 1.15)}
+          contractedDemandKw={Number(meter?.contracted_demand || 5.0)}
+          voltage={Number(consumption?.voltage || 230.4)}
+          frequency={Number(consumption?.frequency || 50.0)}
+          powerFactor={Number(consumption?.power_factor || 0.96)}
+        />
       </div>
 
       {/* 5. Lower Tier: 7-Day Chart & Analytics Summary (Left 2/3) + Recent Activity (Right 1/3) */}
