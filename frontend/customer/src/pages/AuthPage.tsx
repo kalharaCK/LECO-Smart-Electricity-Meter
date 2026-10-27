@@ -242,9 +242,6 @@ export default function AuthPage() {
       }
 
       localStorage.setItem("user", JSON.stringify(data.user))
-      if (data.token) {
-        localStorage.setItem("token", data.token)
-      }
 
       setMessage({ type: "success", text: t.alerts.signupSuccess })
       setTimeout(() => {

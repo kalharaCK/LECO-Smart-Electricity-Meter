@@ -229,4 +229,3 @@ async def get_recharge_demand(meter_id: int):
     except Exception as e:
         logger.error(f"Error predicting demand for meter {meter_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Unable to generate forecast.")
-

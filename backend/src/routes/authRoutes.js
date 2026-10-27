@@ -1,6 +1,5 @@
 const express = require('express');
 const { 
-  signup, 
   sendRegisterOtp,
   registerWithProfile,
   sendForgotPasswordOtp,
@@ -20,7 +19,6 @@ const router = express.Router();
 // Registration & OTP verification
 router.post('/register/send-otp', authRateLimiter, otpSendRateLimiter, sendRegisterOtp);
 router.post('/register', authRateLimiter, otpVerifyRateLimiter, registerWithProfile);
-router.post('/signup', authRateLimiter, signup);
 
 // Forgot Password Flow with NIC, Mobile & OTP
 router.post('/forgot-password/send-otp', authRateLimiter, otpSendRateLimiter, sendForgotPasswordOtp);

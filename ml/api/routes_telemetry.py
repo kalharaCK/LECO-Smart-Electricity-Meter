@@ -70,4 +70,3 @@ async def ingest_batch(batch: List[RawTelemetryInput] = Body(..., max_length=100
         "duplicates": duplicates,
         "meter_resets": resets
     }
-

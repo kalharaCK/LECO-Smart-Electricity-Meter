@@ -23,7 +23,7 @@ const initPayhereCheckout = async (req, res) => {
         !Number.isFinite(numAmount) || numAmount < 50 || numAmount > 100000) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Payment amount must be between Rs. 50 and Rs. 100,000 with at most two decimal places.' 
+        message: 'Payment amount must be between Rs. 50 and Rs. 100,000 with at most two decimal places.'
       });
     }
 

@@ -65,7 +65,7 @@ const signup = async (req, res) => {
 
     const token = jwt.sign(
       { id: newUser.rows[0].id, email: newUser.rows[0].email, role: newUser.rows[0].role, full_name: newUser.rows[0].full_name },
-      process.env.JWT_SECRET || 'super_secret_jwt_key',
+      process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
@@ -189,7 +189,7 @@ const registerWithProfile = async (req, res) => {
     }
 
     const otpCheck = await pool.query(
-      `SELECT id FROM verification_otps 
+      `SELECT id FROM verification_otps
        WHERE identifier = $1 AND purpose = 'registration' AND (otp_hash = $2 OR otp_code = $3) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
        ORDER BY id DESC LIMIT 1`,
       [cleanMobile, hashOtp(otp), otp]
@@ -231,7 +231,7 @@ const registerWithProfile = async (req, res) => {
 
     const token = jwt.sign(
       { id: newUser.id, email: newUser.email, role: newUser.role, full_name: newUser.full_name },
-      process.env.JWT_SECRET || 'super_secret_jwt_key',
+      process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
@@ -240,8 +240,7 @@ const registerWithProfile = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Customer account created and mobile verified successfully',
-      user: newUser,
-      token
+      user: newUser
     });
   } catch (err) {
     console.error('[Registration Error]:', err);
@@ -342,7 +341,7 @@ const verifyForgotPasswordOtp = async (req, res) => {
     const cleanOtp = otp.trim();
 
     const otpCheck = await pool.query(
-      `SELECT id FROM verification_otps 
+      `SELECT id FROM verification_otps
        WHERE identifier = $1 AND purpose = 'forgot_password' AND (otp_hash = $2 OR otp_code = $3) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
        ORDER BY id DESC LIMIT 1`,
       [cleanNic, hashOtp(cleanOtp), cleanOtp]
@@ -378,7 +377,7 @@ const resetPasswordWithOtp = async (req, res) => {
 
     // Verify OTP
     const otpCheck = await pool.query(
-      `SELECT id FROM verification_otps 
+      `SELECT id FROM verification_otps
        WHERE identifier = $1 AND purpose = 'forgot_password' AND (otp_hash = $2 OR otp_code = $3) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
        ORDER BY id DESC LIMIT 1`,
       [cleanNic, hashOtp(cleanOtp), cleanOtp]

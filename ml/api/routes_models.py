@@ -133,4 +133,3 @@ async def trigger_meter_evaluation(meter_id: int):
     except Exception as e:
         logger.error(f"Error evaluating meter {meter_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Unable to retrieve model data.")
-
