@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import React, { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -105,7 +106,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
   const fetchSettings = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch("http://localhost:3000/api/settings", {
+      const res = await fetch(`${API_BASE_URL}/api/settings`, {
         headers: getAuthHeaders(),
         credentials: "include"
       })
@@ -147,7 +148,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
   const handleSavePreferences = async () => {
     setSavingPreferences(true)
     try {
-      const res = await fetch("http://localhost:3000/api/settings", {
+      const res = await fetch(`${API_BASE_URL}/api/settings`, {
         method: "PATCH",
         headers: getAuthHeaders({ "Content-Type": "application/json" }),
         credentials: "include",
@@ -192,7 +193,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
 
     setSavingPassword(true)
     try {
-      const res = await fetch("http://localhost:3000/api/settings/password", {
+      const res = await fetch(`${API_BASE_URL}/api/settings/password`, {
         method: "POST",
         headers: getAuthHeaders({ "Content-Type": "application/json" }),
         credentials: "include",

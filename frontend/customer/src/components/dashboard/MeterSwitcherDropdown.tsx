@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import { useState, useEffect, useRef } from "react"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -40,7 +41,7 @@ export default function MeterSwitcherDropdown({
         const headers: Record<string, string> = {}
         if (token) headers["Authorization"] = `Bearer ${token}`
 
-        const res = await fetch("http://localhost:3000/api/meters", {
+        const res = await fetch(`${API_BASE_URL}/api/meters`, {
           headers,
           credentials: "include",
         })

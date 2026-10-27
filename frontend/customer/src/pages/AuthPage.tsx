@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
@@ -99,7 +100,7 @@ export default function AuthPage() {
     setLoading(true)
 
     try {
-      const res = await fetch("http://localhost:3000/api/customer-login", {
+      const res = await fetch(`${API_BASE_URL}/api/customer-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -154,7 +155,7 @@ export default function AuthPage() {
 
     setSendingRegOtp(true)
     try {
-      const res = await fetch("http://localhost:3000/api/auth/register/send-otp", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/register/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -185,7 +186,7 @@ export default function AuthPage() {
     setMessage(null)
     setSendingRegOtp(true)
     try {
-      const res = await fetch("http://localhost:3000/api/auth/register/send-otp", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/register/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -221,7 +222,7 @@ export default function AuthPage() {
 
     setLoading(true)
     try {
-      const res = await fetch("http://localhost:3000/api/auth/register", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -268,7 +269,7 @@ export default function AuthPage() {
 
     setSendingFpOtp(true)
     try {
-      const res = await fetch("http://localhost:3000/api/auth/forgot-password/send-otp", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/forgot-password/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -297,7 +298,7 @@ export default function AuthPage() {
     setMessage(null)
     setSendingFpOtp(true)
     try {
-      const res = await fetch("http://localhost:3000/api/auth/forgot-password/send-otp", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/forgot-password/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -340,7 +341,7 @@ export default function AuthPage() {
 
     setLoading(true)
     try {
-      const res = await fetch("http://localhost:3000/api/auth/forgot-password/reset", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/forgot-password/reset`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

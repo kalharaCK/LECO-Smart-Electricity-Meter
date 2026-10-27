@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -106,7 +107,7 @@ export default function EnergyAssistantBot() {
         content: m.text
       }))
 
-      const res = await fetch("http://localhost:3000/api/chat", {
+      const res = await fetch(`${API_BASE_URL}/api/chat`, {
         method: "POST",
         credentials: "include",
         headers,

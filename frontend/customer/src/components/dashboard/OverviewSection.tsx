@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -101,7 +102,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
       const headers: Record<string, string> = {}
       if (token) headers["Authorization"] = `Bearer ${token}`
 
-      const res = await fetch("http://localhost:3000/api/meters", {
+      const res = await fetch(`${API_BASE_URL}/api/meters`, {
         headers,
         credentials: "include"
       })
@@ -116,7 +117,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
 
           // Fetch consumption and predictions
           try {
-            const consRes = await fetch(`http://localhost:3000/api/meters/${activeMeter.id}/consumption`, {
+            const consRes = await fetch(`${API_BASE_URL}/api/meters/${activeMeter.id}/consumption`, {
               headers,
               credentials: "include"
             })
@@ -132,7 +133,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
 
       // Fetch Recent Notifications
       try {
-        const notifRes = await fetch("http://localhost:3000/api/notifications", {
+        const notifRes = await fetch(`${API_BASE_URL}/api/notifications`, {
           headers,
           credentials: "include"
         })
@@ -146,7 +147,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
 
       // Fetch Live User Settings for Budget & Prepaid Alerts
       try {
-        const settingsRes = await fetch("http://localhost:3000/api/settings", {
+        const settingsRes = await fetch(`${API_BASE_URL}/api/settings`, {
           headers,
           credentials: "include"
         })
@@ -238,7 +239,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
       const headers: Record<string, string> = { "Content-Type": "application/json" }
       if (token) headers["Authorization"] = `Bearer ${token}`
 
-      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/emergency-credit`, {
+      const res = await fetch(`${API_BASE_URL}/api/meters/${meter.id}/emergency-credit`, {
         method: "POST",
         credentials: "include",
         headers
@@ -277,7 +278,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
       const headers: Record<string, string> = { "Content-Type": "application/json" }
       if (token) headers["Authorization"] = `Bearer ${token}`
 
-      const res = await fetch("http://localhost:3000/api/settings", {
+      const res = await fetch(`${API_BASE_URL}/api/settings`, {
         method: "PATCH",
         headers,
         credentials: "include",
@@ -320,7 +321,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
       const headers: Record<string, string> = {}
       if (token) headers["Authorization"] = `Bearer ${token}`
 
-      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/statement-pdf`, {
+      const res = await fetch(`${API_BASE_URL}/api/meters/${meter.id}/statement-pdf`, {
         headers,
         credentials: "include",
       })

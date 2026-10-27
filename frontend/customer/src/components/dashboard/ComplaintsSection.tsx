@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import React, { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -128,7 +129,7 @@ export default function ComplaintsSection() {
   // Fetch Complaints from Backend
   const fetchComplaints = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/complaints/my", {
+      const res = await fetch(`${API_BASE_URL}/api/complaints/my`, {
         headers: getAuthHeaders(),
         credentials: "include"
       })
@@ -152,7 +153,7 @@ export default function ComplaintsSection() {
   // Fetch User's Meters
   const fetchMeters = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/meters", {
+      const res = await fetch(`${API_BASE_URL}/api/meters`, {
         headers: getAuthHeaders(),
         credentials: "include"
       })
@@ -209,7 +210,7 @@ export default function ComplaintsSection() {
 
     try {
       const selectedTypeObj = complaintTypes.find((ct) => ct.id === complaintType)
-      const res = await fetch("http://localhost:3000/api/complaints", {
+      const res = await fetch(`${API_BASE_URL}/api/complaints`, {
         method: "POST",
         headers: getAuthHeaders({
           "Content-Type": "application/json"

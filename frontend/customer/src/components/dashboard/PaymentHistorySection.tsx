@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -60,7 +61,7 @@ export default function PaymentHistorySection({
   const fetchPayments = async () => {
     try {
       setLoading(true)
-      const res = await fetch("http://localhost:3000/api/payments/history", {
+      const res = await fetch(`${API_BASE_URL}/api/payments/history`, {
         credentials: "include",
       })
       if (res.ok) {
@@ -166,7 +167,7 @@ export default function PaymentHistorySection({
       const headers: Record<string, string> = {}
       if (token) headers["Authorization"] = `Bearer ${token}`
 
-      const res = await fetch(`http://localhost:3000/api/payments/${targetId}/receipt-pdf`, {
+      const res = await fetch(`${API_BASE_URL}/api/payments/${targetId}/receipt-pdf`, {
         headers,
         credentials: "include",
       })

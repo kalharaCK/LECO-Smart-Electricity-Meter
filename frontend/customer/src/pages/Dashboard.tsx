@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import React, { useEffect, useState, Component, type ErrorInfo } from "react"
 import { useNavigate } from "react-router-dom"
 import { 
@@ -114,14 +115,14 @@ function DashboardInner() {
     localStorage.removeItem("token")
     const initializeSession = async () => {
       try {
-        const res = await fetch("http://localhost:3000/api/auth/me", { credentials: "include" })
+        const res = await fetch(`${API_BASE_URL}/api/auth/me`, { credentials: "include" })
         if (!res.ok) throw new Error("Session expired")
         const { user: sessionUser } = await res.json()
         if (sessionUser.role !== "customer" && sessionUser.role !== "user") throw new Error("Customer session required")
         setUser(sessionUser)
         localStorage.setItem("user", JSON.stringify(sessionUser))
 
-        const notifRes = await fetch("http://localhost:3000/api/notifications", { credentials: "include" })
+        const notifRes = await fetch(`${API_BASE_URL}/api/notifications`, { credentials: "include" })
         if (notifRes.ok) setNotifications(await notifRes.json())
       } catch (error) {
         localStorage.removeItem("user")
@@ -140,7 +141,7 @@ function DashboardInner() {
 
   const markAsRead = async (id: number) => {
     try {
-      await fetch(`http://localhost:3000/api/notifications/${id}/read`, {
+      await fetch(`${API_BASE_URL}/api/notifications/${id}/read`, {
         method: "PUT",
         credentials: "include"
       })
@@ -154,7 +155,7 @@ function DashboardInner() {
 
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:3000/api/logout", {
+      await fetch(`${API_BASE_URL}/api/logout`, {
         method: "POST",
         credentials: "include"
       })

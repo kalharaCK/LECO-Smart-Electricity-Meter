@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -51,7 +52,7 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
   useEffect(() => {
     const fetchMeters = async () => {
       try {
-        const res = await fetch("http://localhost:3000/api/meters", {
+        const res = await fetch(`${API_BASE_URL}/api/meters`, {
           credentials: "include",
         })
         if (res.ok) {
@@ -85,7 +86,7 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
     if (paymentMethod === "payhere") {
       setStep("processing")
       try {
-        const initRes = await fetch("http://localhost:3000/api/customer/payments/payhere-init", {
+        const initRes = await fetch(`${API_BASE_URL}/api/customer/payments/payhere-init`, {
           method: "POST",
           credentials: "include",
           headers: authHeaders,
@@ -119,7 +120,7 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
             // The browser callback is only a UX signal. Wait for the signed server-to-server
             // PayHere notification to reconcile the payment before displaying success.
             for (let attempt = 0; attempt < 10; attempt++) {
-              const completeRes = await fetch("http://localhost:3000/api/customer/payments/payhere-complete", {
+              const completeRes = await fetch(`${API_BASE_URL}/api/customer/payments/payhere-complete`, {
                 method: "POST",
                 credentials: "include",
                 headers: authHeaders,
@@ -178,7 +179,7 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
     // Direct / mock fallback for alternative payment channels
     setStep("processing")
     try {
-      const res = await fetch(`http://localhost:3000/api/meters/${selectedMeterId}/recharge`, {
+      const res = await fetch(`${API_BASE_URL}/api/meters/${selectedMeterId}/recharge`, {
         method: "POST",
         credentials: "include",
         headers: {

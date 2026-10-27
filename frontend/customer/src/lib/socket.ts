@@ -1,10 +1,11 @@
+import { API_BASE_URL } from "@/lib/api"
 import { io, Socket } from 'socket.io-client';
 
 let socket: Socket | null = null;
 
 export const getSocket = (): Socket => {
   if (!socket) {
-    socket = io('http://localhost:3000', {
+    socket = io(API_BASE_URL, {
       withCredentials: true,
       transports: ['websocket', 'polling'],
       autoConnect: true,
