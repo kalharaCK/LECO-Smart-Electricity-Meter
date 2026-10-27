@@ -236,7 +236,7 @@ function DashboardInner() {
   const renderContent = () => {
     switch (activeSection) {
       case "overview":
-        return <OverviewSection refreshKey={refreshKey} onNavigate={handleSelectSection} />
+        return <OverviewSection refreshKey={refreshKey} onNavigate={handleSelectSection} features={featureFlags} />
       case "add-meter":
         return (
           <AddMeterSection

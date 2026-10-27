@@ -56,9 +56,19 @@ interface UserSettingsState {
 interface OverviewSectionProps {
   refreshKey?: number
   onNavigate?: (section: string) => void
+  features?: {
+    aiChatbot?: boolean
+    onlineTopup?: boolean
+    mlPrediction?: boolean
+    lifelineMode?: boolean
+    complaintsPortal?: boolean
+    solarTelemetry?: boolean
+    maintenanceMode?: boolean
+    maintenanceBanner?: string
+  }
 }
 
-export default function OverviewSection({ refreshKey, onNavigate }: OverviewSectionProps) {
+export default function OverviewSection({ refreshKey, onNavigate, features }: OverviewSectionProps) {
   const { language, t } = useDashboardI18n()
   const [viewMode, setViewMode] = useState<"simplified" | "detailed">(() => {
     if (typeof window !== "undefined") {
@@ -501,8 +511,8 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
   const isEmergencyActive = !!meter.emergency_credit_active
   const isDisconnected = meter.status?.toLowerCase() === "disconnected" || balanceNumber < -500
 
-  // Real ML Prediction values - strictly authentic from Python ML Engine or N/A when offline
-  const isMlAvailable = Boolean(consumption?.prediction?.ml?.isAvailable)
+  // Real ML Prediction values - strictly authentic from Python ML Engine or N/A when offline or disabled
+  const isMlAvailable = features?.mlPrediction !== false && Boolean(consumption?.prediction?.ml?.isAvailable)
   const mlPrediction = isMlAvailable ? consumption?.prediction?.ml : null
   const mlDaysRemaining = (isMlAvailable && mlPrediction?.expectedRemainingDays != null) 
     ? Number(mlPrediction.expectedRemainingDays) 
@@ -729,29 +739,33 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-            <Button
-              size="sm"
-              onClick={handleActivateEmergency}
-              disabled={activatingEmergency}
-              variant="outline"
-              className="flex-1 sm:flex-initial bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/40 font-semibold h-9 px-3 rounded-xl text-xs cursor-pointer"
-            >
-              {activatingEmergency ? (
-                <>
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  Activating...
-                </>
-              ) : (
-                "Emergency Lifeline"
-              )}
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => onNavigate?.("payments")}
-              className="flex-1 sm:flex-initial bg-yellow-400 hover:bg-yellow-300 text-black font-bold h-9 px-4 rounded-xl text-xs cursor-pointer shadow-md"
-            >
-              Recharge Now
-            </Button>
+            {features?.lifelineMode !== false && (
+              <Button
+                size="sm"
+                onClick={handleActivateEmergency}
+                disabled={activatingEmergency}
+                variant="outline"
+                className="flex-1 sm:flex-initial bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/40 font-semibold h-9 px-3 rounded-xl text-xs cursor-pointer"
+              >
+                {activatingEmergency ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    Activating...
+                  </>
+                ) : (
+                  "Emergency Lifeline"
+                )}
+              </Button>
+            )}
+            {features?.onlineTopup !== false && (
+              <Button
+                size="sm"
+                onClick={() => onNavigate?.("payments")}
+                className="flex-1 sm:flex-initial bg-yellow-400 hover:bg-yellow-300 text-black font-bold h-9 px-4 rounded-xl text-xs cursor-pointer shadow-md"
+              >
+                Recharge Now
+              </Button>
+            )}
           </div>
         </div>
       )}
