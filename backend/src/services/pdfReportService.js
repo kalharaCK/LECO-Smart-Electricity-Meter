@@ -29,53 +29,53 @@ const COLORS = {
 };
 
 /**
- * Draws standard corporate header on the document
+ * Draws standard corporate header on the document with compact logo
  */
 function drawCorporateHeader(doc) {
-  // 1. Brand Logo with preserved aspect ratio (height 46pt)
+  // 1. Brand Logo with refined compact corporate scale (38 x 38 pt)
   if (fs.existsSync(LOGO_PATH)) {
     try {
-      doc.image(LOGO_PATH, 40, 30, { fit: [90, 46], align: 'left', valign: 'center' });
+      doc.image(LOGO_PATH, 42, 28, { width: 38, height: 38 });
     } catch (_) {
-      doc.roundedRect(40, 30, 46, 46, 6).fill(COLORS.primary);
-      doc.font('Helvetica-Bold').fontSize(14).fillColor('#FFFFFF').text('LECO', 46, 46);
+      doc.roundedRect(42, 28, 38, 38, 4).fill(COLORS.primary);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#FFFFFF').text('LECO', 46, 42);
     }
   } else {
-    doc.roundedRect(40, 30, 46, 46, 6).fill(COLORS.primary);
-    doc.font('Helvetica-Bold').fontSize(14).fillColor('#FFFFFF').text('LECO', 46, 46);
+    doc.roundedRect(42, 28, 38, 38, 4).fill(COLORS.primary);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#FFFFFF').text('LECO', 46, 42);
   }
 
-  // 2. Company Identity next to the Logo
+  // 2. Company Identity next to the compact Logo
   doc
     .font('Helvetica-Bold')
-    .fontSize(15)
+    .fontSize(12)
     .fillColor(COLORS.primary)
-    .text('LECO', 95, 34)
+    .text('LANKA ELECTRICITY COMPANY (PVT) LTD', 88, 30)
     .font('Helvetica-Bold')
     .fontSize(7.5)
     .fillColor(COLORS.secondary)
-    .text('LANKA ELECTRICITY COMPANY (PVT) LTD', 95, 51)
+    .text('Smart Prepaid Electricity Distribution Division', 88, 44)
     .font('Helvetica')
-    .fontSize(7)
+    .fontSize(6.5)
     .fillColor(COLORS.textMuted)
-    .text('Smart Prepaid Metering & Grid Operations', 95, 62);
+    .text('Regulated by Public Utilities Commission of Sri Lanka (PUCSL)', 88, 55);
 
   // 3. Official License & Contact Information on the Right
   doc
     .font('Helvetica-Bold')
-    .fontSize(7.5)
-    .fillColor(COLORS.secondary)
-    .text('PUCSL Distribution License No: EL/D/09-002', 280, 34, { align: 'right', width: 275 })
-    .font('Helvetica')
     .fontSize(7)
+    .fillColor(COLORS.secondary)
+    .text('PUCSL License No: EL/D/09-002', 335, 30, { align: 'right', width: 220 })
+    .font('Helvetica')
+    .fontSize(6.5)
     .fillColor(COLORS.textMuted)
-    .text('Head Office: 411, Galle Road, Colombo 03, Sri Lanka', 280, 45, { align: 'right', width: 275 })
-    .text('24/7 Helpline: 1987 | Call Center: (+94) 11 237 1234', 280, 55, { align: 'right', width: 275 })
-    .text('Web Portal: www.leco.lk | Email: support@leco.lk', 280, 65, { align: 'right', width: 275 });
+    .text('Head Office: 411, Galle Road, Colombo 03, Sri Lanka', 335, 40, { align: 'right', width: 220 })
+    .text('24/7 Helpline: 1987 | Call Center: (+94) 11 237 1234', 335, 49, { align: 'right', width: 220 })
+    .text('Web Portal: www.leco.lk | Email: support@leco.lk', 335, 58, { align: 'right', width: 220 });
 
   // 4. Decorative Corporate Accent Rule
-  doc.rect(40, 82, 515, 2.5).fill(COLORS.primary);
-  doc.rect(435, 82, 120, 2.5).fill(COLORS.accent);
+  doc.rect(40, 72, 515, 2).fill(COLORS.primary);
+  doc.rect(435, 72, 120, 2).fill(COLORS.accent);
 }
 
 /**
