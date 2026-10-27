@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { randomInt } = require('node:crypto');
 const { pool } = require('../config/db');
 const smsService = require('../services/smsService');
 const { validateNewPassword } = require('../services/passwordPolicy');
@@ -119,7 +120,7 @@ const sendRegisterOtp = async (req, res) => {
     }
 
     // Generate 6-digit random OTP
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpCode = randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Invalidate previous unverified registration OTPs for this mobile
@@ -280,7 +281,7 @@ const sendForgotPasswordOtp = async (req, res) => {
     }
 
     const user = userRes.rows[0];
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpCode = randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Invalidate previous unverified forgot password OTPs for this NIC
