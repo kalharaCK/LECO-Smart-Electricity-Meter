@@ -51,7 +51,7 @@ function formatApiError(err, responseStatus = 200, path = '') {
     } else if (err.code === '22P02') {
       candidateStatus = 400;
       errorMessage = 'Invalid input format or data type for field.';
-    } else if (['08001', '08006', '57P01', '57P02', '57P03', 'ECONNREFUSED', 'ETIMEDOUT'].includes(err.code)) {
+    } else if (['08001', '08006', '57P01', '57P02', '57P03', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET'].includes(err.code)) {
       candidateStatus = 503;
       errorMessage = 'Database service temporarily unavailable. Please retry in a moment.';
     }

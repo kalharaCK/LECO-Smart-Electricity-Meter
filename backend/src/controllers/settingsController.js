@@ -48,6 +48,7 @@ const getUserSettings = async (req, res) => {
       [userId]
     );
 
+    if (res.headersSent) return;
     return res.json({
       success: true,
       settings: {
@@ -68,6 +69,7 @@ const getUserSettings = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching settings:', error);
+    if (res.headersSent) return;
     return res.status(500).json({ success: false, message: 'Internal server error fetching settings' });
   }
 };
@@ -180,6 +182,7 @@ const updateUserSettings = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating settings:', error);
+    if (res.headersSent) return;
     return res.status(500).json({ success: false, message: 'Internal server error saving settings' });
   }
 };

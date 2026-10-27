@@ -95,6 +95,7 @@ const createComplaint = async (req, res) => {
     });
   } catch (error) {
     console.error('Error submitting complaint:', error);
+    if (res.headersSent) return;
     return res.status(500).json({
       success: false,
       message: 'Internal server error submitting complaint.'
@@ -121,12 +122,14 @@ const getMyComplaints = async (req, res) => {
       [userId]
     );
 
+    if (res.headersSent) return;
     return res.json({
       success: true,
       complaints: result.rows
     });
   } catch (error) {
     console.error('Error fetching customer complaints:', error);
+    if (res.headersSent) return;
     return res.status(500).json({
       success: false,
       message: 'Internal server error fetching complaints.'

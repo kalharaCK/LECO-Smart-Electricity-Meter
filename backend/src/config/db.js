@@ -13,10 +13,10 @@ if (process.env.NODE_ENV === 'production' && disableDatabaseTls) {
 
 const pool = new Pool({
   connectionString,
-  ssl: disableDatabaseTls ? false : { rejectUnauthorized: true },
+  ssl: disableDatabaseTls ? false : { rejectUnauthorized: false },
   max: 15,
   idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 15000,
+  connectionTimeoutMillis: 10000,
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000
 });
