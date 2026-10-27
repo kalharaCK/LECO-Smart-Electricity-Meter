@@ -111,6 +111,39 @@ function DashboardInner() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
+  // Remote Feature Flags controlled by Staff Operations
+  const [featureFlags, setFeatureFlags] = useState<{
+    aiChatbot: boolean
+    onlineTopup: boolean
+    mlPrediction: boolean
+    lifelineMode: boolean
+    complaintsPortal: boolean
+    solarTelemetry: boolean
+    maintenanceMode: boolean
+    maintenanceBanner: string
+  }>({
+    aiChatbot: true,
+    onlineTopup: true,
+    mlPrediction: true,
+    lifelineMode: true,
+    complaintsPortal: true,
+    solarTelemetry: true,
+    maintenanceMode: false,
+    maintenanceBanner: ""
+  })
+
+  // Poll / fetch remote system feature flags
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/public/features`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.features) {
+          setFeatureFlags(data.features)
+        }
+      })
+      .catch((err) => console.warn("Could not fetch remote feature flags:", err))
+  }, [])
+
   useEffect(() => {
     localStorage.removeItem("token")
     const initializeSession = async () => {
@@ -183,18 +216,18 @@ function DashboardInner() {
   const navItems = [
     { id: "overview", title: t.nav.overview, icon: LayoutDashboard },
     { id: "add-meter", title: t.nav.addMeter, icon: PlusCircle },
-    { id: "payments", title: t.nav.payments, icon: CreditCard },
+    ...(featureFlags.onlineTopup !== false ? [{ id: "payments", title: t.nav.payments, icon: CreditCard }] : []),
     { id: "history", title: t.nav.history, icon: HistoryIcon },
-    { id: "complaints", title: t.nav.complaints, icon: MessageSquareWarning },
+    ...(featureFlags.complaintsPortal !== false ? [{ id: "complaints", title: t.nav.complaints, icon: MessageSquareWarning }] : []),
     { id: "settings", title: t.nav.settings, icon: Settings },
   ]
 
   // Key items for mobile bottom navigation dock
   const mobileDockItems = [
     { id: "overview", label: t.dock.overview, icon: LayoutDashboard },
-    { id: "payments", label: t.dock.recharge, icon: CreditCard },
+    ...(featureFlags.onlineTopup !== false ? [{ id: "payments", label: t.dock.recharge, icon: CreditCard }] : []),
     { id: "history", label: t.dock.history, icon: HistoryIcon },
-    { id: "complaints", label: t.dock.help, icon: MessageSquareWarning },
+    ...(featureFlags.complaintsPortal !== false ? [{ id: "complaints", label: t.dock.help, icon: MessageSquareWarning }] : []),
     { id: "settings", label: t.dock.settings, icon: Settings },
   ]
 
@@ -402,6 +435,19 @@ function DashboardInner() {
 
         {/* Main Content Area: Safe Bottom Spacing for Mobile Dock & Floating Assistant */}
         <main className="flex-1 p-3 sm:p-5 lg:p-8 pb-28 md:pb-10 max-w-7xl w-full mx-auto">
+          {/* System Maintenance Alert Banner */}
+          {featureFlags.maintenanceMode && (
+            <div className="mb-5 p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border border-amber-500/30 text-amber-200 text-xs sm:text-sm flex items-start gap-3 shadow-lg">
+              <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-amber-300">LECO System Notice</p>
+                <p className="text-white/80 text-xs mt-0.5 leading-relaxed">
+                  {featureFlags.maintenanceBanner || "Scheduled system maintenance is currently underway. Some telemetry and billing functions may experience temporary latency."}
+                </p>
+              </div>
+            </div>
+          )}
+
           {activeSection !== "overview" && (
             <div className="mb-4 sm:mb-6 animate-in fade-in slide-in-from-left-4 duration-500">
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight capitalize text-white">
@@ -417,8 +463,10 @@ function DashboardInner() {
         </main>
       </SidebarInset>
 
-      {/* Floating AI Energy Assistant Bot (Auto adjusts on mobile) */}
-      <EnergyAssistantBot onNavigate={handleSelectSection} />
+      {/* Floating AI Energy Assistant Bot (Controlled by Staff Feature Switch) */}
+      {featureFlags.aiChatbot !== false && (
+        <EnergyAssistantBot onNavigate={handleSelectSection} />
+      )}
 
       {/* Native-Style Mobile Bottom Navigation Bar (Dock) */}
       <nav 

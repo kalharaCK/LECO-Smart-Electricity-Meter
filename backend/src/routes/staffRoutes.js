@@ -130,4 +130,30 @@ router.get('/sms/templates', getTemplates);
 router.post('/sms/send', sendStaffSms);
 router.post('/sms/broadcast-low-balance', broadcastLowBalanceAlerts);
 
+/**
+ * Nodemailer Email Gateway & SMTP Configuration
+ */
+const {
+  getEmailConfig,
+  updateEmailConfig,
+  sendStaffTestEmail,
+  getEmailLogs
+} = require('../controllers/staffEmailController');
+
+router.get('/email/config', getEmailConfig);
+router.post('/email/config', updateEmailConfig);
+router.post('/email/test', sendStaffTestEmail);
+router.get('/email/logs', getEmailLogs);
+
+/**
+ * System Settings & Customer Feature Flags Management
+ */
+const {
+  getStaffSettings,
+  updateStaffSettings
+} = require('../controllers/staffSettingsController');
+
+router.get('/system-settings', getStaffSettings);
+router.post('/system-settings', updateStaffSettings);
+
 module.exports = router;

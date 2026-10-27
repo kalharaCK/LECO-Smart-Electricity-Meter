@@ -437,28 +437,36 @@ export default function EnergyAssistantBot({ onNavigate }: EnergyAssistantBotPro
           </div>
         )}
 
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={`relative p-3 sm:p-3.5 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer ${
-            isOpen
-              ? "bg-[#1f1f23] text-white border border-white/20"
-              : "bg-gradient-to-r from-[#992511] via-[#c13018] to-[#ea381e] text-white shadow-[0_0_20px_rgba(234,56,30,0.5)] ring-2 ring-white/10"
-          }`}
-          aria-label="Toggle LECO AI Chatbot"
-        >
-          {isOpen ? (
-            <X className="h-5 w-5 sm:h-6 sm:w-6" />
-          ) : (
-            <>
-              <Bot className="h-5 w-5 sm:h-6 sm:w-6 animate-pulse" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-yellow-400 text-black font-black text-[10px] h-5 w-5 rounded-full flex items-center justify-center border-2 border-[#0a0a0c]">
-                  {unreadCount}
-                </span>
-              )}
-            </>
-          )}
-        </button>
+        {/* High-Contrast Black Gradient Outer Halo & Backing Disc */}
+        <div className="relative group p-2 rounded-full bg-gradient-to-b from-black via-[#111115] to-black border-2 border-white/20 shadow-[0_12px_40px_rgba(0,0,0,0.95),0_0_20px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+          {/* Deep Black Radial Halo for Maximum Highlighting on any background */}
+          <div className="absolute -inset-2 rounded-full bg-[radial-gradient(circle,_rgba(0,0,0,0.95)_0%,_rgba(0,0,0,0.7)_60%,_transparent_100%)] -z-10 pointer-events-none" />
+
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className={`relative p-3 sm:p-3.5 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer ${
+              isOpen
+                ? "bg-gradient-to-b from-[#1f1f23] to-black text-white border border-white/20"
+                : "bg-gradient-to-br from-[#992511] via-[#c13018] to-black text-white shadow-[0_0_25px_rgba(153,37,17,0.7)] ring-2 ring-white/25 hover:ring-yellow-400/60"
+            }`}
+            aria-label="Toggle LECO AI Chatbot"
+          >
+            {/* Black gradient backing layer directly behind the Bot icon for extreme contrast and highlighting */}
+            <span className="absolute inset-1 rounded-full bg-gradient-to-b from-black/70 via-black/40 to-black/80 -z-0" />
+            {isOpen ? (
+              <X className="relative z-10 h-5 w-5 sm:h-6 sm:w-6 text-white" />
+            ) : (
+              <>
+                <Bot className="relative z-10 h-5 w-5 sm:h-6 sm:w-6 text-yellow-300 animate-pulse drop-shadow-[0_2px_8px_rgba(0,0,0,1)]" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 z-20 bg-yellow-400 text-black font-black text-[10px] h-5 w-5 rounded-full flex items-center justify-center border-2 border-black shadow-md">
+                    {unreadCount}
+                  </span>
+                )}
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Responsive Chat Window */}

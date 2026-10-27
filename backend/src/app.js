@@ -128,6 +128,11 @@ app.use('/api/prediction', predictionModule.router);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/metrics', metricsRoutes);
 
+const { getPublicFeatures } = require('./controllers/staffSettingsController');
+
+// Public System Feature Flags & Announcements for Customer Portal
+app.get('/api/public/features', getPublicFeatures);
+
 // PayHere Payment Gateway Handlers & Server-to-Server IPN Webhook
 app.post('/api/payments/payhere-notify', handlePayhereNotify);
 app.post('/api/payments/payhere-init', requireAuth, initPayhereCheckout);

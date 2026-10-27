@@ -5,7 +5,9 @@ import {
   MessageSquareWarning,
   LogOut,
   CreditCard,
-  Send
+  Send,
+  Mail,
+  Sliders
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import StaffLogin from "./components/StaffLogin"
@@ -13,12 +15,14 @@ import MetersManagement from "./components/MetersManagement"
 import ComplaintsManagement from "./components/ComplaintsManagement"
 import PayhereVerification from "./components/PayhereVerification"
 import SmsGatewayManagement from "./components/SmsGatewayManagement"
+import EmailGatewayManagement from "./components/EmailGatewayManagement"
+import SystemSettingsManagement from "./components/SystemSettingsManagement"
 import { getSocket } from "./lib/socket"
 import type { StaffMeter, StaffComplaint, StaffUser, PayhereTransaction } from "./types"
 
 export function App() {
   const [user, setUser] = useState<StaffUser | null>(null)
-  const [activeTab, setActiveTab] = useState<"meters" | "complaints" | "payhere" | "sms">("meters")
+  const [activeTab, setActiveTab] = useState<"meters" | "complaints" | "payhere" | "sms" | "email" | "settings">("meters")
 
   // Data states
   const [meters, setMeters] = useState<StaffMeter[]>([])
@@ -281,7 +285,11 @@ export function App() {
                 ? "Customer Complaints & Engineering Triage"
                 : activeTab === "payhere"
                 ? "PayHere Payment Gateway Ledger & Verification"
-                : "Text.lk SMS Gateway & Trilingual Alerts Center"}
+                : activeTab === "sms"
+                ? "Text.lk SMS Gateway & Trilingual Alerts Center"
+                : activeTab === "email"
+                ? "Nodemailer Email Gateway & SMTP Dispatcher"
+                : "System Settings & Dynamic Feature Controls"}
             </h1>
             <p className="text-xs text-white/60 mt-1 max-w-xl">
               {activeTab === "meters"
@@ -290,7 +298,11 @@ export function App() {
                 ? "Triage customer complaints, dispatch field technicians, update progress stages, and push live resolution notices."
                 : activeTab === "payhere"
                 ? "Verify online checkout tokens, inspect MD5 digital signatures, review PayHere webhook callbacks, and conduct manual reconciliations."
-                : "Live SMS balance tracking, instant transactional SMS dispatch (English, Sinhala, Tamil), automated low-balance fleet broadcasts, and full transmission audit ledger."}
+                : activeTab === "sms"
+                ? "Live SMS balance tracking, instant transactional SMS dispatch (English, Sinhala, Tamil), automated low-balance fleet broadcasts, and full transmission audit ledger."
+                : activeTab === "email"
+                ? "Manage Gmail sender email and 16-character App Passwords, dispatch dual-channel OTPs, execute real-time SMTP diagnostic tests, and inspect transmission logs."
+                : "Manage API keys (Groq AI, Text.lk SMS, PayHere), live model switching, and toggle customer portal features in real time."}
             </p>
           </div>
 
@@ -360,6 +372,32 @@ export function App() {
               <Send className="h-4 w-4" />
               SMS Gateway
             </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("email")}
+              className={`px-4 lg:px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === "email"
+                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
+                  : "text-white/60 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <Mail className="h-4 w-4" />
+              Email Gateway
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("settings")}
+              className={`px-4 lg:px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeTab === "settings"
+                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
+                  : "text-white/60 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <Sliders className="h-4 w-4" />
+              System Settings
+            </button>
           </div>
         </div>
       </div>
@@ -389,9 +427,17 @@ export function App() {
             onRefresh={fetchPayhereTransactions}
             getAuthHeaders={getAuthHeaders}
           />
-        ) : (
+        ) : activeTab === "sms" ? (
           <SmsGatewayManagement
             meters={meters}
+            getAuthHeaders={getAuthHeaders}
+          />
+        ) : activeTab === "email" ? (
+          <EmailGatewayManagement
+            getAuthHeaders={getAuthHeaders}
+          />
+        ) : (
+          <SystemSettingsManagement
             getAuthHeaders={getAuthHeaders}
           />
         )}

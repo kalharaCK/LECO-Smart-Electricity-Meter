@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const systemSettingsService = require('./systemSettingsService');
 
 /**
  * PayHere Payment Gateway Helper Service
@@ -11,9 +12,9 @@ const md5 = (str) => crypto.createHash('md5').update(str).digest('hex');
  * Get configured PayHere merchant credentials
  */
 const getMerchantConfig = () => {
-  const merchantId = process.env.PAYHERE_MERCHANT_ID;
-  const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET;
-  const isSandbox = process.env.PAYHERE_SANDBOX !== 'false';
+  const merchantId = systemSettingsService.getSettingSync('PAYHERE_MERCHANT_ID', process.env.PAYHERE_MERCHANT_ID);
+  const merchantSecret = systemSettingsService.getSettingSync('PAYHERE_MERCHANT_SECRET', process.env.PAYHERE_MERCHANT_SECRET);
+  const isSandbox = systemSettingsService.getSettingSync('PAYHERE_SANDBOX', process.env.PAYHERE_SANDBOX !== 'false' ? 'true' : 'false') !== 'false';
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
 

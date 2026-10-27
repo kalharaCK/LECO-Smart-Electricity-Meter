@@ -168,6 +168,35 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_sms_logs_event_type ON sms_logs(event_type);
       CREATE INDEX IF NOT EXISTS idx_sms_logs_created_at ON sms_logs(created_at DESC);
 
+      -- Email Gateway Settings & Staff Credentials Configuration
+      CREATE TABLE IF NOT EXISTS email_settings (
+        id SERIAL PRIMARY KEY,
+        sender_email VARCHAR(255) NOT NULL,
+        app_password VARCHAR(255) NOT NULL,
+        smtp_host VARCHAR(255) DEFAULT 'smtp.gmail.com',
+        smtp_port INT DEFAULT 465,
+        smtp_secure BOOLEAN DEFAULT TRUE,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Email Dispatch Audit Ledger
+      CREATE TABLE IF NOT EXISTS email_logs (
+        id SERIAL PRIMARY KEY,
+        recipient VARCHAR(255) NOT NULL,
+        subject VARCHAR(255) NOT NULL,
+        purpose VARCHAR(50) NOT NULL,
+        status VARCHAR(50) DEFAULT 'sent',
+        message_id VARCHAR(255),
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_email_logs_recipient ON email_logs(recipient);
+      CREATE INDEX IF NOT EXISTS idx_email_logs_created_at ON email_logs(created_at DESC);
+
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
+
       -- Performance Telemetry & Query Optimization Indexes
       CREATE INDEX IF NOT EXISTS idx_payments_user_status ON payments(user_id, status);
       CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
@@ -177,6 +206,10 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_meters_user_id ON meters(user_id);
     `);
     console.log('[Database] Tables and indexes verified successfully.');
+
+    // Initialize dynamic system settings & feature flags cache
+    const systemSettingsService = require('../services/systemSettingsService');
+    await systemSettingsService.initializeSystemSettings();
 
     const bcrypt = require('bcryptjs');
 

@@ -22,6 +22,8 @@ const CANDIDATE_MODELS = [
 
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 
+const systemSettingsService = require('../../../services/systemSettingsService');
+
 /**
  * Call Groq API with prompt messages
  *
@@ -30,7 +32,7 @@ const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
  * @returns {Promise<{ success: boolean, reply?: string, reason?: string, modelUsed?: string }>}
  */
 async function callGroqChat(messages, options = {}) {
-  const apiKey = process.env.GROQ_KEY || process.env.GROQ_API_KEY;
+  const apiKey = (systemSettingsService.getSettingSync('GROQ_API_KEY', process.env.GROQ_KEY || process.env.GROQ_API_KEY || '')).trim();
 
   if (!apiKey) {
     return { success: false, reason: 'missing_api_key' };

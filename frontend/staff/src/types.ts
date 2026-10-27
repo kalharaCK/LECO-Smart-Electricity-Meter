@@ -102,3 +102,24 @@ export interface SmsStats {
   total_failed: number
   sent_today: number
 }
+
+export interface EmailConfig {
+  isConfigured: boolean
+  senderEmail: string
+  maskedPassword?: string
+  smtpHost: string
+  smtpPort: number
+  source: 'database' | 'environment' | 'none'
+}
+
+export interface EmailLog {
+  id: number
+  recipient: string
+  subject: string
+  purpose: string
+  status: 'sent' | 'failed' | 'pending_config' | string
+  message_id?: string
+  error_message?: string
+  created_at: string
+}
+

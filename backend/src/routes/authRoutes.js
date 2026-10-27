@@ -5,6 +5,8 @@ const {
   sendForgotPasswordOtp,
   verifyForgotPasswordOtp,
   resetPasswordWithOtp,
+  sendEmailVerificationOtp,
+  confirmEmailVerification,
   login, 
   staffLogin, 
   customerLogin, 
@@ -19,6 +21,10 @@ const router = express.Router();
 // Registration & OTP verification
 router.post('/register/send-otp', authRateLimiter, otpSendRateLimiter, sendRegisterOtp);
 router.post('/register', authRateLimiter, otpVerifyRateLimiter, registerWithProfile);
+
+// Email Verification Flow
+router.post('/verify-email/send-otp', authRateLimiter, otpSendRateLimiter, sendEmailVerificationOtp);
+router.post('/verify-email/confirm', authRateLimiter, otpVerifyRateLimiter, confirmEmailVerification);
 
 // Forgot Password Flow with NIC, Mobile & OTP
 router.post('/forgot-password/send-otp', authRateLimiter, otpSendRateLimiter, sendForgotPasswordOtp);

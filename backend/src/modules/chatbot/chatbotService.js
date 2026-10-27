@@ -17,6 +17,7 @@ const { generateOfflineReply } = require('./services/offlineEngine');
 const { detectActions } = require('./services/actionDetector');
 const { pool } = require('../../config/db');
 const { getWalletLifetimePrediction } = require('../prediction');
+const systemSettingsService = require('../../services/systemSettingsService');
 
 /**
  * Backward-compatible Chatbot Response Object
@@ -341,7 +342,7 @@ async function processChatMessage({ message, history = [], userId, language = nu
   const relevantDocs = retrieveRelevantKnowledge(cleanMessage, 3);
 
   // Step 5: Groq API Execution with fallback
-  const apiKey = process.env.GROQ_KEY || process.env.GROQ_API_KEY;
+  const apiKey = (systemSettingsService.getSettingSync('GROQ_API_KEY', process.env.GROQ_KEY || process.env.GROQ_API_KEY || '')).trim();
 
   if (apiKey) {
     try {

@@ -1,14 +1,15 @@
 const { pool, resilientQuery } = require('../config/db');
 const { executeWithFallback } = require('../utils/retryEngine');
+const systemSettingsService = require('./systemSettingsService');
 
 const TEXT_LK_BASE_URL = 'https://app.text.lk/api/v3';
 
 function getApiToken() {
-  return (process.env.SMS_API_TOKEN || '').trim();
+  return (systemSettingsService.getSettingSync('SMS_API_TOKEN', process.env.SMS_API_TOKEN || '')).trim();
 }
 
 function getSenderId() {
-  return (process.env.SMS_SENDER_ID || 'TextLKDemo').trim();
+  return (systemSettingsService.getSettingSync('SMS_SENDER_ID', process.env.SMS_SENDER_ID || 'TextLKDemo')).trim();
 }
 
 /**
