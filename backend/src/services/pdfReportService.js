@@ -17,71 +17,86 @@ const LOGO_PATH = path.resolve(__dirname, '../assets/leco-logo.png');
 const COLORS = {
   primary: '#992511',       // LECO Deep Maroon
   primaryLight: '#FAF5F5',
-  secondary: '#1E293B',     // Corporate Navy
-  secondaryLight: '#F1F5F9',
+  secondary: '#1E293B',     // Corporate Slate Navy
+  secondaryLight: '#F1F5F9',// Light Slate
   accent: '#D97706',        // Amber Gold
   textDark: '#0F172A',      // Slate 900
   textMuted: '#64748B',     // Slate 500
   border: '#E2E8F0',        // Border slate
-  cardBg: '#F8FAFC',
+  cardBg: '#F8FAFC',        // Slate 50
   success: '#16A34A',       // Emerald 600
-  successBg: '#DCFCE7'
+  successBg: '#DCFCE7'      // Emerald 100
 };
 
 /**
  * Draws standard corporate header on the document
  */
-function drawCorporateHeader(doc, title = 'OFFICIAL UTILITY DOCUMENT') {
-  // 1. Brand Logo
+function drawCorporateHeader(doc) {
+  // 1. Brand Logo with preserved aspect ratio (height 46pt)
   if (fs.existsSync(LOGO_PATH)) {
     try {
-      doc.image(LOGO_PATH, 40, 35, { width: 110 });
+      doc.image(LOGO_PATH, 40, 30, { fit: [90, 46], align: 'left', valign: 'center' });
     } catch (_) {
-      // Fallback text badge if image parser warns
-      doc.rect(40, 35, 110, 36).fill(COLORS.primary);
-      doc.font('Helvetica-Bold').fontSize(14).fillColor('#FFFFFF').text('LECO', 50, 44);
+      doc.roundedRect(40, 30, 46, 46, 6).fill(COLORS.primary);
+      doc.font('Helvetica-Bold').fontSize(14).fillColor('#FFFFFF').text('LECO', 46, 46);
     }
   } else {
-    doc.rect(40, 35, 110, 36).fill(COLORS.primary);
-    doc.font('Helvetica-Bold').fontSize(14).fillColor('#FFFFFF').text('LECO', 50, 44);
+    doc.roundedRect(40, 30, 46, 46, 6).fill(COLORS.primary);
+    doc.font('Helvetica-Bold').fontSize(14).fillColor('#FFFFFF').text('LECO', 46, 46);
   }
 
-  // 2. Company Registration and Contact details on right
+  // 2. Company Identity next to the Logo
   doc
     .font('Helvetica-Bold')
-    .fontSize(10)
+    .fontSize(15)
     .fillColor(COLORS.primary)
-    .text('LANKA ELECTRICITY COMPANY (PVT) LTD', 200, 35, { align: 'right' })
+    .text('LECO', 95, 34)
+    .font('Helvetica-Bold')
+    .fontSize(7.5)
+    .fillColor(COLORS.secondary)
+    .text('LANKA ELECTRICITY COMPANY (PVT) LTD', 95, 51)
     .font('Helvetica')
-    .fontSize(8)
+    .fontSize(7)
     .fillColor(COLORS.textMuted)
-    .text('Smart Prepaid Electricity Distribution Division', 200, 48, { align: 'right' })
-    .text('Head Office: 411, Galle Road, Colombo 03, Sri Lanka', 200, 59, { align: 'right' })
-    .text('24/7 Helpline: 1987 | Call Center: (+94) 11 237 1234 | www.leco.lk', 200, 70, { align: 'right' });
+    .text('Smart Prepaid Metering & Grid Operations', 95, 62);
 
-  // 3. Decorative Corporate Accent Line
-  doc.rect(40, 88, 515, 3).fill(COLORS.primary);
-  doc.rect(455, 88, 100, 3).fill(COLORS.accent);
+  // 3. Official License & Contact Information on the Right
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(7.5)
+    .fillColor(COLORS.secondary)
+    .text('PUCSL Distribution License No: EL/D/09-002', 280, 34, { align: 'right', width: 275 })
+    .font('Helvetica')
+    .fontSize(7)
+    .fillColor(COLORS.textMuted)
+    .text('Head Office: 411, Galle Road, Colombo 03, Sri Lanka', 280, 45, { align: 'right', width: 275 })
+    .text('24/7 Helpline: 1987 | Call Center: (+94) 11 237 1234', 280, 55, { align: 'right', width: 275 })
+    .text('Web Portal: www.leco.lk | Email: support@leco.lk', 280, 65, { align: 'right', width: 275 });
+
+  // 4. Decorative Corporate Accent Rule
+  doc.rect(40, 82, 515, 2.5).fill(COLORS.primary);
+  doc.rect(435, 82, 120, 2.5).fill(COLORS.accent);
 }
 
 /**
- * Draws standard corporate footer
+ * Draws standard corporate footer within single-page safety bounds
  */
 function drawCorporateFooter(doc, pageStr = 'Page 1 of 1') {
-  const y = 780;
-  doc.rect(40, y, 515, 0.75).fill(COLORS.border);
+  const y = 770;
+  doc.rect(40, y, 515, 0.5).fill(COLORS.border);
 
   doc
     .font('Helvetica')
-    .fontSize(7.5)
+    .fontSize(7)
     .fillColor(COLORS.textMuted)
-    .text('Lanka Electricity Company (Pvt) Ltd - Regulated by Public Utilities Commission of Sri Lanka (PUCSL)', 40, y + 8)
-    .text('This is an authentic computer-generated document issued by the LECO Smart Meter Core. No physical signature is required.', 40, y + 18)
-    .text(pageStr, 40, y + 8, { align: 'right' });
+    .text('Lanka Electricity Company (Pvt) Ltd • Regulated by Public Utilities Commission of Sri Lanka (PUCSL)', 40, y + 6)
+    .text(pageStr, 40, y + 6, { align: 'right', width: 515 })
+    .fontSize(6.5)
+    .text('Official computer-generated utility record. Authenticated by LECO Automated Metering Infrastructure (AMI).', 40, y + 16);
 }
 
 /**
- * Generates an official payment receipt PDF
+ * Generates an official payment receipt PDF (strictly 1 page)
  *
  * @param {Object} payment - Complete payment record with customer and meter details
  * @returns {Promise<Buffer>}
@@ -91,9 +106,10 @@ function buildPaymentReceiptPdf(payment) {
     try {
       const doc = new PDFDocument({
         size: 'A4',
-        margin: 40,
+        margins: { top: 28, bottom: 20, left: 40, right: 40 },
+        autoFirstPage: true,
         info: {
-          Title: `LECO Payment Receipt - ${payment.transaction_id}`,
+          Title: `LECO Payment Receipt - ${payment.transaction_id || 'Recharge'}`,
           Author: 'Lanka Electricity Company (Pvt) Ltd',
           Subject: 'Prepaid Electricity Recharge Receipt',
           Keywords: 'LECO, Electricity, Smart Meter, Receipt, PayHere'
@@ -109,43 +125,43 @@ function buildPaymentReceiptPdf(payment) {
       drawCorporateHeader(doc);
 
       // Document Banner Box
-      doc.roundedRect(40, 102, 515, 46, 6).fillAndStroke(COLORS.cardBg, COLORS.border);
+      doc.roundedRect(40, 92, 515, 38, 5).fillAndStroke(COLORS.cardBg, COLORS.border);
 
       doc
         .font('Helvetica-Bold')
-        .fontSize(13)
+        .fontSize(12)
         .fillColor(COLORS.textDark)
-        .text('OFFICIAL PREPAID RECHARGE RECEIPT', 55, 113)
+        .text('OFFICIAL PREPAID RECHARGE RECEIPT', 55, 101)
         .font('Helvetica')
-        .fontSize(8)
+        .fontSize(7.5)
         .fillColor(COLORS.textMuted)
-        .text(`Issued under Section 24 of Sri Lanka Electricity Act | Reg ID: ${payment.transaction_id}`, 55, 131);
+        .text(`Issued under Section 24 of Sri Lanka Electricity Act | Reg ID: ${payment.transaction_id || 'N/A'}`, 55, 116);
 
       // Status pill badge
-      const isSuccess = String(payment.status || '').toLowerCase() === 'success';
-      const statusText = isSuccess ? 'PAYMENT SUCCESSFUL' : (payment.status || 'PENDING').toUpperCase();
+      const isSuccess = String(payment.status || '').toLowerCase() === 'success' || !payment.status;
+      const statusText = isSuccess ? 'PAYMENT SUCCESSFUL' : String(payment.status).toUpperCase();
       const badgeBg = isSuccess ? COLORS.successBg : '#FEF3C7';
       const badgeText = isSuccess ? COLORS.success : '#B45309';
 
-      doc.roundedRect(420, 112, 120, 24, 4).fillAndStroke(badgeBg, isSuccess ? COLORS.success : '#F59E0B');
+      doc.roundedRect(420, 100, 120, 22, 4).fillAndStroke(badgeBg, isSuccess ? COLORS.success : '#F59E0B');
       doc
         .font('Helvetica-Bold')
-        .fontSize(8.5)
+        .fontSize(8)
         .fillColor(badgeText)
-        .text(statusText, 420, 119, { width: 120, align: 'center' });
+        .text(statusText, 420, 107, { width: 120, align: 'center' });
 
       // Two-Column Metadata Container
-      doc.roundedRect(40, 158, 515, 128, 6).fillAndStroke('#FFFFFF', COLORS.border);
+      doc.roundedRect(40, 136, 515, 100, 5).fillAndStroke('#FFFFFF', COLORS.border);
 
       // Left Column: Consumer & Meter Details
       doc
         .font('Helvetica-Bold')
-        .fontSize(9)
+        .fontSize(8.5)
         .fillColor(COLORS.primary)
-        .text('CONSUMER & PREMISES DETAILS', 55, 170);
+        .text('CONSUMER & PREMISES DETAILS', 55, 146);
 
-      const leftY = 188;
-      const spacing = 15;
+      const leftY = 162;
+      const spacing = 14;
       const leftLabels = [
         ['Customer Name:', payment.customer_name || payment.full_name || 'LECO Consumer'],
         ['Account Number:', payment.account_number || 'ACC-883921'],
@@ -155,19 +171,21 @@ function buildPaymentReceiptPdf(payment) {
       ];
 
       leftLabels.forEach(([label, val], idx) => {
-        doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.textMuted).text(label, 55, leftY + idx * spacing);
-        doc.font('Helvetica').fontSize(8).fillColor(COLORS.textDark).text(String(val), 135, leftY + idx * spacing);
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(COLORS.textMuted).text(label, 55, leftY + idx * spacing);
+        doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.textDark).text(String(val), 140, leftY + idx * spacing);
       });
 
       // Right Column: Transaction Audit Details
       doc
         .font('Helvetica-Bold')
-        .fontSize(9)
+        .fontSize(8.5)
         .fillColor(COLORS.primary)
-        .text('PAYMENT AUDIT INFORMATION', 305, 170);
+        .text('PAYMENT AUDIT INFORMATION', 305, 146);
 
-      const rightY = 188;
-      const paymentDate = payment.created_at ? new Date(payment.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : new Date().toLocaleString('en-US');
+      const rightY = 162;
+      const paymentDate = payment.created_at
+        ? new Date(payment.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+        : new Date().toLocaleString('en-US');
       const rightLabels = [
         ['Receipt / Txn ID:', payment.transaction_id || 'N/A'],
         ['PayHere Order ID:', payment.order_id || payment.transaction_id || 'N/A'],
@@ -177,77 +195,77 @@ function buildPaymentReceiptPdf(payment) {
       ];
 
       rightLabels.forEach(([label, val], idx) => {
-        doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.textMuted).text(label, 305, rightY + idx * spacing);
-        doc.font('Helvetica').fontSize(8).fillColor(COLORS.textDark).text(String(val), 400, rightY + idx * spacing);
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(COLORS.textMuted).text(label, 305, rightY + idx * spacing);
+        doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.textDark).text(String(val), 405, rightY + idx * spacing);
       });
 
       // Financial Details Table
-      const tableY = 298;
+      const tableY = 244;
 
       // Table Header Row
-      doc.rect(40, tableY, 515, 22).fill(COLORS.secondary);
-      doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF');
-      doc.text('ITEM DESCRIPTION', 52, tableY + 7);
-      doc.text('METHOD', 230, tableY + 7);
-      doc.text('PREVIOUS BAL (LKR)', 305, tableY + 7, { align: 'right', width: 90 });
-      doc.text('AMOUNT PAID (LKR)', 405, tableY + 7, { align: 'right', width: 75 });
-      doc.text('NEW BAL (LKR)', 485, tableY + 7, { align: 'right', width: 60 });
+      doc.rect(40, tableY, 515, 18).fill(COLORS.secondary);
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#FFFFFF');
+      doc.text('ITEM DESCRIPTION', 52, tableY + 5);
+      doc.text('METHOD', 230, tableY + 5);
+      doc.text('PREVIOUS BAL (LKR)', 305, tableY + 5, { align: 'right', width: 90 });
+      doc.text('AMOUNT PAID (LKR)', 405, tableY + 5, { align: 'right', width: 75 });
+      doc.text('NEW BAL (LKR)', 485, tableY + 5, { align: 'right', width: 60 });
 
       // Table Data Row
-      const rowY = tableY + 22;
-      doc.rect(40, rowY, 515, 34).fillAndStroke('#FFFFFF', COLORS.border);
+      const rowY = tableY + 18;
+      doc.rect(40, rowY, 515, 30).fillAndStroke('#FFFFFF', COLORS.border);
 
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(COLORS.textDark);
-      doc.text('Prepaid Smart Electricity Recharge', 52, rowY + 8);
-      doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.textMuted);
-      doc.text(`Instant Remote Grid Credit • Meter: ${payment.meter_number || 'Smart Meter'}`, 52, rowY + 20);
+      doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.textDark);
+      doc.text('Prepaid Smart Electricity Recharge', 52, rowY + 6);
+      doc.font('Helvetica').fontSize(7).fillColor(COLORS.textMuted);
+      doc.text(`Instant Remote Grid Credit • Meter: ${payment.meter_number || 'Smart Meter'}`, 52, rowY + 18);
 
-      doc.font('Helvetica').fontSize(8).fillColor(COLORS.textDark);
-      doc.text(payment.payment_method || 'PayHere', 230, rowY + 12);
+      doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.textDark);
+      doc.text(payment.payment_method || 'PayHere', 230, rowY + 10);
 
       const prevBal = parseFloat(payment.previous_balance || 0).toFixed(2);
       const paidAmt = parseFloat(payment.amount || 0).toFixed(2);
       const newBal = parseFloat(payment.new_balance || 0).toFixed(2);
 
-      doc.text(`Rs. ${Number(prevBal).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 305, rowY + 12, { align: 'right', width: 90 });
-      doc.font('Helvetica-Bold').text(`Rs. ${Number(paidAmt).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 405, rowY + 12, { align: 'right', width: 75 });
-      doc.text(`Rs. ${Number(newBal).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 485, rowY + 12, { align: 'right', width: 60 });
+      doc.text(`Rs. ${Number(prevBal).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 305, rowY + 10, { align: 'right', width: 90 });
+      doc.font('Helvetica-Bold').text(`Rs. ${Number(paidAmt).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 405, rowY + 10, { align: 'right', width: 75 });
+      doc.text(`Rs. ${Number(newBal).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 485, rowY + 10, { align: 'right', width: 60 });
 
       // Highlighted Grand Total Box
-      const grandTotalY = 368;
-      doc.roundedRect(40, grandTotalY, 515, 66, 6).fill(COLORS.secondary);
+      const grandTotalY = 300;
+      doc.roundedRect(40, grandTotalY, 515, 54, 5).fill(COLORS.secondary);
 
       // Amount Paid Callout
       doc
         .font('Helvetica-Bold')
-        .fontSize(8.5)
+        .fontSize(8)
         .fillColor('#94A3B8')
-        .text('RECHARGE AMOUNT CREDITED', 60, grandTotalY + 14)
+        .text('RECHARGE AMOUNT CREDITED', 60, grandTotalY + 11)
         .font('Helvetica-Bold')
-        .fontSize(20)
+        .fontSize(17)
         .fillColor(COLORS.accent)
-        .text(`LKR ${Number(paidAmt).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 60, grandTotalY + 30);
+        .text(`LKR ${Number(paidAmt).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 60, grandTotalY + 25);
 
       // New Balance Callout
       doc
         .font('Helvetica-Bold')
-        .fontSize(8.5)
+        .fontSize(8)
         .fillColor('#94A3B8')
-        .text('NEW ACTIVE METER BALANCE', 330, grandTotalY + 14)
+        .text('NEW ACTIVE METER BALANCE', 330, grandTotalY + 11)
         .font('Helvetica-Bold')
-        .fontSize(20)
+        .fontSize(17)
         .fillColor('#10B981')
-        .text(`LKR ${Number(newBal).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 330, grandTotalY + 30);
+        .text(`LKR ${Number(newBal).toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 330, grandTotalY + 25);
 
       // Security Verification & Audit Proof Box
-      const securityY = 448;
-      doc.roundedRect(40, securityY, 515, 95, 6).fillAndStroke(COLORS.primaryLight, '#FCA5A5');
+      const securityY = 362;
+      doc.roundedRect(40, securityY, 515, 62, 5).fillAndStroke(COLORS.primaryLight, '#FCA5A5');
 
       doc
         .font('Helvetica-Bold')
-        .fontSize(9)
+        .fontSize(8.5)
         .fillColor(COLORS.primary)
-        .text('CRYPTOGRAPHIC VERIFICATION & LEGAL AUDIT PROOF', 55, securityY + 12);
+        .text('CRYPTOGRAPHIC VERIFICATION & LEGAL AUDIT PROOF', 55, securityY + 9);
 
       const securityHash = crypto
         .createHash('sha256')
@@ -257,33 +275,33 @@ function buildPaymentReceiptPdf(payment) {
 
       doc
         .font('Helvetica')
-        .fontSize(8)
+        .fontSize(7.5)
         .fillColor(COLORS.textDark)
         .text(
           'This receipt confirms electronic credit transmission over the LECO Automated Metering Infrastructure (AMI). ' +
           'Prepaid power supply is maintained active in accordance with PUCSL Standard Regulations.',
           55,
-          securityY + 28,
-          { width: 485, lineGap: 2 }
+          securityY + 23,
+          { width: 485, lineGap: 1 }
         )
         .font('Helvetica-Bold')
-        .fontSize(7.5)
-        .fillColor(COLORS.textMuted)
-        .text('DIGITAL SIGNATURE CHECKSUM (SHA-256):', 55, securityY + 58)
-        .font('Courier')
         .fontSize(7)
+        .fillColor(COLORS.textMuted)
+        .text('DIGITAL SIGNATURE CHECKSUM (SHA-256):', 55, securityY + 41)
+        .font('Courier')
+        .fontSize(6.5)
         .fillColor(COLORS.textDark)
-        .text(securityHash, 55, securityY + 70);
+        .text(securityHash, 55, securityY + 50);
 
       // Terms and Inquiries Box
-      const termsY = 556;
-      doc.roundedRect(40, termsY, 515, 110, 6).fillAndStroke('#FFFFFF', COLORS.border);
+      const termsY = 432;
+      doc.roundedRect(40, termsY, 515, 88, 5).fillAndStroke('#FFFFFF', COLORS.border);
 
       doc
         .font('Helvetica-Bold')
-        .fontSize(8.5)
+        .fontSize(8)
         .fillColor(COLORS.secondary)
-        .text('CUSTOMER ADVISORY & TARIFF INFORMATION', 55, termsY + 12);
+        .text('CUSTOMER ADVISORY & TARIFF INFORMATION', 55, termsY + 9);
 
       const terms = [
         '1. Domestic PUCSL block tariffs apply according to 30-day cumulative electricity consumption.',
@@ -293,10 +311,10 @@ function buildPaymentReceiptPdf(payment) {
       ];
 
       terms.forEach((t, i) => {
-        doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.textMuted).text(t, 55, termsY + 28 + i * 16, { width: 485 });
+        doc.font('Helvetica').fontSize(7).fillColor(COLORS.textMuted).text(t, 55, termsY + 23 + i * 14, { width: 485 });
       });
 
-      // Corporate Footer
+      // Corporate Footer strictly on single page
       drawCorporateFooter(doc);
 
       doc.end();
@@ -307,7 +325,7 @@ function buildPaymentReceiptPdf(payment) {
 }
 
 /**
- * Generates an official Monthly Consumption & Statement PDF
+ * Generates an official Monthly Consumption & Statement PDF (strictly 1 page)
  *
  * @param {Object} data - Meter, consumer, consumption logs, and tariff breakdown data
  * @returns {Promise<Buffer>}
@@ -317,7 +335,8 @@ function buildMeterStatementPdf(data) {
     try {
       const doc = new PDFDocument({
         size: 'A4',
-        margin: 40,
+        margins: { top: 28, bottom: 20, left: 40, right: 40 },
+        autoFirstPage: true,
         info: {
           Title: `LECO Monthly Statement - ${data.meter?.meter_number || 'Meter'}`,
           Author: 'Lanka Electricity Company (Pvt) Ltd',
@@ -350,53 +369,53 @@ function buildMeterStatementPdf(data) {
       const bill = calculateDomesticBill(netKwh);
 
       // Corporate Header
-      drawCorporateHeader(doc, 'CONSUMPTION STATEMENT');
+      drawCorporateHeader(doc);
 
       // Statement Banner Box
-      doc.roundedRect(40, 102, 515, 46, 6).fillAndStroke(COLORS.cardBg, COLORS.border);
+      doc.roundedRect(40, 92, 515, 38, 5).fillAndStroke(COLORS.cardBg, COLORS.border);
 
       doc
         .font('Helvetica-Bold')
-        .fontSize(13)
+        .fontSize(12)
         .fillColor(COLORS.textDark)
-        .text('MONTHLY ELECTRICITY USAGE & STATEMENT', 55, 113)
+        .text('MONTHLY ELECTRICITY USAGE & STATEMENT', 55, 101)
         .font('Helvetica')
-        .fontSize(8)
+        .fontSize(7.5)
         .fillColor(COLORS.textMuted)
-        .text(`Billing Cycle: ${periodLabel} | PUCSL Domestic Tariff D-1 Schedule`, 55, 131);
+        .text(`Billing Cycle: ${periodLabel} | PUCSL Domestic Tariff D-1 Schedule`, 55, 116);
 
       // Statement Date Badge
-      doc.roundedRect(420, 112, 120, 24, 4).fillAndStroke(COLORS.secondaryLight, COLORS.border);
+      doc.roundedRect(420, 100, 120, 22, 4).fillAndStroke(COLORS.secondaryLight, COLORS.border);
       doc
         .font('Helvetica-Bold')
-        .fontSize(8)
+        .fontSize(7.5)
         .fillColor(COLORS.secondary)
-        .text(`ISSUED: ${new Date().toLocaleDateString('en-GB')}`, 420, 120, { width: 120, align: 'center' });
+        .text(`ISSUED: ${new Date().toLocaleDateString('en-GB')}`, 420, 107, { width: 120, align: 'center' });
 
       // Customer & Meter Profile Container
-      doc.roundedRect(40, 158, 515, 78, 6).fillAndStroke('#FFFFFF', COLORS.border);
+      doc.roundedRect(40, 136, 515, 64, 5).fillAndStroke('#FFFFFF', COLORS.border);
 
       const metaCols = [
         ['Customer Name:', user.full_name || 'LECO Customer'],
         ['Account Number:', meter.account_number || 'N/A'],
         ['Smart Meter Serial:', meter.meter_number || 'N/A'],
-        ['Premises Label:', meter.name || 'Primary Residence'],
+        ['Premises Label:', meter.name || 'Home'],
         ['Supply Relay Status:', meter.status || 'Connected'],
-        ['Tariff Category:', meter.tariff_type || 'Domestic D-1 (PUCSL)']
+        ['Tariff Category:', meter.tariff_type || 'Domestic D-1 (PUCSL Block Tariff)']
       ];
 
       metaCols.slice(0, 3).forEach(([label, val], idx) => {
-        doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.textMuted).text(label, 55, 170 + idx * 17);
-        doc.font('Helvetica').fontSize(8).fillColor(COLORS.textDark).text(String(val), 150, 170 + idx * 17);
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(COLORS.textMuted).text(label, 55, 145 + idx * 16);
+        doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.textDark).text(String(val), 145, 145 + idx * 16);
       });
 
       metaCols.slice(3, 6).forEach(([label, val], idx) => {
-        doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.textMuted).text(label, 305, 170 + idx * 17);
-        doc.font('Helvetica').fontSize(8).fillColor(COLORS.textDark).text(String(val), 410, 170 + idx * 17);
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(COLORS.textMuted).text(label, 305, 145 + idx * 16);
+        doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.textDark).text(String(val), 410, 145 + idx * 16);
       });
 
       // 4-Card Energy Metric Dashboard
-      const dashY = 246;
+      const dashY = 206;
       const cardWidth = 120;
       const cardGap = 11.5;
 
@@ -409,66 +428,66 @@ function buildMeterStatementPdf(data) {
 
       metrics.forEach((m, i) => {
         const x = 40 + i * (cardWidth + cardGap);
-        doc.roundedRect(x, dashY, cardWidth, 54, 6).fillAndStroke(COLORS.cardBg, COLORS.border);
+        doc.roundedRect(x, dashY, cardWidth, 46, 5).fillAndStroke(COLORS.cardBg, COLORS.border);
         doc
           .font('Helvetica-Bold')
-          .fontSize(7)
+          .fontSize(6.5)
           .fillColor(COLORS.textMuted)
-          .text(m.label, x + 8, dashY + 10, { width: cardWidth - 16, align: 'center' })
+          .text(m.label, x + 6, dashY + 8, { width: cardWidth - 12, align: 'center' })
           .font('Helvetica-Bold')
-          .fontSize(12)
+          .fontSize(11.5)
           .fillColor(m.color)
-          .text(m.val, x + 8, dashY + 28, { width: cardWidth - 16, align: 'center' });
+          .text(m.val, x + 6, dashY + 24, { width: cardWidth - 12, align: 'center' });
       });
 
       // PUCSL Domestic Block Tariff Breakdown Table
-      const tariffTableY = 312;
-      doc.rect(40, tariffTableY, 515, 20).fill(COLORS.secondary);
-      doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF');
-      doc.text('PUCSL DOMESTIC TARIFF BLOCK', 52, tariffTableY + 6);
-      doc.text('BILLED UNITS (kWh)', 230, tariffTableY + 6, { align: 'right', width: 95 });
-      doc.text('ENERGY CHARGE (LKR)', 335, tariffTableY + 6, { align: 'right', width: 95 });
-      doc.text('FIXED CHARGE (LKR)', 440, tariffTableY + 6, { align: 'right', width: 95 });
+      const tariffTableY = 258;
+      doc.rect(40, tariffTableY, 515, 18).fill(COLORS.secondary);
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#FFFFFF');
+      doc.text('PUCSL DOMESTIC TARIFF BLOCK', 52, tariffTableY + 5);
+      doc.text('BILLED UNITS (kWh)', 230, tariffTableY + 5, { align: 'right', width: 95 });
+      doc.text('ENERGY CHARGE (LKR)', 335, tariffTableY + 5, { align: 'right', width: 95 });
+      doc.text('FIXED CHARGE (LKR)', 440, tariffTableY + 5, { align: 'right', width: 95 });
 
       // Row 1: Energy & Fixed Charge Breakdown
-      const rowY = tariffTableY + 20;
-      doc.rect(40, rowY, 515, 36).fillAndStroke('#FFFFFF', COLORS.border);
+      const rowY = tariffTableY + 18;
+      doc.rect(40, rowY, 515, 28).fillAndStroke('#FFFFFF', COLORS.border);
 
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(COLORS.textDark);
-      doc.text(bill.group || 'Domestic Tier (0-60 kWh)', 52, rowY + 8);
-      doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.textMuted);
-      doc.text(`Effective Unit Rate: Rs. ${bill.effectiveRate} / kWh`, 52, rowY + 21);
+      doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.textDark);
+      doc.text(bill.group || 'Domestic Tier (0-60 kWh)', 52, rowY + 6);
+      doc.font('Helvetica').fontSize(7).fillColor(COLORS.textMuted);
+      doc.text(`Effective Unit Rate: Rs. ${bill.effectiveRate} / kWh`, 52, rowY + 16);
 
-      doc.font('Helvetica').fontSize(8.5).fillColor(COLORS.textDark);
-      doc.text(`${bill.kwh} kWh`, 230, rowY + 12, { align: 'right', width: 95 });
-      doc.text(`Rs. ${bill.energyCharge.toFixed(2)}`, 335, rowY + 12, { align: 'right', width: 95 });
-      doc.text(`Rs. ${bill.fixedCharge.toFixed(2)}`, 440, rowY + 12, { align: 'right', width: 95 });
+      doc.font('Helvetica').fontSize(8).fillColor(COLORS.textDark);
+      doc.text(`${bill.kwh} kWh`, 230, rowY + 10, { align: 'right', width: 95 });
+      doc.text(`Rs. ${bill.energyCharge.toFixed(2)}`, 335, rowY + 10, { align: 'right', width: 95 });
+      doc.text(`Rs. ${bill.fixedCharge.toFixed(2)}`, 440, rowY + 10, { align: 'right', width: 95 });
 
       // Total Charges Banner
-      const totalY = rowY + 36;
-      doc.rect(40, totalY, 515, 28).fill(COLORS.primaryLight);
-      doc.rect(40, totalY, 515, 28).stroke(COLORS.border);
-      doc.font('Helvetica-Bold').fontSize(9).fillColor(COLORS.primary);
-      doc.text('ESTIMATED 30-DAY INCL. FIXED CHARGES:', 52, totalY + 9);
-      doc.font('Helvetica-Bold').fontSize(11).fillColor(COLORS.primary);
-      doc.text(`LKR ${bill.totalCharge.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 415, totalY + 8, { align: 'right', width: 120 });
+      const totalY = rowY + 28;
+      doc.rect(40, totalY, 515, 22).fill(COLORS.primaryLight);
+      doc.rect(40, totalY, 515, 22).stroke(COLORS.border);
+      doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.primary);
+      doc.text('ESTIMATED 30-DAY INCL. FIXED CHARGES:', 52, totalY + 7);
+      doc.font('Helvetica-Bold').fontSize(10).fillColor(COLORS.primary);
+      doc.text(`LKR ${bill.totalCharge.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 415, totalY + 6, { align: 'right', width: 120 });
 
       // Prepaid Balance & Financial Position Box
-      const balanceY = 412;
-      doc.roundedRect(40, balanceY, 515, 70, 6).fill(COLORS.secondary);
+      const balanceY = totalY + 28;
+      doc.roundedRect(40, balanceY, 515, 52, 5).fill(COLORS.secondary);
 
       const currentBalance = parseFloat(meter.balance || 0);
       const isNegative = currentBalance < 0;
 
       doc
         .font('Helvetica-Bold')
-        .fontSize(8)
+        .fontSize(7.5)
         .fillColor('#94A3B8')
-        .text('CURRENT PREPAID METER BALANCE', 55, balanceY + 14)
+        .text('CURRENT PREPAID METER BALANCE', 55, balanceY + 10)
         .font('Helvetica-Bold')
-        .fontSize(18)
+        .fontSize(16)
         .fillColor(isNegative ? '#EF4444' : '#10B981')
-        .text(`LKR ${currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 55, balanceY + 32);
+        .text(`LKR ${currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 55, balanceY + 25);
 
       const statusNote = isNegative
         ? 'OVERDRAFT ACTIVE (LIFELINE EMERGENCY CREDIT IN USE)'
@@ -476,60 +495,63 @@ function buildMeterStatementPdf(data) {
 
       doc
         .font('Helvetica-Bold')
-        .fontSize(8)
+        .fontSize(7.5)
         .fillColor('#94A3B8')
-        .text('SUPPLY STATUS & LIFELINE', 305, balanceY + 14)
+        .text('SUPPLY STATUS & LIFELINE', 305, balanceY + 10)
         .font('Helvetica-Bold')
-        .fontSize(9)
+        .fontSize(8)
         .fillColor(isNegative ? '#FCA5A5' : '#6EE7B7')
-        .text(statusNote, 305, balanceY + 34, { width: 235 });
+        .text(statusNote, 305, balanceY + 26, { width: 235 });
 
       // Recent Payment History Ledger on Statement
-      const paymentsY = 494;
+      const paymentsY = balanceY + 58;
       doc
         .font('Helvetica-Bold')
-        .fontSize(9)
+        .fontSize(8)
         .fillColor(COLORS.secondary)
         .text('RECENT RECHARGES & CREDITS IN THIS BILLING CYCLE', 40, paymentsY);
 
-      const payTableY = paymentsY + 14;
-      doc.rect(40, payTableY, 515, 18).fill(COLORS.secondaryLight);
-      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(COLORS.secondary);
-      doc.text('DATE', 52, payTableY + 5);
-      doc.text('TRANSACTION ID', 140, payTableY + 5);
-      doc.text('CHANNEL', 280, payTableY + 5);
-      doc.text('TOP-UP (LKR)', 380, payTableY + 5, { align: 'right', width: 75 });
-      doc.text('BALANCE AFTER', 465, payTableY + 5, { align: 'right', width: 75 });
+      const payTableY = paymentsY + 12;
+      doc.rect(40, payTableY, 515, 16).fill(COLORS.secondaryLight);
+      doc.font('Helvetica-Bold').fontSize(7).fillColor(COLORS.secondary);
+      doc.text('DATE', 52, payTableY + 4);
+      doc.text('TRANSACTION ID', 140, payTableY + 4);
+      doc.text('CHANNEL', 280, payTableY + 4);
+      doc.text('TOP-UP (LKR)', 380, payTableY + 4, { align: 'right', width: 75 });
+      doc.text('BALANCE AFTER', 465, payTableY + 4, { align: 'right', width: 75 });
 
       const payments = data.payments || [];
-      const displayedPayments = payments.slice(0, 4);
+      const displayedPayments = payments.slice(0, 3);
+      let rechargesEnd = payTableY + 16;
 
       if (displayedPayments.length === 0) {
-        doc.rect(40, payTableY + 18, 515, 22).fillAndStroke('#FFFFFF', COLORS.border);
-        doc.font('Helvetica').fontSize(8).fillColor(COLORS.textMuted).text('No top-up recharges recorded in this period.', 52, payTableY + 24);
+        doc.rect(40, payTableY + 16, 515, 18).fillAndStroke('#FFFFFF', COLORS.border);
+        doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.textMuted).text('No top-up recharges recorded in this period.', 52, payTableY + 21);
+        rechargesEnd = payTableY + 16 + 18;
       } else {
         displayedPayments.forEach((p, idx) => {
-          const py = payTableY + 18 + idx * 20;
-          doc.rect(40, py, 515, 20).fillAndStroke('#FFFFFF', COLORS.border);
+          const py = payTableY + 16 + idx * 18;
+          doc.rect(40, py, 515, 18).fillAndStroke('#FFFFFF', COLORS.border);
           const pDate = p.created_at ? new Date(p.created_at).toLocaleDateString('en-GB') : 'Recent';
-          doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.textDark);
-          doc.text(pDate, 52, py + 6);
-          doc.text(p.transaction_id || 'N/A', 140, py + 6);
-          doc.text(p.payment_method || 'Online', 280, py + 6);
-          doc.font('Helvetica-Bold').text(`Rs. ${parseFloat(p.amount || 0).toFixed(2)}`, 380, py + 6, { align: 'right', width: 75 });
-          doc.text(`Rs. ${parseFloat(p.new_balance || 0).toFixed(2)}`, 465, py + 6, { align: 'right', width: 75 });
+          doc.font('Helvetica').fontSize(7).fillColor(COLORS.textDark);
+          doc.text(pDate, 52, py + 5);
+          doc.text(p.transaction_id || 'N/A', 140, py + 5);
+          doc.text(p.payment_method || 'Online', 280, py + 5);
+          doc.font('Helvetica-Bold').text(`Rs. ${parseFloat(p.amount || 0).toFixed(2)}`, 380, py + 5, { align: 'right', width: 75 });
+          doc.text(`Rs. ${parseFloat(p.new_balance || 0).toFixed(2)}`, 465, py + 5, { align: 'right', width: 75 });
         });
+        rechargesEnd = payTableY + 16 + displayedPayments.length * 18;
       }
 
       // Energy Conservation Tips & Advisory Box
-      const tipsY = 620;
-      doc.roundedRect(40, tipsY, 515, 95, 6).fillAndStroke('#FFFFFF', COLORS.border);
+      const tipsY = rechargesEnd + 10;
+      doc.roundedRect(40, tipsY, 515, 74, 5).fillAndStroke('#FFFFFF', COLORS.border);
 
       doc
         .font('Helvetica-Bold')
-        .fontSize(8.5)
+        .fontSize(8)
         .fillColor(COLORS.primary)
-        .text('PUCSL TARIFF ADVISORY & SMART SAVINGS GUIDELINES', 55, tipsY + 10);
+        .text('PUCSL TARIFF ADVISORY & SMART SAVINGS GUIDELINES', 55, tipsY + 8);
 
       const tips = [
         '• Group A Threshold: Consuming <= 60 units/month costs only Rs. 5 - 9/unit with low fixed charges.',
@@ -539,10 +561,34 @@ function buildMeterStatementPdf(data) {
       ];
 
       tips.forEach((t, i) => {
-        doc.font('Helvetica').fontSize(7.5).fillColor(COLORS.textMuted).text(t, 55, tipsY + 26 + i * 15, { width: 485 });
+        doc.font('Helvetica').fontSize(7).fillColor(COLORS.textMuted).text(t, 55, tipsY + 22 + i * 12, { width: 485 });
       });
 
-      // Corporate Footer
+      // Digital Cryptographic Signature & Audit Proof Box
+      const securityY = tipsY + 80;
+      doc.roundedRect(40, securityY, 515, 38, 5).fillAndStroke(COLORS.primaryLight, '#FCA5A5');
+
+      const securityHash = crypto
+        .createHash('sha256')
+        .update(`${meter.meter_number || ''}-${meter.account_number || ''}-${bill.totalCharge || ''}-${periodLabel}`)
+        .digest('hex')
+        .toUpperCase();
+
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(7.5)
+        .fillColor(COLORS.primary)
+        .text('DIGITAL AUDIT VERIFICATION HASH (SHA-256):', 55, securityY + 7)
+        .font('Courier')
+        .fontSize(6.5)
+        .fillColor(COLORS.textDark)
+        .text(securityHash, 55, securityY + 18)
+        .font('Helvetica')
+        .fontSize(6.5)
+        .fillColor(COLORS.textMuted)
+        .text('Authenticated via LECO Automated Metering Infrastructure (AMI) • Valid without physical signature', 55, securityY + 28);
+
+      // Corporate Footer strictly on single page
       drawCorporateFooter(doc);
 
       doc.end();
