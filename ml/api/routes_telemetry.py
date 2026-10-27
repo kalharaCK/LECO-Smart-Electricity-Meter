@@ -4,7 +4,7 @@ Receives raw meter readings every 30-45s, validates, computes delta,
 and triggers real-time aggregation and model evaluation.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from typing import List, Dict, Any
 import logging
 from ..preprocessing.validator import RawTelemetryInput, ValidatedReading
@@ -44,7 +44,7 @@ async def ingest_reading(payload: RawTelemetryInput):
 
 
 @router.post("/batch", response_model=Dict[str, Any], status_code=status.HTTP_200_OK)
-async def ingest_batch(batch: List[RawTelemetryInput]):
+async def ingest_batch(batch: List[RawTelemetryInput] = Body(..., max_length=1000)):
     """
     Ingests array of historical or buffered telemetry readings in chronological sequence.
     """
