@@ -13,6 +13,8 @@ const { stripEmojis } = require('../security/promptGuard');
 const CANDIDATE_MODELS = [
   process.env.GROQ_MODEL,
   'qwen/qwen3.8-27b',
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
   'openai/gpt-oss-120b',
   'openai/gpt-oss-20b',
   'allam-2-7b'

@@ -117,6 +117,20 @@ function detectActions(userMessage, botReply, userContext, language = 'en') {
     });
   }
 
+  // 5. Energy Saving & Consumption Insights action
+  const tipsKeywords = [
+    'tip', 'saving', 'save', 'conservation', 'suggest', 'plan', 'උපදෙස්', 'ඉතිරි', 'ஆலோசனை', 'சேமிக்க'
+  ];
+  if (tipsKeywords.some(kw => combinedText.includes(kw))) {
+    if (!actions.some(a => a.route === "overview")) {
+      actions.push({
+        label: ACTION_LABELS.overview[lang],
+        route: "overview",
+        variant: "secondary"
+      });
+    }
+  }
+
   // Cap at maximum 2 actions to keep chat uncluttered
   return actions.slice(0, 2);
 }

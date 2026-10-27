@@ -80,11 +80,16 @@ async function buildUserContext(userId, specificMeterId = null) {
   try {
     // 1. Fetch User Details
     const userRes = await pool.query(
-      `SELECT id, name, email, phone FROM users WHERE id = $1`,
+      `SELECT id, full_name, email, mobile_number FROM users WHERE id = $1`,
       [userId]
     );
     if (userRes.rows.length > 0) {
-      context.user = userRes.rows[0];
+      context.user = {
+        id: userRes.rows[0].id,
+        name: userRes.rows[0].full_name,
+        email: userRes.rows[0].email,
+        phone: userRes.rows[0].mobile_number
+      };
     }
 
     // 2. Fetch User Meters

@@ -76,7 +76,7 @@ Lifeline Subsidy: Consumption below 60 kWh per month receives government lifelin
     id: "energy_saving_tips",
     title: "Practical Energy Conservation and Bill Reduction Tips",
     category: "energy_saving",
-    keywords: ["save", "saving", "reduce", "conservation", "bill high", "tips", "efficient", "inverter", "ac", "ශක්තිය ඉතිරි", "சேமிப்பு"],
+    keywords: ["save", "saving", "reduce", "conservation", "bill high", "tips", "efficient", "inverter", "ac", "suggestion", "suggestions", "recommendation", "උපදෙස්", "ශක්තිය ඉතිරි", "ஆலோசனை", "சேமிப்பு"],
     content: `Top Energy Saving Tips for LECO Electricity Consumers:
 1. Air Conditioning: Set inverter AC temperature to 25°C to 26°C. Every degree lower increases energy consumption by approximately 6%.
 2. Refrigerators: Maintain door seals and avoid placing hot food directly into the fridge. Keep coils dusted.

@@ -27,7 +27,9 @@ import {
   Download,
   Sparkles,
   Eye,
-  CalendarClock
+  CalendarClock,
+  Bot,
+  ArrowRight
 } from "lucide-react"
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 import { getSocket } from "@/lib/socket"
@@ -288,6 +290,17 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
     })
     setBudgetModalOpen(true)
   }
+
+  const handleStartEnergyChat = useCallback(() => {
+    window.dispatchEvent(
+      new CustomEvent("open-energy-assistant", {
+        detail: {
+          prompt: t.overview.savingTipChatPrompt,
+          autoSend: true
+        }
+      })
+    )
+  }, [t.overview.savingTipChatPrompt])
 
   const handleSaveBudget = async () => {
     setSavingBudget(true)
@@ -996,6 +1009,19 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
                 <p className="text-sm text-white/80 leading-relaxed">
                   {t.overview.savingTipDesc}
                 </p>
+                <div className="mt-4">
+                  <Button
+                    type="button"
+                    onClick={handleStartEnergyChat}
+                    className="w-full bg-yellow-400/10 hover:bg-yellow-400/20 text-yellow-400 border border-yellow-400/30 hover:border-yellow-400/50 rounded-2xl py-2 px-3 text-xs font-semibold flex items-center justify-between transition-all shadow-sm hover:shadow-yellow-400/10 group cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Bot className="h-4 w-4 transition-transform group-hover:scale-110" />
+                      <span>{t.overview.savingTipChatBtn}</span>
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 opacity-70 group-hover:translate-x-0.5 transition-transform" />
+                  </Button>
+                </div>
               </div>
               <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs text-white/40">
                 <span>Peak Hours: 18:30 – 22:30</span>
@@ -1637,7 +1663,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
       </div>
 
       {/* 5. Quick Utility Shortcuts: Consumer Action Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
         <button
           type="button"
           onClick={() => onNavigate?.("payments")}
@@ -1665,6 +1691,21 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
           <div>
             <span className="text-xs font-bold text-white block">Payment Receipts</span>
             <span className="text-[11px] text-white/40">View history & invoices</span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={handleStartEnergyChat}
+          className="p-4 rounded-2xl bg-[#141416] border border-yellow-400/20 hover:border-yellow-400/50 hover:bg-yellow-400/[0.03] text-left transition-all cursor-pointer group flex flex-col justify-between min-h-[90px]"
+        >
+          <div className="flex items-center justify-between">
+            <Bot className="h-5 w-5 text-yellow-400 transition-transform group-hover:scale-110" />
+            <ChevronRight className="h-4 w-4 text-white/30 group-hover:text-yellow-400 transition-colors" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-yellow-400 block">{t.overview.savingTipChatBtn}</span>
+            <span className="text-[11px] text-white/40">Customized AI Advice</span>
           </div>
         </button>
 

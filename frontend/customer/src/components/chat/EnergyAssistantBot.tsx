@@ -95,6 +95,7 @@ export default function EnergyAssistantBot({ onNavigate }: EnergyAssistantBotPro
   }
 
   const suggestedPrompts = [
+    { label: t.bot.promptSavingTips, icon: Zap },
     { label: t.bot.promptDaysLeft, icon: Calendar },
     { label: t.bot.promptLastTopup, icon: CreditCard },
     { label: t.bot.promptCompareUsage, icon: TrendingUp },
@@ -103,6 +104,7 @@ export default function EnergyAssistantBot({ onNavigate }: EnergyAssistantBotPro
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const handleSendRef = useRef<(text?: string) => Promise<void>>(undefined)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -115,6 +117,29 @@ export default function EnergyAssistantBot({ onNavigate }: EnergyAssistantBotPro
       inputRef.current?.focus()
     }
   }, [isOpen, messages, isTyping])
+
+  // External trigger listener to open and chat from anywhere in the app (e.g. Energy Saving Tips card)
+  useEffect(() => {
+    const handleOpenEvent = (event: Event) => {
+      const customEv = event as CustomEvent<{ prompt?: string; autoSend?: boolean }>
+      setIsOpen(true)
+      const promptText = customEv.detail?.prompt
+      if (promptText) {
+        if (customEv.detail?.autoSend !== false) {
+          setTimeout(() => {
+            handleSendRef.current?.(promptText)
+          }, 150)
+        } else {
+          setInput(promptText)
+        }
+      }
+    }
+
+    window.addEventListener("open-energy-assistant", handleOpenEvent)
+    return () => {
+      window.removeEventListener("open-energy-assistant", handleOpenEvent)
+    }
+  }, [])
 
   const handleSend = async (messageText?: string) => {
     const textToSend = messageText || input
@@ -187,6 +212,8 @@ export default function EnergyAssistantBot({ onNavigate }: EnergyAssistantBotPro
       setIsTyping(false)
     }
   }
+
+  handleSendRef.current = handleSend
 
   const handleActionClick = (route: string) => {
     if (onNavigate) {

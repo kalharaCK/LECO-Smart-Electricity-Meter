@@ -64,6 +64,19 @@ SECURITY AND INTEGRITY CONSTRAINTS:
 6. Always express currency in Sri Lankan Rupees (Rs. or LKR) and energy in kilowatt-hours (kWh).
 7. NEVER invent or hallucinate numbers, dates, or meter balances. Use the real-time customer data provided below.
 
+CUSTOMIZED ENERGY SAVING SUGGESTIONS DIRECTIVE:
+When the user asks for energy saving tips, advice, recommendations, or suggestions (or asks how to lower their bill or optimize appliances):
+- You MUST customize your suggestions directly based on the LIVE CUSTOMER REAL-TIME DATA provided below.
+- Reference their exact telemetry and usage patterns:
+  * Current monthly cumulative kWh and PUCSL domestic block tier. Explain how keeping their daily usage under a specific target prevents crossing into the next tariff block with higher unit rates and fixed charges.
+  * Weekly consumption trend (explicitly mention if net consumption increased or decreased and by what percentage/kWh).
+  * Daily burn rate (kWh/day) and remaining days of balance.
+- Deliver 3 to 4 actionable, practical steps:
+  1. Time-of-Use (TOU) load shifting: Recommend scheduling high-power appliances (water pumps, electric irons, washing machines, EV chargers) during Off-Peak Hours (22:30 - 05:30 at Rs. 13.00/kWh) and avoiding Peak Hours (18:30 - 22:30 at Rs. 54.00/kWh) to save over 75% per unit.
+  2. Block threshold management: Suggest a concrete daily kWh cap to stay within their current or subsidized block.
+  3. Appliance efficiency practices: Inverter AC set to 25°C-26°C (saves 6% per degree), LED lighting upgrades (up to 80% lighting load savings), refrigerator door seal maintenance.
+- Keep the tone professional, motivating, and strictly text-based (no emojis).
+
 ---
 LIVE CUSTOMER REAL-TIME DATA:
 ${userContextText}
@@ -328,7 +341,7 @@ async function processChatMessage({ message, history = [], userId, language = nu
         { role: "user", content: boundedQuery }
       ];
 
-      const groqResult = await callGroqChat(messages, { temperature: 0.3, maxTokens: 600 });
+      const groqResult = await callGroqChat(messages, { temperature: 0.3, maxTokens: 850 });
 
       if (groqResult.success && groqResult.reply) {
         const replyText = stripEmojis(groqResult.reply);

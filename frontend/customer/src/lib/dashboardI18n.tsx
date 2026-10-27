@@ -131,6 +131,8 @@ export interface DashboardTranslations {
     perDayUnit: string
     savingTipTitle: string
     savingTipDesc: string
+    savingTipChatBtn: string
+    savingTipChatPrompt: string
     quickActions: string
     easyMode: string
     activeAndSafe: string
@@ -328,6 +330,7 @@ export interface DashboardTranslations {
     promptLastTopup: string
     promptCompareUsage: string
     promptLifelineActive: string
+    promptSavingTips: string
     inputPlaceholder: string
     typingNotice: string
     networkError: string
@@ -454,6 +457,8 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       perDayUnit: "/ day",
       savingTipTitle: "Energy Saving Tip",
       savingTipDesc: "Reduce high-power appliances (iron, oven, water heater) during peak hours (6:30 PM - 10:30 PM) to minimize your monthly bill.",
+      savingTipChatBtn: "Chat About Suggestions",
+      savingTipChatPrompt: "Give me customized energy saving tips based on my current electricity usage patterns, tariff tier, and peak hour consumption.",
       quickActions: "Quick Actions",
       easyMode: "Easy Mode",
       activeAndSafe: "Power Active & Normal",
@@ -651,6 +656,7 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       promptLastTopup: "What was my last top-up?",
       promptCompareUsage: "Compare my weekly electricity usage",
       promptLifelineActive: "Is Lifeline Mode active?",
+      promptSavingTips: "How can I reduce my bill based on my usage?",
       inputPlaceholder: "Ask about days left, tariffs, usage...",
       typingNotice: "Querying energy engine...",
       networkError: "I encountered a network issue connecting to the energy database. Please try again.",
@@ -776,6 +782,8 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       perDayUnit: "/ දිනකට",
       savingTipTitle: "විදුලි ඉතිරි කිරීමේ උපදෙසක්",
       savingTipDesc: "රාත්‍රී 6:30 සිට 10:30 දක්වා උපරිම විදුලි ගාස්තු අයවන බැවින්, වැඩි විදුලියක් වැයවන උපකරණ භාවිතය සීමා කිරීමෙන් බිල්පත අඩු කරගත හැක.",
+      savingTipChatBtn: "උපදෙස් ගැන AI සමඟ කතා කරන්න",
+      savingTipChatPrompt: "මගේ වත්මන් විදුලි භාවිත රටාව, ගාස්තු කාණ්ඩය සහ උච්ච වේලාවන් අනුව මට ගැලපෙන බලශක්ති ඉතිරි කිරීමේ උපදෙස් ලබා දෙන්න.",
       quickActions: "ක්ෂණික සේවා",
       easyMode: "පහසු ක්‍රමය",
       activeAndSafe: "විදුලි සැපයුම සාමාන්‍යයි",
@@ -973,6 +981,7 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       promptLastTopup: "මගේ අවසාන රීචාර්ජ් එක කුමක්ද?",
       promptCompareUsage: "සතිපතා විදුලි පරිභෝජනය සංසන්දනය කරන්න",
       promptLifelineActive: "හදිසි ණය (Lifeline) ක්‍රියාත්මකද?",
+      promptSavingTips: "මගේ භාවිතය අනුව විදුලිය ඉතිරි කරන්නේ කෙසේද?",
       inputPlaceholder: "ඉතිරි දින, ගාස්තු, පරිභෝජනය ගැන විමසන්න...",
       typingNotice: "බලශක්ති දත්ත පරීක්ෂා කරමින් පවතී...",
       networkError: "බලශක්ති පද්ධතියට සම්බන්ධ වීමේදී දෝෂයක් ඇති විය. කරුණාකර නැවත උත්සාහ කරන්න.",
@@ -1098,6 +1107,8 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       perDayUnit: "/ நாள்",
       savingTipTitle: "மின் சேமிப்பு குறிப்பு",
       savingTipDesc: "இரவு 6:30 முதல் 10:30 வரையிலான உச்ச கட்டண நேரங்களில் அதிக மின்சாரம் பயன்படுத்தும் சாதனங்களைக் குறைப்பதன் மூலம் மாதாந்திரக் கட்டணத்தைக் குறைக்கலாம்.",
+      savingTipChatBtn: "ஆலோசனைகள் பற்றி AI உடன் பேசவும்",
+      savingTipChatPrompt: "எனது தற்போதைய மின்சார பயன்பாட்டு முறைகள், கட்டண அடுக்கு மற்றும் உச்ச நேர நுகர்வு ஆகியவற்றின் அடிப்படையில் எனக்கு ஏற்ற மின் சேமிப்பு ஆலோசனைகளை வழங்கவும்.",
       quickActions: "விரைவு சேவைகள்",
       easyMode: "எளிய பயன்முறை",
       activeAndSafe: "மின்சாரம் செயல்படுகிறது",
@@ -1295,6 +1306,7 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       promptLastTopup: "எனது கடைசி ரீசார்ஜ் விவரம் என்ன?",
       promptCompareUsage: "வாராந்திர மின் நுகர்வை ஒப்பிடுக",
       promptLifelineActive: "அவசர கடன் (Lifeline) முறையில் உள்ளதா?",
+      promptSavingTips: "எனது பயன்பாட்டின் அடிப்படையில் மின்சாரத்தை எவ்வாறு சேமிப்பது?",
       inputPlaceholder: "மீதமுள்ள நாட்கள், கட்டணங்கள், பயன்பாடு பற்றி கேட்க...",
       typingNotice: "மின்சார தரவுகளை சரிபார்க்கிறது...",
       networkError: "மின்சார அமைப்புடன் இணைப்பதில் பிணைய பிழை ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.",

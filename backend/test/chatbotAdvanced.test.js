@@ -134,3 +134,58 @@ test('tri-lingual offline engine generates valid localized responses without Gro
   assert.ok(taReply.includes('18'));
   assert.ok(taReply.includes('1,250.50'));
 });
+
+test('tri-lingual offline engine generates customized energy saving suggestions based on usage patterns', () => {
+  const mockContext = {
+    hasMeters: true,
+    primaryMeter: {
+      id: 1,
+      meterNumber: 'MTR-7788',
+      balance: 1500,
+      status: 'CONNECTED',
+      emergencyCreditLimit: 500,
+      emergencyCreditActive: false
+    },
+    cycleUsage: { netKwh: 45, daysInCycle: 20 },
+    prediction: {
+      estimatedDaysRemaining: 15,
+      averageDailyUsageKwh: 3.2,
+      currentTariffGroup: 'Block 2: 31-60 kWh'
+    },
+    weeklyTrend: {
+      thisWeekNetKwh: 22.4,
+      lastWeekNetKwh: 18.0,
+      differenceKwh: 4.4,
+      trend: 'increased',
+      percentageChange: 24
+    },
+    currentTOU: {
+      name: 'Peak Hours',
+      window: '18:30 - 22:30',
+      ratePerKwh: 54.00,
+      advisory: 'High rate window'
+    }
+  };
+
+  // English suggestions
+  const enReply = generateOfflineReply('Give me customized energy saving tips', mockContext, 'en');
+  assert.ok(enReply.includes('CUSTOMIZED ENERGY SAVING PLAN'));
+  assert.ok(enReply.includes('3.2 kWh/day'));
+  assert.ok(enReply.includes('increased by 24%'));
+  assert.ok(enReply.includes('18:30 to 22:30'));
+  assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(enReply), false, "Strict no-emoji rule in English suggestion");
+
+  // Sinhala suggestions
+  const siReply = generateOfflineReply('මගේ විදුලි භාවිතය අනුව බලශක්ති ඉතිරි කිරීමේ උපදෙස් දෙන්න', mockContext, 'si');
+  assert.ok(siReply.includes('බලශක්ති ඉතිරි කිරීමේ සැලැස්ම'));
+  assert.ok(siReply.includes('3.2 kWh/day'));
+  assert.ok(siReply.includes('24%'));
+  assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(siReply), false, "Strict no-emoji rule in Sinhala suggestion");
+
+  // Tamil suggestions
+  const taReply = generateOfflineReply('எனக்கு மின்சார சேமிப்பு ஆலோசனைகளை வழங்கவும்', mockContext, 'ta');
+  assert.ok(taReply.includes('மின்சார சேமிப்பு திட்டம்'));
+  assert.ok(taReply.includes('3.2 kWh/நாள்'));
+  assert.ok(taReply.includes('24%'));
+  assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(taReply), false, "Strict no-emoji rule in Tamil suggestion");
+});

@@ -174,7 +174,53 @@ function generateOfflineReply(userMessage, userContext, language = 'en') {
     return `LECO Time-of-Use (TOU) Electricity Schedule:\n- Peak Hours: 18:30 to 22:30 (Rs. 54.00/kWh). Please avoid high-load appliances like irons, water pumps, water heaters, and EV chargers during this window.\n- Day Hours: 05:30 to 18:30 (Rs. 25.00/kWh - Standard).\n- Off-Peak Hours: 22:30 to 05:30 (Rs. 13.00/kWh - Lowest rate). Best time for water pumping, washing machines, and EV charging.\n\nRight now: ${tou.name} (${tou.window})`;
   }
 
-  // 6. Complaints & Breakdown Support Query
+  // 6. Energy Saving Tips & Suggestions Query
+  const isTipsQuery = query.includes('tip') || query.includes('suggest') || query.includes('save') ||
+    query.includes('saving') || query.includes('reduce') || query.includes('conservation') ||
+    query.includes('efficient') || query.includes('efficiency') || query.includes('bill high') ||
+    query.includes('උපදෙස්') || query.includes('ඉතිරි') || query.includes('අඩු කර') ||
+    query.includes('ஆலோசனை') || query.includes('சேமிக்க') || query.includes('குறைக்க');
+
+  if (isTipsQuery) {
+    const dailyKwh = pred.averageDailyUsageKwh ?? "2.5";
+    const cycleNet = userContext.cycleUsage?.netKwh ?? "0";
+    const tier = pred.currentTariffGroup || "Domestic Block";
+    const trendTextEn = trend
+      ? (trend.trend === 'increased'
+          ? `Your net usage increased by ${trend.percentageChange}% (+${trend.differenceKwh} kWh) over the last 7 days.`
+          : trend.trend === 'decreased'
+          ? `Your net usage decreased by ${trend.percentageChange}% (-${trend.differenceKwh} kWh) over the last 7 days. Great conservation!`
+          : `Your weekly usage is steady at ${trend.thisWeekNetKwh} kWh.`)
+      : `Your average burn rate is ${dailyKwh} kWh/day.`;
+
+    if (lang === 'si') {
+      const trendTextSi = trend
+        ? (trend.trend === 'increased'
+            ? `පසුගිය දින 7 තුළ ඔබගේ භාවිතය ${trend.percentageChange}% කින් (+${trend.differenceKwh} kWh) වැඩි වී ඇත.`
+            : trend.trend === 'decreased'
+            ? `පසුගිය දින 7 තුළ ඔබගේ භාවිතය ${trend.percentageChange}% කින් (-${trend.differenceKwh} kWh) අඩු වී ඇත. විශිෂ්ටයි!`
+            : `ඔබගේ සතිපතා භාවිතය ස්ථාවරව ${trend.thisWeekNetKwh} kWh මට්ටමේ පවතී.`)
+        : `ඔබගේ දෛනික සාමාන්‍ය භාවිතය ${dailyKwh} kWh වේ.`;
+
+      return `[ඔබට ගැලපෙන බලශක්ති ඉතිරි කිරීමේ සැලැස්ම]\n\nඔබගේ දත්ත: දෛනික භාවිතය ~${dailyKwh} kWh/day, මාසික එකතුව ${cycleNet} kWh (${tier} යටතේ).\n${trendTextSi}\n\n1. උච්ච වේලාවන් (Peak Hours) මඟහැරීම:\nසවස 18:30 සිට 22:30 දක්වා කාලයේ විදුලි ඒකකයක් රු. 54.00 කි. රාත්‍රී 22:30 න් පසු (Off-Peak) ඒකකයක් රු. 13.00 ක් පමණි. වතුර මෝටර්, රෙදි සේදීමේ යන්ත්‍ර සහ ඉස්ත්‍රික්කය රාත්‍රී 22:30 න් පසු භාවිතයෙන් ඒකකයකට 75% කට වඩා ඉතිරි කරගත හැක.\n\n2. PUCSL ගාස්තු කාණ්ඩය ආරක්ෂා කර ගැනීම:\nමසකට ඒකක 60 සීමාව ඉක්මවුවහොත් සහනාධාර අහිමි වී ඉහළ ස්ථාවර ගාස්තු සහ ඒකක ගාස්තු අයවේ. දෛනික භාවිතය උපරිම 2.0 kWh මට්ටමේ තබා ගන්න.\n\n3. උපකරණ කාර්යක්ෂමතාව:\n- වායුසමන (AC) උෂ්ණත්වය 25°C-26°C මට්ටමේ තබන්න (සෑම අංශකයකටම 6% ක් ඉතිරි වේ).\n- නිවසේ සියලු විදුලි බුබුළු සඳහා LED බල්බ භාවිතා කරන්න (80% ක් ඉතිරි වේ).\n- ශීතකරණයේ දොර මුද්‍රා නිසි පරිදි පරීක්ෂා කර උණුසුම් ආහාර ශීතකරණයට දැමීමෙන් වළකින්න.`;
+    }
+
+    if (lang === 'ta') {
+      const trendTextTa = trend
+        ? (trend.trend === 'increased'
+            ? `கடந்த 7 நாட்களில் உங்கள் பயன்பாடு ${trend.percentageChange}% (+${trend.differenceKwh} kWh) அதிகரித்துள்ளது.`
+            : trend.trend === 'decreased'
+            ? `கடந்த 7 நாட்களில் உங்கள் பயன்பாடு ${trend.percentageChange}% (-${trend.differenceKwh} kWh) குறைந்துள்ளது. சிறந்த சேமிப்பு!`
+            : `உங்கள் வாராந்திர நுகர்வு ${trend.thisWeekNetKwh} kWh ஆக சீராக உள்ளது.`)
+        : `உங்கள் தினசரி சராசரி நுகர்வு ${dailyKwh} kWh ஆகும்.`;
+
+      return `[தனிப்பயனாக்கப்பட்ட மின்சார சேமிப்பு திட்டம்]\n\nஉங்கள் நேரடி தரவு: தினசரி நுகர்வு ~${dailyKwh} kWh/நாள், மாத நுகர்வு ${cycleNet} kWh (${tier} இன் கீழ்).\n${trendTextTa}\n\n1. உச்ச நேர பயன்பாட்டை தவிர்த்தல் (Peak Hours Shifting):\nமாலை 18:30 முதல் 22:30 வரை ஒரு அலகுக்கு ரூ. 54.00 கட்டணம். இரவு 22:30 க்கு பிறகு (Off-Peak) ரூ. 13.00 மட்டுமே. தண்ணீர் மோட்டார், சலவை இயந்திரம், இரும்புப்பெட்டி போன்றவற்றை இரவு 22:30 க்குப் பிறகு பயன்படுத்தினால் 75% வரை சேமிக்கலாம்.\n\n2. PUCSL கட்டண அடுக்கை பராமரித்தல்:\nமாத நுகர்வு 60 kWh ஐ தாண்டினால் அரசாங்க மானியம் இழக்கப்பட்டு கூடுதல் கட்டணங்கள் விதிக்கப்படும். தினசரி நுகர்வை 2.0 kWh க்குள் வைத்திருக்க முயலுங்கள்.\n\n3. வீட்டு உபகரண மேலாண்மை:\n- ஏர் கண்டிஷனரை 25°C-26°C இல் இயக்கவும் (ஒவ்வொரு பாகைக்கும் 6% மின்சாரம் சேமிக்கப்படும்).\n- அனைத்து விளக்குகளுக்கும் LED பல்புகளை பயன்படுத்தவும் (80% வரை சேமிப்பு).\n- குளிர்சாதன பெட்டியில் சூடான உணவுகளை வைப்பதை தவிர்க்கவும்.`;
+    }
+
+    return `[CUSTOMIZED ENERGY SAVING PLAN]\n\nYour Live Telemetry: Average burn rate ~${dailyKwh} kWh/day, monthly cumulative ${cycleNet} kWh under ${tier}.\n${trendTextEn}\n\n1. Time-of-Use Peak Shifting:\nPeak hours (18:30 to 22:30) cost Rs. 54.00/kWh, whereas off-peak hours (22:30 to 05:30) cost only Rs. 13.00/kWh. Shifting your water pump, washing machine, and electric iron to after 22:30 saves over 75% per unit on those loads.\n\n2. PUCSL Tariff Threshold Strategy:\nExceeding 60 kWh in a billing cycle transitions you out of subsidized lifeline blocks into higher unit rates and monthly fixed charges. Target keeping your daily consumption below 2.0 kWh to protect your lower tariff tier.\n\n3. High-Impact Appliance Habits:\n- Set inverter air conditioners to 25°C - 26°C (each degree lower increases consumption by ~6%).\n- Replace all conventional lighting with high-efficiency LED lamps to cut lighting load by up to 80%.\n- Check refrigerator door seals and avoid loading warm food directly into the fridge.`;
+  }
+
+  // 7. Complaints & Breakdown Support Query
   const isHelpQuery = query.includes('complaint') || query.includes('outage') || query.includes('hotline') ||
     query.includes('1987') || query.includes('support') || query.includes('breakdown') ||
     query.includes('පැමිණිලි') || query.includes('ඇනහිටීම්') || query.includes('புகார்') || query.includes('மின்தடை');
