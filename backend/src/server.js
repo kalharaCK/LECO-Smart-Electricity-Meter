@@ -19,6 +19,9 @@ const startServer = async () => {
     if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
       throw new Error('JWT_SECRET must be configured with at least 32 characters.');
     }
+    if (process.env.NODE_ENV === 'production' && !process.env.ML_SERVICE_TOKEN) {
+      throw new Error('ML_SERVICE_TOKEN must be configured when the ML service is enabled in production.');
+    }
     await connectDb();
     
     // Initialize optional WebSocket support for live broadcast without blocking REST API

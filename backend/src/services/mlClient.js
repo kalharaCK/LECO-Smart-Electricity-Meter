@@ -5,6 +5,7 @@
  */
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+const ML_SERVICE_TOKEN = process.env.ML_SERVICE_TOKEN;
 const DEFAULT_TIMEOUT_MS = 2500;
 
 class CircuitBreaker {
@@ -64,6 +65,7 @@ async function mlFetch(endpoint, options = {}) {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...(ML_SERVICE_TOKEN ? { 'X-ML-Service-Token': ML_SERVICE_TOKEN } : {}),
         ...(options.headers || {})
       },
       signal: AbortSignal.timeout(timeout)
