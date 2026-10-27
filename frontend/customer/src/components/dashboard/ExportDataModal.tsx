@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -31,8 +32,6 @@ export default function ExportDataModal({
   const [format, setFormat] = useState<"csv" | "json">("csv")
   const [downloaded, setDownloaded] = useState(false)
 
-  if (!isOpen) return null
-
   const handleExport = () => {
     const timestamp = new Date().toISOString().slice(0, 10)
     const baseFilename = `LECO_Consumption_${meta.meterNumber || "Meter"}_${timestamp}`
@@ -57,9 +56,19 @@ export default function ExportDataModal({
 
   const totalImport = records.reduce((sum, r) => sum + (Number(r.import) || 0), 0)
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#121214] border border-white/20 rounded-3xl w-full max-w-md p-5 sm:p-6 shadow-2xl relative overflow-hidden">
+  if (!isOpen || typeof document === "undefined") return null
+
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div 
+        className="bg-[#121214] border border-white/20 rounded-3xl w-full max-w-md p-5 sm:p-6 shadow-2xl relative overflow-hidden my-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-yellow-400/10 text-yellow-400 border border-yellow-400/20">
@@ -161,6 +170,7 @@ export default function ExportDataModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

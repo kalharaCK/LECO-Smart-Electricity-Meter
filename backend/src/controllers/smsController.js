@@ -222,6 +222,96 @@ const getTemplates = (req, res) => {
           si: smsService.formatMessage('relay_command', 'si', { account_no: 'ACC-883921', status: 'සම්බන්ධ' }),
           ta: smsService.formatMessage('relay_command', 'ta', { account_no: 'ACC-883921', status: 'இணைக்கப்பட்டது' })
         }
+      },
+      {
+        id: 'lifeline_activated',
+        name: 'Lifeline Mode Active Alert',
+        placeholders: ['account_no', 'buffer'],
+        examples: {
+          en: smsService.formatMessage('lifeline_activated', 'en', { account_no: 'ACC-883921', buffer: '500.00' }),
+          si: smsService.formatMessage('lifeline_activated', 'si', { account_no: 'ACC-883921', buffer: '500.00' }),
+          ta: smsService.formatMessage('lifeline_activated', 'ta', { account_no: 'ACC-883921', buffer: '500.00' })
+        }
+      },
+      {
+        id: 'meter_cutoff',
+        name: 'Power Cutoff Warning (Nil Balance)',
+        placeholders: ['account_no'],
+        examples: {
+          en: smsService.formatMessage('meter_cutoff', 'en', { account_no: 'ACC-883921' }),
+          si: smsService.formatMessage('meter_cutoff', 'si', { account_no: 'ACC-883921' }),
+          ta: smsService.formatMessage('meter_cutoff', 'ta', { account_no: 'ACC-883921' })
+        }
+      },
+      {
+        id: 'meter_reconnected',
+        name: 'Power Reconnected Confirmation',
+        placeholders: ['account_no', 'balance'],
+        examples: {
+          en: smsService.formatMessage('meter_reconnected', 'en', { account_no: 'ACC-883921', balance: '1250.00' }),
+          si: smsService.formatMessage('meter_reconnected', 'si', { account_no: 'ACC-883921', balance: '1250.00' }),
+          ta: smsService.formatMessage('meter_reconnected', 'ta', { account_no: 'ACC-883921', balance: '1250.00' })
+        }
+      },
+      {
+        id: 'peak_hours_advisory',
+        name: 'Peak Hours Energy Conservation Alert',
+        placeholders: [],
+        examples: {
+          en: smsService.formatMessage('peak_hours_advisory', 'en', {}),
+          si: smsService.formatMessage('peak_hours_advisory', 'si', {}),
+          ta: smsService.formatMessage('peak_hours_advisory', 'ta', {})
+        }
+      },
+      {
+        id: 'tariff_slab_warning',
+        name: 'Tariff Block Threshold Crossing Notice',
+        placeholders: ['account_no', 'units'],
+        examples: {
+          en: smsService.formatMessage('tariff_slab_warning', 'en', { account_no: 'ACC-883921', units: '60' }),
+          si: smsService.formatMessage('tariff_slab_warning', 'si', { account_no: 'ACC-883921', units: '60' }),
+          ta: smsService.formatMessage('tariff_slab_warning', 'ta', { account_no: 'ACC-883921', units: '60' })
+        }
+      },
+      {
+        id: 'complaint_logged',
+        name: 'Support Ticket Logged Notice',
+        placeholders: ['ticket_no', 'category'],
+        examples: {
+          en: smsService.formatMessage('complaint_logged', 'en', { ticket_no: 'CMP-49210', category: 'Voltage Issue' }),
+          si: smsService.formatMessage('complaint_logged', 'si', { ticket_no: 'CMP-49210', category: 'වෝල්ටීයතා ගැටලුව' }),
+          ta: smsService.formatMessage('complaint_logged', 'ta', { ticket_no: 'CMP-49210', category: 'மின்னழுத்த பிரச்சனை' })
+        }
+      },
+      {
+        id: 'complaint_resolved',
+        name: 'Support Ticket Resolved Notice',
+        placeholders: ['ticket_no'],
+        examples: {
+          en: smsService.formatMessage('complaint_resolved', 'en', { ticket_no: 'CMP-49210' }),
+          si: smsService.formatMessage('complaint_resolved', 'si', { ticket_no: 'CMP-49210' }),
+          ta: smsService.formatMessage('complaint_resolved', 'ta', { ticket_no: 'CMP-49210' })
+        }
+      },
+      {
+        id: 'meter_linked',
+        name: 'New Meter Linked Alert',
+        placeholders: ['meter_no', 'account_no'],
+        examples: {
+          en: smsService.formatMessage('meter_linked', 'en', { meter_no: 'LECO-9841', account_no: 'ACC-883921' }),
+          si: smsService.formatMessage('meter_linked', 'si', { meter_no: 'LECO-9841', account_no: 'ACC-883921' }),
+          ta: smsService.formatMessage('meter_linked', 'ta', { meter_no: 'LECO-9841', account_no: 'ACC-883921' })
+        }
+      },
+      {
+        id: 'tamper_alert',
+        name: 'Safety / Load Anomaly Alert',
+        placeholders: ['meter_no'],
+        examples: {
+          en: smsService.formatMessage('tamper_alert', 'en', { meter_no: 'LECO-9841' }),
+          si: smsService.formatMessage('tamper_alert', 'si', { meter_no: 'LECO-9841' }),
+          ta: smsService.formatMessage('tamper_alert', 'ta', { meter_no: 'LECO-9841' })
+        }
       }
     ]
   });

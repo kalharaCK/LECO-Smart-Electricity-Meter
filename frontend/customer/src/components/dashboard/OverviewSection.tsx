@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/lib/api"
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { createPortal } from "react-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -1700,10 +1701,18 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
     </div>
   )}
 
-      {/* 7. Quick Adjust Budget & Alerts Modal */}
-      {budgetModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#18181b] border border-white/15 rounded-3xl p-6 sm:p-7 max-w-lg w-full text-white shadow-2xl relative space-y-6">
+      {/* 7. Quick Adjust Budget & Alerts Modal - Centered in display via portal */}
+      {budgetModalOpen && typeof document !== "undefined" && createPortal(
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setBudgetModalOpen(false)
+          }}
+        >
+          <div 
+            className="bg-[#18181b] border border-white/15 rounded-3xl p-6 sm:p-7 max-w-lg w-full text-white shadow-2xl relative space-y-6 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-yellow-400/10 text-yellow-400">
@@ -1910,7 +1919,8 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Export Consumption Data Modal */}

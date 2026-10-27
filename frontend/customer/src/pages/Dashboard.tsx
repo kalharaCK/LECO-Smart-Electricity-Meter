@@ -409,7 +409,7 @@ function DashboardInner() {
               </h1>
             </div>
           )}
-          <div key={activeSection} className="animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-500 fill-mode-both">
+          <div key={activeSection} className="animate-in fade-in duration-300">
             <SectionErrorBoundary key={activeSection}>
               {renderContent()}
             </SectionErrorBoundary>

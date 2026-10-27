@@ -761,6 +761,32 @@ const activateEmergencyCredit = async (req, res) => {
       ]
     );
 
+    // Dispatch Lifeline Mode SMS Alert
+    try {
+      const userMobQuery = await pool.query(
+        `SELECT COALESCE(u.mobile_number, s.phone_number) as phone, s.preferred_language
+         FROM users u 
+         LEFT JOIN user_settings s ON u.id = s.user_id 
+         WHERE u.id = $1`,
+        [userId]
+      );
+      const customerPhone = userMobQuery.rows[0]?.phone;
+      const lang = userMobQuery.rows[0]?.preferred_language || 'en';
+      if (customerPhone) {
+        smsService.sendEventSms({
+          recipient: customerPhone,
+          eventType: 'lifeline_activated',
+          language: lang,
+          data: {
+            account_no: meter.account_number || meter.meter_number,
+            buffer: limit.toFixed(2)
+          }
+        }).catch(err => console.error('[Lifeline SMS error]:', err.message));
+      }
+    } catch (smsErr) {
+      console.error('[Lifeline SMS Error]:', smsErr.message);
+    }
+
     // Real-time WebSocket Broadcast
     broadcastMeterState(meterId).catch(e => console.error('WS broadcast error:', e));
 

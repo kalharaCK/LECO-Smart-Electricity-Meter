@@ -62,9 +62,54 @@ const SMS_TEMPLATES = {
     ta: (d) => `LECO எச்சரிக்கை: கணக்கு ${d.account_no || 'ACC'} இல் இருப்பு ரூ.${d.balance}. துண்டிக்கப்படுவதைத் தவிர்க்க உடனே ரீசார்ஜ் செய்யவும்.`
   },
   relay_command: {
-    en: (d) => `LECO Notice: Power supply for meter ${d.account_no} is now ${d.status}. Helpline: 1987.`,
-    si: (d) => `LECO: ${d.account_no} මීටරයේ විදුලි සැපයුම ${d.status} කර ඇත. විස්තර: 1987.`,
-    ta: (d) => `LECO: மீட்டர் ${d.account_no} மின் இணைப்பு ${d.status} செய்யப்பட்டுள்ளது. உதவி: 1987.`
+    en: (d) => `LECO Notice: Power supply for meter ${d.account_no || 'ACC'} is now ${d.status}. Helpline: 1987.`,
+    si: (d) => `LECO: ${d.account_no || 'ගිණුමේ'} විදුලි සැපයුම ${d.status} කරන ලදී. විස්තර: 1987.`,
+    ta: (d) => `LECO: மீட்டர் ${d.account_no || 'ACC'} இணைப்பு ${d.status} செய்யப்பட்டது. உதவி: 1987.`
+  },
+  lifeline_activated: {
+    en: (d) => `LECO: Lifeline Mode active for A/C ${d.account_no || 'ACC'}. Buffer: LKR ${d.buffer || '500.00'}. Power stays on. Reload soon at leco.lk.`,
+    si: (d) => `LECO: ${d.account_no || 'ගිණුම'} ට හදිසි ණය සක්‍රියයි. ආරක්‍ෂිත මුදල: රු.${d.buffer || '500'}. විදුලිය විසන්ධි නොවේ. leco.lk වෙතින් ගෙවන්න.`,
+    ta: (d) => `LECO: கணக்கு ${d.account_no || 'ACC'} அவசர கடன் செயலில் உள்ளது. அளவு: ரூ.${d.buffer || '500'}. leco.lk இல் ரீசார்ஜ் செய்யவும்.`
+  },
+  meter_cutoff: {
+    en: (d) => `LECO: Power cutoff on A/C ${d.account_no || 'ACC'} (Zero balance). Reload at leco.lk for auto-reconnect.`,
+    si: (d) => `LECO: ශේෂය අවසන්වීම නිසා ${d.account_no || 'ගිණුමේ'} විදුලිය විසන්ධි විය. නැවත සම්බන්ධ වීමට leco.lk වෙතින් ගෙවන්න.`,
+    ta: (d) => `LECO: கணக்கு ${d.account_no || 'ACC'} மின் துண்டிக்கப்பட்டது. மீள இணைக்க leco.lk இல் ரீசார்ஜ் செய்க.`
+  },
+  meter_reconnected: {
+    en: (d) => `LECO: Power reconnected for A/C ${d.account_no || 'ACC'}. Bal: LKR ${d.balance || '0.00'}. Supply is now active.`,
+    si: (d) => `LECO: ${d.account_no || 'ගිණුමේ'} විදුලි සැපයුම නැවත සම්බන්ධ කරන ලදී. ශේෂය: රු.${d.balance || '0.00'}. සැපයුම සක්‍රියයි.`,
+    ta: (d) => `LECO: கணக்கு ${d.account_no || 'ACC'} மின் இணைப்பு மீளமைக்கப்பட்டது. இருப்பு: ரூ.${d.balance || '0.00'}. இணைப்பு செயலில் உள்ளது.`
+  },
+  peak_hours_advisory: {
+    en: (d) => `LECO Peak Alert: Peak hours (18:30-22:30). Minimize irons, pumps, and heaters to lower your bill.`,
+    si: (d) => `LECO: 18:30-22:30 උච්ච වේලාවයි. බිල අඩු කර ගැනීමට අධි-විදුලි උපකරණ ක්‍රියා විරහිත කරන්න.`,
+    ta: (d) => `LECO: 18:30-22:30 உச்ச நேரம். கட்டணத்தை குறைக்க அதிக மின்சார உபகரணங்களை தவிர்க்கவும்.`
+  },
+  tariff_slab_warning: {
+    en: (d) => `LECO Notice: A/C ${d.account_no || 'ACC'} used ${d.units || '60'} kWh this cycle. Higher block tariff now applies.`,
+    si: (d) => `LECO: ${d.account_no || 'ගිණුම'} මේ මස ${d.units || '60'} kWh ඉක්මවා ඇත. ඉහළ ගාස්තු කාණ්ඩය ක්‍රියාත්මක වේ.`,
+    ta: (d) => `LECO: கணக்கு ${d.account_no || 'ACC'} இம்மாதம் ${d.units || '60'} kWh தாண்டியது. உயர் கட்டண அடுக்கு பொருந்தும்.`
+  },
+  complaint_logged: {
+    en: (d) => `LECO Support: Ticket ${d.ticket_no} logged (${d.category || 'Inquiry'}). We are attending to it. Call 1987.`,
+    si: (d) => `LECO සහාය: ඔබගේ පැමිණිල්ල ${d.ticket_no} ලියාපදිංචි විය. අපගේ කණ්ඩායම පරීක්ෂා කරයි. විමසීම්: 1987.`,
+    ta: (d) => `LECO உதவி: புகார் ${d.ticket_no} பதிவு செய்யப்பட்டது. உதவிக்கு 1987 ஐ அழைக்கவும்.`
+  },
+  complaint_resolved: {
+    en: (d) => `LECO Support: Ticket ${d.ticket_no} is resolved. For queries contact 1987. Thank you for your patience.`,
+    si: (d) => `LECO සහාය: ඔබගේ ${d.ticket_no} පැමිණිල්ල විසඳා ඇත. විමසීම් සඳහා 1987 අමතන්න. ස්තූතියි.`,
+    ta: (d) => `LECO உதவி: புகார் ${d.ticket_no} தீர்க்கப்பட்டது. விபரங்களுக்கு 1987 ஐ அழைக்கவும்.`
+  },
+  meter_linked: {
+    en: (d) => `LECO: Meter ${d.meter_no} (A/C ${d.account_no || 'ACC'}) was linked to your profile. Manage at leco.lk.`,
+    si: (d) => `LECO: ${d.meter_no} මීටරය ඔබගේ ගිණුමට සාර්ථකව සම්බන්ධ කරන ලදී. leco.lk වෙතින් කළමනාකරණය කරන්න.`,
+    ta: (d) => `LECO: மீட்டர் ${d.meter_no} உங்கள் கணக்கில் இணைக்கப்பட்டது. leco.lk இல் நிர்வகிக்கவும்.`
+  },
+  tamper_alert: {
+    en: (d) => `LECO Safety Alert: Abnormal load / voltage detected on meter ${d.meter_no || 'METER'}. Please inspect or call 1987.`,
+    si: (d) => `LECO ආරක්‍ෂාව: ${d.meter_no || 'මීටරයේ'} අධික බරක්/වෝල්ටීයතා ගැටලුවක් වාර්තා විය. අමතන්න: 1987.`,
+    ta: (d) => `LECO பாதுகாப்பு: மீட்டர் ${d.meter_no || 'METER'} இல் மாறுபட்ட சுமை/மின்னழுத்தம். உதவி: 1987.`
   }
 };
 
