@@ -28,6 +28,7 @@ import { getSocket } from "@/lib/socket"
 import { useDashboardI18n } from "@/lib/dashboardI18n"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import TariffSlabCard from "./TariffSlabCard"
 
 interface UserSettingsState {
   phone_number?: string
@@ -764,6 +765,12 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
           </div>
         </Card>
       </div>
+
+      {/* PUCSL Domestic Tariff Slab & Tier Progression Tracker */}
+      <TariffSlabCard 
+        currentMonthlyKwh={Number(consumption?.prediction?.billingCycleConsumptionKwh ?? (Number(meter.daily_average || 4.2) * 18))} 
+        tariffType={meter.tariff_type} 
+      />
 
       {/* 4. Lower Tier: 7-Day Chart & Analytics Summary (Left 2/3) + Recent Activity (Right 1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
