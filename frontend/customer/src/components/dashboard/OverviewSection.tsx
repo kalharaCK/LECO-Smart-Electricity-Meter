@@ -568,32 +568,33 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
 
           {/* Primary Action Buttons & View Mode Switch */}
           <div className="flex items-center gap-2.5 shrink-0 self-start lg:self-auto flex-wrap sm:flex-nowrap">
-            {/* Real View Mode Switch Toggle: Simplified (Non-technical) vs Detailed */}
-            <div className="flex items-center gap-3 px-3.5 py-1.5 rounded-2xl bg-black/60 border border-yellow-400/30 shadow-lg shrink-0">
-              <div className="flex flex-col text-left">
-                <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Eye className="h-3.5 w-3.5 text-yellow-400" />
-                  {viewMode === "simplified" ? t.overview.simplifiedView : t.overview.detailedView}
-                </span>
-                <span className="text-[10px] text-white/50">
-                  {viewMode === "simplified" ? t.overview.easyMode : "Technical Mode"}
-                </span>
-              </div>
+            {/* Standard Segmented View Mode Switcher */}
+            <div className="inline-flex p-1 rounded-xl bg-white/[0.06] border border-white/10 h-10 items-center shrink-0">
               <button
                 type="button"
-                role="switch"
-                aria-checked={viewMode === "simplified"}
-                onClick={() => handleToggleViewMode(viewMode === "simplified" ? "detailed" : "simplified")}
-                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                  viewMode === "simplified" ? "bg-yellow-400" : "bg-white/20"
+                onClick={() => handleToggleViewMode("simplified")}
+                className={`flex items-center gap-2 h-8 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === "simplified"
+                    ? "bg-yellow-400 text-black shadow-xs"
+                    : "text-white/60 hover:text-white hover:bg-white/5"
                 }`}
-                title={viewMode === "simplified" ? "Switch to Detailed Engineering View" : "Switch to Simplified View"}
+                title={t.overview.simplifiedViewDesc}
               >
-                <span
-                  className={`pointer-events-none inline-block h-6 w-6 transform rounded-full shadow-md ring-0 transition duration-200 ease-in-out ${
-                    viewMode === "simplified" ? "translate-x-5 bg-black" : "translate-x-0 bg-white"
-                  }`}
-                />
+                <Eye className="h-3.5 w-3.5" />
+                <span>{t.overview.simplifiedView}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleViewMode("detailed")}
+                className={`flex items-center gap-2 h-8 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === "detailed"
+                    ? "bg-yellow-400 text-black shadow-xs"
+                    : "text-white/60 hover:text-white hover:bg-white/5"
+                }`}
+                title="Detailed engineering view with diagnostics & specs"
+              >
+                <Sliders className="h-3.5 w-3.5" />
+                <span>{t.overview.detailedView}</span>
               </button>
             </div>
 
@@ -604,7 +605,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
                   onClick={handleDownloadStatementPdf}
                   disabled={downloadingStatement}
                   variant="outline"
-                  className="bg-white/5 hover:bg-white/10 text-white border-white/15 text-xs font-semibold h-11 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-all hover:border-white/30"
+                  className="bg-white/5 hover:bg-white/10 text-white border-white/15 text-xs font-semibold h-10 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-all hover:border-white/30"
                   title="Download Official LECO Monthly Statement PDF"
                 >
                   {downloadingStatement ? (
@@ -618,7 +619,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
                   type="button"
                   onClick={handleOpenBudgetModal}
                   variant="outline"
-                  className="bg-white/5 hover:bg-white/10 text-white border-white/15 text-xs font-semibold h-11 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-all hover:border-white/30"
+                  className="bg-white/5 hover:bg-white/10 text-white border-white/15 text-xs font-semibold h-10 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-all hover:border-white/30"
                 >
                   <Sliders className="h-4 w-4 text-yellow-400" />
                   <span>Budget & Alerts</span>
@@ -628,7 +629,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
 
             <Button
               onClick={() => onNavigate?.("payments")}
-              className="bg-yellow-400 hover:bg-yellow-300 text-black font-black h-11 px-6 rounded-xl shadow-lg shadow-yellow-400/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2 text-sm"
+              className="bg-yellow-400 hover:bg-yellow-300 text-black font-black h-10 px-5 rounded-xl shadow-lg shadow-yellow-400/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2 text-sm"
             >
               <CreditCard className="h-4 w-4" />
               <span>{t.overview.rechargeNow}</span>
@@ -749,19 +750,23 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
       {/* Dynamic View Router: Simplified Mode vs Detailed Engineering Mode */}
       {viewMode === "simplified" ? (
         <div className="flex flex-col gap-6 animate-in fade-in duration-300">
-          {/* Simplified View Helper Banner */}
-          <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-yellow-400/[0.06] border border-yellow-400/20 text-xs text-yellow-300">
-            <div className="flex items-center gap-2">
+          {/* Simplified View Helper Banner with Standard Detailed View Button */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-yellow-400/[0.06] border border-yellow-400/20 text-xs text-yellow-300">
+            <div className="flex items-center gap-2.5">
               <Sparkles className="h-4 w-4 text-yellow-400 shrink-0" />
-              <span>{t.overview.simplifiedViewDesc}</span>
+              <span className="font-medium">{t.overview.simplifiedViewDesc}</span>
             </div>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => handleToggleViewMode("detailed")}
-              className="underline hover:text-yellow-200 cursor-pointer font-semibold ml-2 text-[11px]"
+              className="bg-yellow-400/10 hover:bg-yellow-400/20 text-yellow-300 hover:text-yellow-200 border-yellow-400/30 text-xs font-bold h-9 px-4 rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-all shrink-0 self-start sm:self-auto"
             >
-              {t.overview.detailedView} &rarr;
-            </button>
+              <Sliders className="h-3.5 w-3.5 text-yellow-400" />
+              <span>{t.overview.switchToDetailed}</span>
+              <ChevronRight className="h-3.5 w-3.5 opacity-70" />
+            </Button>
           </div>
 
           {/* 1. Core 3 Simplified Cards */}
@@ -1093,6 +1098,25 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
         </div>
       ) : (
         <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          {/* Detailed View Info Banner with Standard Switch Button */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10 text-xs text-white/70">
+            <div className="flex items-center gap-2.5">
+              <Sliders className="h-4 w-4 text-yellow-400 shrink-0" />
+              <span>{t.overview.detailedView}: Engineering metrics, power diagnostics &amp; PUCSL tariff matrices.</span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleToggleViewMode("simplified")}
+              className="bg-white/10 hover:bg-white/20 text-white hover:text-white border-white/20 text-xs font-bold h-9 px-4 rounded-xl flex items-center gap-2 cursor-pointer transition-all shadow-xs shrink-0 self-start sm:self-auto"
+            >
+              <Eye className="h-3.5 w-3.5 text-yellow-400" />
+              <span>{t.overview.switchToSimplified}</span>
+              <ChevronRight className="h-3.5 w-3.5 opacity-70" />
+            </Button>
+          </div>
+
           {/* 3. Core 4-Card Hero Grid: Estimated Supply Days & Daily Estimation Prominently Featured */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI Card 1: Available Balance */}
@@ -1300,34 +1324,61 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
       {/* 4. Tier: Engineering Specs Grid (Detailed Mode) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {/* Card: Monthly Electricity Bill & Budget Tracker */}
-          <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+          <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 sm:p-6 relative overflow-hidden h-full flex flex-col justify-between">
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
-                  <Target className="h-4 w-4 text-emerald-400" />
-                  {t.overview.currentMonthAccruedBill}
-                </span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                    <Target className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider block">
+                      {t.overview.currentMonthAccruedBill}
+                    </span>
+                    <h4 className="text-sm font-bold text-white">Monthly Accrual</h4>
+                  </div>
+                </div>
+                <Badge className={`text-[10px] font-bold ${
                   budgetSpentPercent > 90 ? "bg-red-500/10 border-red-500/30 text-red-400" :
                   budgetSpentPercent > 70 ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
                   "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                 }`}>
                   {budgetSpentPercent}% {t.overview.spentOf}
-                </span>
+                </Badge>
               </div>
 
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-3xl font-black tracking-tight text-white">
-                  Rs. {currentAccruedBill.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                </span>
-                <span className="text-xs text-white/50">
-                  ({consumption?.prediction?.billingCycleConsumptionKwh || "0"} kWh)
-                </span>
+              {/* 2-Pill Rate/Budget Stats Row matching Card 2 */}
+              <div className="grid grid-cols-2 gap-2.5 pt-1">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                  <span className="text-[10px] text-white/50 font-medium block">Daily Average</span>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-lg font-black text-emerald-400">
+                      Rs. {(currentAccruedBill / Math.max(1, new Date().getDate())).toFixed(1)}
+                    </span>
+                    <span className="text-[10px] text-white/40">/ day</span>
+                  </div>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                  <span className="text-[10px] text-white/50 font-medium block">Monthly Budget</span>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-lg font-black text-white">Rs. {monthlyBudget.toLocaleString()}</span>
+                    <span className="text-[10px] text-white/40">/ mo</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="mt-4 space-y-1.5">
-                <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+              {/* Progress and Remaining */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-white/60 font-medium">Accrued Amount:</span>
+                  <span className="font-mono font-bold text-white">
+                    Rs. {currentAccruedBill.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    <span className="text-white/40 font-normal"> ({consumption?.prediction?.billingCycleConsumptionKwh || "0"} kWh)</span>
+                  </span>
+                </div>
+
+                <div className="w-full bg-white/10 h-2.5 rounded-full overflow-hidden p-0.5">
                   <div
                     className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
                       budgetSpentPercent > 90
@@ -1339,19 +1390,22 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
                     style={{ width: `${Math.max(4, Math.min(100, budgetSpentPercent))}%` }}
                   />
                 </div>
-                <div className="flex justify-between text-[11px] text-white/50">
-                  <span>{t.overview.monthlyBudgetTitle}: Rs. {monthlyBudget.toLocaleString()}</span>
-                  <span className="text-white/80 font-semibold">Rs. {remainingBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })} {t.overview.remainingOf}</span>
+
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-[11px] text-white/70 flex items-center justify-between">
+                  <span>Remaining in Budget:</span>
+                  <strong className="text-emerald-400 font-mono">
+                    Rs. {remainingBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </strong>
                 </div>
               </div>
             </div>
 
-            <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
-              <span className="text-white/40">Tariff: PUCSL D-1 Block</span>
+            <div className="pt-3 border-t border-white/5 mt-auto flex items-center justify-between text-xs text-white/50">
+              <span>Tariff: PUCSL D-1 Block</span>
               <button
                 type="button"
                 onClick={handleOpenBudgetModal}
-                className="text-yellow-400 hover:text-yellow-300 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
+                className="text-xs text-yellow-400 hover:text-yellow-300 font-semibold cursor-pointer transition-colors"
               >
                 {t.overview.adjustBudgetBtn}
               </button>

@@ -1,6 +1,4 @@
 const { pool } = require('../config/db');
-const { Parser } = require('json2csv');
-const moment = require('moment');
 
 /**
  * Export last N days of analytics as CSV.
@@ -9,8 +7,10 @@ const moment = require('moment');
 const exportAnalyticsCsv = async (req, res) => {
   try {
     const days = parseInt(req.query.days, 10) || 7;
-    const startDate = moment().subtract(days, 'days').format('YYYY-MM-DD');
-    const endDate = moment().format('YYYY-MM-DD');
+    const now = new Date();
+    const past = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    const startDate = past.toISOString().slice(0, 10);
+    const endDate = now.toISOString().slice(0, 10);
 
     const gridRes = await pool.query(`
       SELECT reading_date, SUM(consumption) AS grid_kwh, SUM(energy_export) AS solar_export_kwh
@@ -21,8 +21,15 @@ const exportAnalyticsCsv = async (req, res) => {
     `, [startDate, endDate]);
 
     const fields = ['reading_date', 'grid_kwh', 'solar_export_kwh'];
-    const parser = new Parser({ fields });
-    const csv = parser.parse(gridRes.rows);
+    const csvHeader = fields.join(',');
+    const csvRows = (gridRes.rows || []).map(row =>
+      fields.map(field => {
+        const val = row[field];
+        if (val === null || val === undefined) return '""';
+        return `"${String(val).replace(/"/g, '""')}"`;
+      }).join(',')
+    );
+    const csv = [csvHeader, ...csvRows].join('\n');
 
     res.header('Content-Type', 'text/csv');
     res.attachment(`analytics_${startDate}_to_${endDate}.csv`);

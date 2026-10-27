@@ -114,6 +114,8 @@ export interface DashboardTranslations {
     remainingOf: string
     simplifiedView: string
     detailedView: string
+    switchToDetailed: string
+    switchToSimplified: string
     simplifiedViewDesc: string
     supplyDaysTitle: string
     supplyDaysSubtext: string
@@ -431,10 +433,12 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       dailyBudgetTitle: "Daily Target Usage",
       lowBalanceNotificationTitle: "Prepaid Low Balance Alert",
       adjustBudgetBtn: "Adjust Budget & Alerts",
-      spentOf: "spent of",
+      spentOf: "Spent",
       remainingOf: "remaining",
       simplifiedView: "Simplified View",
       detailedView: "Detailed View",
+      switchToDetailed: "Switch to Detailed View",
+      switchToSimplified: "Switch to Simplified View",
       simplifiedViewDesc: "Clean, non-technical dashboard tailored for everyday home use",
       supplyDaysTitle: "Estimated Supply Horizon",
       supplyDaysSubtext: "Estimated power supply will last until",
@@ -751,10 +755,12 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       dailyBudgetTitle: "දෛනික ඉලක්කගත ඒකක ප්‍රමාණය",
       lowBalanceNotificationTitle: "අඩු ශේෂ අනතුරු ඇඟවීම",
       adjustBudgetBtn: "අයවැය සහ දැනුම්දීම් සකසන්න",
-      spentOf: "වැයවූ මුදල (මුළු ඉලක්කයෙන්)",
+      spentOf: "වැයවී ඇත",
       remainingOf: "ඉතිරි මුදල",
       simplifiedView: "සරල දැක්ම",
       detailedView: "සවිස්තර දැක්ම",
+      switchToDetailed: "සවිස්තර දැක්මට මාරුවන්න",
+      switchToSimplified: "සරල දැක්මට මාරුවන්න",
       simplifiedViewDesc: "නිවසේ එදිනෙදා භාවිතයට පහසු, පැහැදිලි සරල තිරය",
       supplyDaysTitle: "විදුලිය පවතින ඇස්තමේන්තුගත කාලය",
       supplyDaysSubtext: "විදුලි සැපයුම පවතිනු ඇතැයි අපේක්ෂිත දිනය",
@@ -1071,10 +1077,12 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       dailyBudgetTitle: "இலக்கு தினசரி பயன்பாடு",
       lowBalanceNotificationTitle: "குறைந்த நிலுவை எச்சரிக்கை",
       adjustBudgetBtn: "வரவுசெலவு & எச்சரிக்கைகளை மாற்றுக",
-      spentOf: "செலவிடப்பட்டது (மொத்தத்தில்)",
+      spentOf: "செலவிடப்பட்டது",
       remainingOf: "மீதமுள்ளது",
       simplifiedView: "எளிய பார்வை",
       detailedView: "விரிவான பார்வை",
+      switchToDetailed: "விரிவான பார்வைக்கு மாறவும்",
+      switchToSimplified: "எளிய பார்வைக்கு மாறவும்",
       simplifiedViewDesc: "வீட்டின் அன்றாட பயன்பாட்டிற்கு ஏற்ற தெளிவான எளிய இடைமுகம்",
       supplyDaysTitle: "மின்சாரம் நீடிக்கும் மதிப்பிடப்பட்ட நாட்கள்",
       supplyDaysSubtext: "மின்சாரம் நீடிக்கும் என எதிர்பார்க்கப்படும் தேதி",

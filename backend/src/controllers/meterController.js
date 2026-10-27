@@ -155,9 +155,11 @@ const getUserMeters = async (req, res) => {
        ORDER BY created_at DESC`,
       [userId]
     );
+    if (res.headersSent) return;
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching meters:', error);
+    if (res.headersSent) return;
     res.status(500).json({ message: 'Server error fetching meters' });
   }
 };
@@ -385,6 +387,7 @@ const getMeterConsumption = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching consumption:', error);
+    if (res.headersSent) return;
     res.status(500).json({ message: 'Server error fetching consumption' });
   }
 };
@@ -397,6 +400,7 @@ const getMeterPrediction = async (req, res) => {
       [meterId, req.user.id]
     );
     if (meterCheck.rows.length === 0) {
+      if (res.headersSent) return;
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -433,9 +437,11 @@ const getMeterPrediction = async (req, res) => {
       emergencyCreditActive: Boolean(meterCheck.rows[0].emergency_credit_active)
     });
 
+    if (res.headersSent) return;
     res.json(prediction);
   } catch (error) {
     console.error('Error calculating meter prediction:', error);
+    if (res.headersSent) return;
     res.status(500).json({ message: 'Server error calculating prediction' });
   }
 };

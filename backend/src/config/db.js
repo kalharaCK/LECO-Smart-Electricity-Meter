@@ -14,14 +14,16 @@ if (process.env.NODE_ENV === 'production' && disableDatabaseTls) {
 const pool = new Pool({
   connectionString,
   ssl: disableDatabaseTls ? false : { rejectUnauthorized: true },
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 30000,
-  keepAlive: true
+  max: 15,
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 15000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000
 });
 
 pool.on('error', (err) => {
-  console.error('[Database Pool Warning]: Unexpected error on idle client:', err.message);
+  // Serverless databases like Neon frequently drop idle pooled connections; handle gracefully
+  console.warn('[Database Pool Warning]: Idle connection dropped by remote serverless host:', err.message);
 });
 
 const initDb = async () => {
@@ -326,32 +328,44 @@ function isTransientDbError(err) {
     msg.includes('timeout') ||
     msg.includes('econnrefused') ||
     msg.includes('socket hang up') ||
+    msg.includes('socket disconnected') ||
+    msg.includes('tls connection') ||
+    msg.includes('network socket') ||
+    msg.includes('econnreset') ||
     msg.includes('server closed the connection')
   );
 }
 
-/**
- * Executes a PostgreSQL query with transparent retry on transient network/wake-up errors
- */
-const resilientQuery = async (text, params = [], options = {}) => {
-  const maxRetries = options.maxRetries ?? 2;
-  const initialDelay = options.initialDelayMs ?? 200;
+// Wrap raw pool.query so all queries across models and controllers auto-retry transient serverless connection drops
+const rawPoolQuery = pool.query.bind(pool);
+pool.query = async function (text, params, callback) {
+  if (typeof params === 'function' || typeof callback === 'function') {
+    return rawPoolQuery(text, params, callback);
+  }
   let attempt = 0;
-
+  const maxRetries = 2;
+  const initialDelay = 150;
   while (true) {
     try {
-      return await pool.query(text, params);
+      return await rawPoolQuery(text, params);
     } catch (err) {
       attempt++;
       if (attempt <= maxRetries && isTransientDbError(err)) {
         const delay = initialDelay * Math.pow(2, attempt - 1);
-        console.warn(`[Database Resilience]: Transient error (${err.code || err.message}). Retrying attempt ${attempt}/${maxRetries} in ${delay}ms...`);
+        console.warn(`[Database Resilience]: Auto-retrying query after transient drop (${err.code || err.message}) attempt ${attempt}/${maxRetries} in ${delay}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
         throw err;
       }
     }
   }
+};
+
+/**
+ * Executes a PostgreSQL query with transparent retry on transient network/wake-up errors
+ */
+const resilientQuery = async (text, params = [], options = {}) => {
+  return pool.query(text, params);
 };
 
 /**

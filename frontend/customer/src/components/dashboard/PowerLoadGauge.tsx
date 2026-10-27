@@ -48,19 +48,19 @@ export default function PowerLoadGauge({
   const strokeOffset = arcLength * (1 - loadPercentage / 100)
 
   return (
-    <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 sm:p-6 relative overflow-hidden flex flex-col justify-between">
+    <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 sm:p-6 relative overflow-hidden h-full flex flex-col justify-between">
       <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-400/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">
               <Gauge className="h-4 w-4" />
             </div>
             <div>
               <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider block">
-                Instantaneous Load & Grid
+                Live Power & Grid
               </span>
               <h4 className="text-sm font-bold text-white">Active Power Demand</h4>
             </div>
@@ -77,8 +77,8 @@ export default function PowerLoadGauge({
         </div>
 
         {/* Semi-Circular Radial Load Gauge Visualizer */}
-        <div className="flex flex-col items-center justify-center pt-2 relative">
-          <svg className="w-48 h-28 overflow-visible" viewBox="0 0 160 90">
+        <div className="flex flex-col items-center justify-center pt-1 relative">
+          <svg className="w-44 h-24 overflow-visible" viewBox="0 0 160 90">
             <defs>
               <linearGradient id="loadGaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="#10b981" />
@@ -110,7 +110,7 @@ export default function PowerLoadGauge({
           </svg>
 
           {/* Central Active Load Indicator Text */}
-          <div className="text-center -mt-10">
+          <div className="text-center -mt-8">
             <div className="flex items-baseline justify-center gap-1">
               <span className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                 {activeKw.toFixed(2)}
@@ -124,10 +124,10 @@ export default function PowerLoadGauge({
         </div>
 
         {/* 3-Pill Grid Quality & Compliance Telemetry Bar */}
-        <div className="grid grid-cols-3 gap-2 pt-2">
+        <div className="grid grid-cols-3 gap-2 pt-1">
           {/* Voltage */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-2.5 text-center">
-            <span className="text-[9px] text-white/50 font-medium uppercase tracking-wider block">Supply Voltage</span>
+            <span className="text-[9px] text-white/50 font-medium uppercase tracking-wider block">Voltage</span>
             <span className="text-xs font-extrabold text-white block mt-0.5">{voltage.toFixed(1)} V</span>
             <div className="flex items-center justify-center gap-1 mt-1 text-[9px]">
               {isVoltageNormal ? (
@@ -152,7 +152,7 @@ export default function PowerLoadGauge({
                 <AlertTriangle className="h-3 w-3 text-amber-400" />
               )}
               <span className={isFrequencyNormal ? "text-emerald-400" : "text-amber-400"}>
-                {isFrequencyNormal ? "50 Hz Sync" : "Drift"}
+                {isFrequencyNormal ? "50 Hz" : "Drift"}
               </span>
             </div>
           </div>
@@ -172,12 +172,12 @@ export default function PowerLoadGauge({
       </div>
 
       {/* Footer Info */}
-      <div className="pt-3 border-t border-white/5 mt-3 flex items-center justify-between text-[11px] text-white/40">
+      <div className="pt-3 border-t border-white/5 mt-auto flex items-center justify-between text-xs text-white/50">
         <span className="flex items-center gap-1.5">
           <Activity className="h-3.5 w-3.5 text-cyan-400" />
-          Single Phase 230V Domestic
+          <span>Grid Sync Active</span>
         </span>
-        <span className="font-mono text-white/60">30A Service</span>
+        <span className="font-mono text-white/70">Single Phase • 30A</span>
       </div>
     </Card>
   )

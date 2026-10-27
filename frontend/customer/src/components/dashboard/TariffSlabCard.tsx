@@ -149,14 +149,14 @@ export default function TariffSlabCard({ currentMonthlyKwh, tariffType }: Tariff
 
   return (
     <>
-      <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 sm:p-6 relative overflow-hidden flex flex-col justify-between">
+      <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 sm:p-6 relative overflow-hidden h-full flex flex-col justify-between">
         <div className="absolute top-0 right-0 w-36 h-36 bg-amber-400/5 rounded-full blur-3xl pointer-events-none" />
 
         <div className="space-y-4">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
                 <Layers className="h-4 w-4" />
               </div>
               <div>
@@ -164,7 +164,7 @@ export default function TariffSlabCard({ currentMonthlyKwh, tariffType }: Tariff
                   PUCSL Tariff Slab
                 </span>
                 <h4 className="text-sm font-bold text-white">
-                  {tier.group} • {tier.tierName}
+                  {tier.group} • {tier.slabMax < 9000 ? `${tier.slabMin}–${tier.slabMax} kWh` : '>180 kWh'}
                 </h4>
               </div>
             </div>
@@ -198,7 +198,7 @@ export default function TariffSlabCard({ currentMonthlyKwh, tariffType }: Tariff
               <span className="font-mono font-bold text-white">
                 {tier.currentKwh.toFixed(1)} kWh
                 {tier.nextSlabThreshold && (
-                  <span className="text-white/40 font-normal"> / {tier.nextSlabThreshold} kWh cap</span>
+                  <span className="text-white/40 font-normal"> / {tier.nextSlabThreshold} kWh</span>
                 )}
               </span>
             </div>
@@ -243,17 +243,17 @@ export default function TariffSlabCard({ currentMonthlyKwh, tariffType }: Tariff
         </div>
 
         {/* Footer Action */}
-        <div className="pt-4 border-t border-white/5 mt-4 flex items-center justify-between">
-          <span className="text-[11px] text-white/40">Official PUCSL Tariff Policy</span>
+        <div className="pt-3 border-t border-white/5 mt-auto flex items-center justify-between">
+          <span className="text-xs text-white/50">PUCSL 2026 Tariff</span>
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => setShowTableModal(true)}
-            className="text-xs text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10 h-8 px-2.5 rounded-lg flex items-center gap-1 cursor-pointer"
+            className="text-xs text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10 h-8 px-2 rounded-lg flex items-center gap-1 cursor-pointer font-semibold"
           >
             <span>View All Slabs</span>
-            <ChevronRight className="h-3 w-3" />
+            <ChevronRight className="h-3.5 w-3.5" />
           </Button>
         </div>
       </Card>
