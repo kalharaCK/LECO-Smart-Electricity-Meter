@@ -5,6 +5,7 @@ const { calculateDomesticBill } = require('../services/tariffEngine');
 const { sanitizeString } = require('../middlewares/sanitizer');
 const { emitMeterUpdate, emitNotification } = require('../services/socketService');
 const smsService = require('../services/smsService');
+const mlClient = require('../services/mlClient');
 
 /**
  * Broadcasts latest meter telemetry, balance, and prediction over WebSocket
@@ -65,6 +66,25 @@ async function broadcastMeterState(meterId) {
       emergencyCreditLimit: limit,
       emergencyCreditActive: meter.emergency_credit_active
     });
+
+    try {
+      const mlPrepaid = await mlClient.getPrepaidLifetime(meterId, balance);
+      if (mlPrepaid) {
+        prediction.ml = {
+          isAvailable: true,
+          coldStartStage: mlPrepaid.cold_start_stage,
+          expectedRemainingHours: mlPrepaid.expected_remaining_hours,
+          expectedRemainingDays: mlPrepaid.expected_remaining_days,
+          predictedExhaustionTime: mlPrepaid.predicted_exhaustion_time,
+          conservativeWarningTime: mlPrepaid.conservative_warning_time,
+          trajectories: mlPrepaid.trajectories,
+          confidenceScore: mlPrepaid.confidence_score,
+          modelWeights: mlPrepaid.model_weights
+        };
+      }
+    } catch (_) {
+      // Graceful fallback
+    }
 
     const chartResult = await pool.query(
       `SELECT 
@@ -348,6 +368,25 @@ const getMeterConsumption = async (req, res) => {
       emergencyCreditLimit,
       emergencyCreditActive
     });
+
+    try {
+      const mlPrepaid = await mlClient.getPrepaidLifetime(meterId, balance);
+      if (mlPrepaid) {
+        prediction.ml = {
+          isAvailable: true,
+          coldStartStage: mlPrepaid.cold_start_stage,
+          expectedRemainingHours: mlPrepaid.expected_remaining_hours,
+          expectedRemainingDays: mlPrepaid.expected_remaining_days,
+          predictedExhaustionTime: mlPrepaid.predicted_exhaustion_time,
+          conservativeWarningTime: mlPrepaid.conservative_warning_time,
+          trajectories: mlPrepaid.trajectories,
+          confidenceScore: mlPrepaid.confidence_score,
+          modelWeights: mlPrepaid.model_weights
+        };
+      }
+    } catch (_) {
+      // Graceful fallback
+    }
 
     res.json({
       today: parseFloat(todayResult.rows[0].total_import || 0).toFixed(1),
@@ -826,6 +865,20 @@ const simulateConsumption = async (req, res) => {
         );
       }
     }
+
+    // Feed incoming telemetry asynchronously to Python ML Engine (non-blocking)
+    mlClient.ingestTelemetry({
+      meterId: Number(meterId),
+      timestamp: new Date().toISOString(),
+      cumulativeKwh: currentMonthKwh,
+      prepaidBalance: prevBalance,
+      connectionType: 'prepaid',
+      tariffId: 'DOMESTIC_D1',
+      billingCycleDay: new Date().getDate(),
+      voltage: 230.0,
+      currentAmps: (kwh * 1000) / 230.0,
+      powerFactor: 0.96
+    }).catch(e => console.warn('[ML Telemetry Ingest Warning]:', e.message));
 
     // Real-time WebSocket Broadcast (instantly notifies frontend without full page reload)
     const livePayload = await broadcastMeterState(meterId);

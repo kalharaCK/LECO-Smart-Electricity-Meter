@@ -1,9 +1,11 @@
 const { pool } = require('../../config/db');
 const { getWalletLifetimePrediction, predictDailyConsumption, simulateWalletLifetime } = require('./predictionService');
+const mlClient = require('../../services/mlClient');
 
 /**
  * GET /api/prediction/meter/:meterId
- * Returns full wallet lifetime prediction, daily forecast, and PUCSL block analysis
+ * Returns full wallet lifetime prediction, daily forecast, PUCSL block analysis,
+ * and enriched real-time Python ML online ensemble predictions.
  */
 const getMeterPrediction = async (req, res) => {
   try {
@@ -60,6 +62,35 @@ const getMeterPrediction = async (req, res) => {
       emergencyCreditActive: meter.emergency_credit_active
     });
 
+    // Query online ML service asynchronously with graceful fallback
+    try {
+      const [mlPrepaid, mlHourly, mlStatus] = await Promise.all([
+        mlClient.getPrepaidLifetime(meterId, balance),
+        mlClient.getHourlyForecast(meterId),
+        mlClient.getModelStatus(meterId)
+      ]);
+
+      if (mlPrepaid) {
+        prediction.ml = {
+          isAvailable: true,
+          coldStartStage: mlPrepaid.cold_start_stage,
+          expectedRemainingHours: mlPrepaid.expected_remaining_hours,
+          expectedRemainingDays: mlPrepaid.expected_remaining_days,
+          predictedExhaustionTime: mlPrepaid.predicted_exhaustion_time,
+          conservativeWarningTime: mlPrepaid.conservative_warning_time,
+          trajectories: mlPrepaid.trajectories,
+          confidenceScore: mlPrepaid.confidence_score,
+          hourlyTrajectory: mlHourly?.hourly_trajectory || [],
+          modelWeights: mlStatus?.weights || mlPrepaid.model_weights,
+          driftDetected: mlStatus?.drift_detected || false
+        };
+      } else {
+        prediction.ml = { isAvailable: false, status: 'OFFLINE_FALLBACK' };
+      }
+    } catch (mlErr) {
+      prediction.ml = { isAvailable: false, status: 'OFFLINE_FALLBACK' };
+    }
+
     res.json({
       success: true,
       meterId: Number(meterId),
@@ -101,7 +132,99 @@ const simulatePrediction = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/prediction/ml/hourly/:meterId
+ * Returns ML 24-hour hourly trajectory
+ */
+const getMLHourlyForecast = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const forecast = await mlClient.getHourlyForecast(meterId);
+    if (!forecast) {
+      return res.status(503).json({ success: false, error: 'ML Forecasting Service currently unavailable' });
+    }
+    res.json({ success: true, meterId: Number(meterId), forecast });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * GET /api/prediction/ml/prepaid/:meterId
+ * Returns ML Prepaid lifetime simulation
+ */
+const getMLPrepaidForecast = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const balance = req.query.balance ? parseFloat(req.query.balance) : undefined;
+    const result = await mlClient.getPrepaidLifetime(meterId, balance);
+    if (!result) {
+      return res.status(503).json({ success: false, error: 'ML Forecasting Service currently unavailable' });
+    }
+    res.json({ success: true, meterId: Number(meterId), result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * GET /api/prediction/ml/postpaid/:meterId
+ * Returns ML Postpaid monthly bill forecast
+ */
+const getMLPostpaidForecast = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const result = await mlClient.getPostpaidForecast(meterId);
+    if (!result) {
+      return res.status(503).json({ success: false, error: 'ML Forecasting Service currently unavailable' });
+    }
+    res.json({ success: true, meterId: Number(meterId), result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * GET /api/prediction/ml/demand/:meterId
+ * Returns ML next-month recharge demand & trend
+ */
+const getMLRechargeDemand = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const result = await mlClient.getRechargeDemand(meterId);
+    if (!result) {
+      return res.status(503).json({ success: false, error: 'ML Forecasting Service currently unavailable' });
+    }
+    res.json({ success: true, meterId: Number(meterId), result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * GET /api/prediction/ml/status/:meterId
+ * Returns ML model status, weights, drift events
+ */
+const getMLModelStatus = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const status = await mlClient.getModelStatus(meterId);
+    if (!status) {
+      return res.status(503).json({ success: false, error: 'ML Service currently unavailable' });
+    }
+    res.json({ success: true, meterId: Number(meterId), status });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 module.exports = {
   getMeterPrediction,
-  simulatePrediction
+  simulatePrediction,
+  getMLHourlyForecast,
+  getMLPrepaidForecast,
+  getMLPostpaidForecast,
+  getMLRechargeDemand,
+  getMLModelStatus
 };
+

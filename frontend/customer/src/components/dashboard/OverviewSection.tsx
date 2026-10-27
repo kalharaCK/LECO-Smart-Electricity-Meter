@@ -614,11 +614,24 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
               )}
             </div>
 
-            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/5 text-xs text-white/80">
-              <Clock className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
-              <span>
-                Estimated Supply: <strong className="text-yellow-300 font-bold">~{daysEstimate} Days</strong>
-              </span>
+            <div className="mt-4 flex flex-col gap-1.5">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/5 text-xs text-white/80">
+                <Clock className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
+                <span>
+                  Estimated Supply: <strong className="text-yellow-300 font-bold">~{daysEstimate} Days</strong>
+                </span>
+                {consumption?.prediction?.ml?.isAvailable && (
+                  <span className="ml-auto text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono font-semibold">
+                    AI Ensemble
+                  </span>
+                )}
+              </div>
+              {consumption?.prediction?.ml?.isAvailable && consumption.prediction.ml.predictedExhaustionTime && (
+                <div className="text-[10px] text-white/50 px-1 flex items-center justify-between">
+                  <span>Exhaustion: {new Date(consumption.prediction.ml.predictedExhaustionTime).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                  <span className="font-mono text-emerald-400/80">{(Number(consumption.prediction.ml.confidenceScore || 0.85) * 100).toFixed(0)}% Conf.</span>
+                </div>
+              )}
             </div>
           </div>
 
