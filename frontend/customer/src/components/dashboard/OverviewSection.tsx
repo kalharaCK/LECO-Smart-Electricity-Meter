@@ -23,7 +23,8 @@ import {
   PhoneCall,
   FileText,
   AlertCircle,
-  Download
+  Download,
+  Cpu
 } from "lucide-react"
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 import { getSocket } from "@/lib/socket"
@@ -383,10 +384,24 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
   const isEmergencyActive = !!meter.emergency_credit_active
   const isDisconnected = meter.status?.toLowerCase() === "disconnected" || balanceNumber < -500
 
-  // Estimated days remaining: synced with ML online ensemble and real meter telemetry
-  const daysEstimate = consumption?.prediction?.ml?.expectedRemainingDays 
-    ?? consumption?.prediction?.estimatedDaysRemaining 
-    ?? (meter.daily_average > 0 ? Math.max(0, Math.floor(balanceNumber / meter.daily_average)) : 0)
+  // Real ML Prediction values - strictly authentic from Python ML Engine or N/A when offline
+  const isMlAvailable = Boolean(consumption?.prediction?.ml?.isAvailable)
+  const mlPrediction = isMlAvailable ? consumption?.prediction?.ml : null
+  const mlDaysRemaining = (isMlAvailable && mlPrediction?.expectedRemainingDays != null) 
+    ? Number(mlPrediction.expectedRemainingDays) 
+    : null
+  const mlDailyBurnRate = (isMlAvailable && mlPrediction?.dailyBurnRate != null) 
+    ? Number(mlPrediction.dailyBurnRate) 
+    : null
+  const mlExhaustionTimestamp = isMlAvailable ? (mlPrediction?.predictedExhaustionTime || null) : null
+  const mlConfidenceScore = (isMlAvailable && mlPrediction?.confidenceScore != null) 
+    ? Number(mlPrediction.confidenceScore) 
+    : null
+
+  // Active load strictly formatted: 0.00 kW if disconnected or no live reading today
+  const activeLoadDisplay = (isDisconnected || !consumption || Number(consumption.currentPower || 0) <= 0)
+    ? "0.00"
+    : Number(consumption.currentPower).toFixed(2)
 
   // Budget calculations for everyday consumer
   const monthlyBudget = userSettings.monthly_budget_lkr || 3000
@@ -659,24 +674,24 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
         </div>
       )}
 
-      {/* 3. Core 3-Card KPI Tier: Clean, Harmonious & Scannable */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* KPI Card 1: Available Balance & Estimated Lifespan */}
-        <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+      {/* 3. Core 4-Card Hero Grid: Estimated Supply Days & Daily Estimation Prominently Featured */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI Card 1: Available Balance */}
+        <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
                 <Wallet className="h-4 w-4 text-yellow-400" />
                 {t.overview.availableBalance}
               </span>
-              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 text-white/90 font-mono font-bold tracking-wider">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/90 font-mono font-bold tracking-wider">
                 PREPAID
               </span>
             </div>
 
             <div className="flex items-baseline gap-2 mt-1">
-              <span className={`text-3xl sm:text-4xl font-black tracking-tight ${balanceNumber < 0 ? "text-amber-300" : "text-white"}`}>
+              <span className={`text-3xl font-black tracking-tight ${balanceNumber < 0 ? "text-amber-300" : "text-white"}`}>
                 Rs. {Math.abs(balanceNumber).toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </span>
               {balanceNumber < 0 && (
@@ -686,47 +701,207 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
               )}
             </div>
 
-            <div className="mt-4 flex flex-col gap-1.5">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/5 text-xs text-white/80">
-                <Clock className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
-                <span>
-                  Estimated Supply: <strong className="text-yellow-300 font-bold">~{daysEstimate} Days</strong>
-                </span>
-                {consumption?.prediction?.ml?.isAvailable && (
-                  <span className="ml-auto text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono font-semibold">
-                    AI Ensemble
-                  </span>
-                )}
-              </div>
-              {consumption?.prediction?.ml?.isAvailable && consumption.prediction.ml.predictedExhaustionTime && (
-                <div className="text-[10px] text-white/50 px-1 flex items-center justify-between">
-                  <span>Exhaustion: {new Date(consumption.prediction.ml.predictedExhaustionTime).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-                  <span className="font-mono text-emerald-400/80">
-                    {consumption.prediction.ml.confidenceScore != null
-                      ? `${(Number(consumption.prediction.ml.confidenceScore) * 100).toFixed(0)}% Conf.`
-                      : "Calibrated"}
-                  </span>
-                </div>
-              )}
+            <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/5 text-[11px] text-white/70">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <span>
+                {isEmergencyActive ? "Lifeline Active (-Rs. 500 Buffer)" : "Lifeline Permitted (Rs. 500)"}
+              </span>
             </div>
           </div>
 
-          <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
-            <span className="text-white/40 flex items-center gap-1">
+          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
+            <span className="text-white/40 flex items-center gap-1 text-[11px]">
               <BellRing className="h-3 w-3 text-white/30" />
-              Alert at Rs. {lowThreshold}
+              Alert: Rs. {lowThreshold}
             </span>
             <button
               type="button"
               onClick={() => onNavigate?.("history")}
-              className="text-yellow-400 hover:text-yellow-300 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
+              className="text-yellow-400 hover:text-yellow-300 font-semibold text-[11px] underline underline-offset-2 cursor-pointer transition-colors"
             >
-              Payment History
+              History
             </button>
           </div>
         </Card>
 
-        {/* KPI Card 2: Monthly Electricity Bill & Budget Tracker */}
+        {/* KPI Card 2: AI Estimated Supply Days (HIGHLIGHTED HERO FEATURE) */}
+        <Card className="bg-gradient-to-b from-[#18181c] to-[#141416] border border-yellow-400/40 shadow-xl shadow-yellow-400/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Cpu className="h-4 w-4 text-yellow-400" />
+                Estimated Supply Horizon
+              </span>
+              {isMlAvailable ? (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono font-bold flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  AI ONLINE
+                </span>
+              ) : (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono font-semibold">
+                  ML OFFLINE
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-baseline gap-2 mt-1">
+              {isMlAvailable && mlDaysRemaining != null ? (
+                <span className="text-3xl font-black tracking-tight text-yellow-300 font-mono">
+                  ~{mlDaysRemaining.toFixed(1)} <span className="text-sm font-semibold text-white/60">Days</span>
+                </span>
+              ) : (
+                <span className="text-3xl font-black tracking-tight text-white/30 font-mono">
+                  N/A
+                </span>
+              )}
+            </div>
+
+            <div className="mt-3 space-y-1 text-[11px] text-white/60">
+              <div className="flex items-center justify-between">
+                <span>Exhaustion:</span>
+                <span className="font-mono text-white/90">
+                  {isMlAvailable && mlExhaustionTimestamp
+                    ? new Date(mlExhaustionTimestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                    : "N/A"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Model Confidence:</span>
+                <span className="font-mono text-emerald-400">
+                  {isMlAvailable && mlConfidenceScore != null
+                    ? `${(mlConfidenceScore * 100).toFixed(0)}% Conf.`
+                    : "N/A"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
+            <span className="text-white/40">
+              {isMlAvailable ? (mlPrediction?.coldStartStage || "Adaptive Ensemble") : "Awaiting ML Telemetry"}
+            </span>
+            <span className="text-yellow-400/80 font-mono">PUCSL Tariff Sync</span>
+          </div>
+        </Card>
+
+        {/* KPI Card 3: Adaptive Daily Estimation & Burn Rate (HIGHLIGHTED HERO FEATURE) */}
+        <Card className="bg-gradient-to-b from-[#18181c] to-[#141416] border border-sky-400/40 shadow-xl shadow-sky-400/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-sky-400/10 rounded-full blur-3xl pointer-events-none" />
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                <TrendingUp className="h-4 w-4 text-sky-400" />
+                Daily Estimation
+              </span>
+              {isMlAvailable && mlDailyBurnRate != null ? (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 font-mono font-bold">
+                  ADAPTIVE
+                </span>
+              ) : (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/40 font-mono">
+                  N/A
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-baseline gap-2 mt-1">
+              {isMlAvailable && mlDailyBurnRate != null ? (
+                <span className="text-3xl font-black tracking-tight text-white font-mono">
+                  Rs. {mlDailyBurnRate.toFixed(2)}
+                  <span className="text-xs font-normal text-white/50 ml-1">/ day</span>
+                </span>
+              ) : (
+                <span className="text-3xl font-black tracking-tight text-white/30 font-mono">
+                  N/A
+                </span>
+              )}
+            </div>
+
+            <div className="mt-3 space-y-1 text-[11px] text-white/60">
+              <div className="flex items-center justify-between">
+                <span>Daily Quota Target:</span>
+                <span className="font-mono text-white/90">{dailyTargetKwh} kWh / day</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Today Accrued:</span>
+                <span className={todayUsedKwh > dailyTargetKwh ? "text-amber-400 font-mono" : "text-emerald-400 font-mono"}>
+                  {todayUsedKwh.toFixed(1)} kWh ({Math.round((todayUsedKwh / dailyTargetKwh) * 100)}%)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
+            <span className="text-white/40">Tier Progressive</span>
+            <button
+              type="button"
+              onClick={handleOpenBudgetModal}
+              className="text-sky-400 hover:text-sky-300 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
+            >
+              Adjust Quota
+            </button>
+          </div>
+        </Card>
+
+        {/* KPI Card 4: Grid Usage & Live Active Load */}
+        <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/5 rounded-full blur-3xl pointer-events-none" />
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                <Activity className="h-4 w-4 text-blue-400" />
+                Today's Usage & Active Load
+              </span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                meter.status === "Connected"
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                  : "bg-rose-500/10 border-rose-500/30 text-rose-400"
+              }`}>
+                {meter.status === "Connected" ? "ONLINE" : "DISCONNECTED"}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-1">
+              <div>
+                <span className="text-[11px] text-white/50 block">Today's Energy</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-2xl font-black text-white">
+                    {consumption ? Number(consumption.today || 0).toFixed(1) : "0.0"}
+                  </span>
+                  <span className="text-xs font-semibold text-white/50">kWh</span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[11px] text-white/50 block">Active Load</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-2xl font-black text-blue-400">
+                    {activeLoadDisplay}
+                  </span>
+                  <span className="text-xs font-semibold text-blue-400/60">kW</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/5 text-[11px] text-white/70">
+              <Zap className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+              <span>
+                Solar Export: {consumption ? Number(consumption.exportToday || 0).toFixed(1) : "0.0"} kWh
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-[11px]">
+            <span className="text-white/40 font-mono">230V • 50Hz Grid</span>
+            <span className="text-emerald-400 font-mono text-[11px]">Telemetry Pulse Active</span>
+          </div>
+        </Card>
+      </div>
+
+      {/* 4. Monthly Budget Tracker, PUCSL Tariff Slab & Peak Hours Advisory Tier */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Card: Monthly Electricity Bill & Budget Tracker */}
         <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
           <div>
@@ -745,7 +920,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
             </div>
 
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-3xl sm:text-4xl font-black tracking-tight text-white">
+              <span className="text-3xl font-black tracking-tight text-white">
                 Rs. {currentAccruedBill.toLocaleString("en-US", { minimumFractionDigits: 2 })}
               </span>
               <span className="text-xs text-white/50">
@@ -753,7 +928,6 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
               </span>
             </div>
 
-            {/* Sleek Progress Bar */}
             <div className="mt-4 space-y-1.5">
               <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
                 <div
@@ -786,67 +960,13 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
           </div>
         </Card>
 
-        {/* KPI Card 3: Today's Consumption & Active Power Draw */}
-        <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/5 rounded-full blur-3xl pointer-events-none" />
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
-                <Activity className="h-4 w-4 text-blue-400" />
-                Today's Usage & Active Load
-              </span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                todayUsedKwh > dailyTargetKwh 
-                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400" 
-                  : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-              }`}>
-                {todayUsedKwh > dailyTargetKwh ? "Over Target" : "Target OK"}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mt-1">
-              <div>
-                <span className="text-xs text-white/50 block">Today's Energy</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl sm:text-3xl font-black text-white">
-                    {consumption ? Number(consumption.today || 0).toFixed(1) : "0.0"}
-                  </span>
-                  <span className="text-xs font-semibold text-white/50">kWh</span>
-                </div>
-              </div>
-
-              <div>
-                <span className="text-xs text-white/50 block">Active Load</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl sm:text-3xl font-black text-blue-400">
-                    {consumption ? Number(consumption.currentPower || 0).toFixed(2) : "0.00"}
-                  </span>
-                  <span className="text-xs font-semibold text-blue-400/60">kW</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/5 text-xs text-white/80">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-              <span>
-                Target: <strong>{dailyTargetKwh} kWh / day</strong> ({Math.round((todayUsedKwh / dailyTargetKwh) * 100)}% used)
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
-            <span className="text-white/40">Avg: ~Rs. {Number(meter.daily_average || (avgPeriodKwh > 0 ? (avgPeriodKwh * 35).toFixed(0) : 0)).toFixed(0)} / day</span>
-            <span className="text-white/60 font-mono">230V • 50Hz</span>
-          </div>
-        </Card>
-      </div>
-
-      {/* 4. Smart Grid Analytics & Consumer Advisory Tier */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {/* Card: PUCSL Tariff Slab */}
         <TariffSlabCard 
-          currentMonthlyKwh={Number(consumption?.prediction?.billingCycleConsumptionKwh ?? (Number(meter.daily_average || 4.2) * 18))} 
+          currentMonthlyKwh={Number(consumption?.prediction?.billingCycleConsumptionKwh || 0)} 
           tariffType={meter.tariff_type} 
         />
+
+        {/* Card: Peak Hours Advisory Widget */}
         <PeakHoursAdvisoryWidget />
         <PowerLoadGauge 
           currentPowerKw={Number(consumption?.currentPower || 1.15)}

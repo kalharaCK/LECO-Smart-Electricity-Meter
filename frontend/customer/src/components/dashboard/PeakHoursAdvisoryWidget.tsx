@@ -5,7 +5,7 @@ import {
   Clock, 
   Flame, 
   Moon, 
-  Sun, 
+  Sun,
   Sparkles
 } from "lucide-react"
 

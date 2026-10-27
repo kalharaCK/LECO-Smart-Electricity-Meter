@@ -79,11 +79,14 @@ async function broadcastMeterState(meterId) {
           conservativeWarningTime: mlPrepaid.conservative_warning_time,
           trajectories: mlPrepaid.trajectories,
           confidenceScore: mlPrepaid.confidence_score,
-          modelWeights: mlPrepaid.model_weights
+          modelWeights: mlPrepaid.model_weights,
+          dailyBurnRate: mlPrepaid.daily_burn_rate_lkr
         };
+      } else {
+        prediction.ml = { isAvailable: false };
       }
     } catch (_) {
-      // Graceful fallback
+      prediction.ml = { isAvailable: false };
     }
 
     const chartResult = await pool.query(
@@ -98,15 +101,16 @@ async function broadcastMeterState(meterId) {
       [meterId]
     );
 
-    // Query latest real telemetry reading for live power and solar export
+    // Query latest real telemetry reading for live power and solar export for CURRENT_DATE
+    const isMeterActive = meter.status === 'Connected';
     const latestLogRes = await pool.query(
       `SELECT consumption, energy_export FROM consumption_logs 
-       WHERE meter_id = $1 
-       ORDER BY reading_date DESC, reading_hour DESC LIMIT 1`,
+       WHERE meter_id = $1 AND reading_date = CURRENT_DATE
+       ORDER BY reading_hour DESC LIMIT 1`,
       [meterId]
     );
-    const livePower = latestLogRes.rows.length > 0 ? parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2) : '0.00';
-    const liveExport = latestLogRes.rows.length > 0 ? parseFloat(latestLogRes.rows[0].energy_export || 0).toFixed(2) : '0.00';
+    const livePower = (isMeterActive && latestLogRes.rows.length > 0) ? parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2) : '0.00';
+    const liveExport = (isMeterActive && latestLogRes.rows.length > 0) ? parseFloat(latestLogRes.rows[0].energy_export || 0).toFixed(2) : '0.00';
 
     const payload = {
       meterId: Number(meterId),
@@ -279,15 +283,19 @@ const getMeterConsumption = async (req, res) => {
       [meterId]
     );
 
-    // Query latest real telemetry reading for live power and solar export
+    // Fetch meter record for status and balance
+    const meterRow = await pool.query('SELECT balance, status, emergency_credit_limit, emergency_credit_active FROM meters WHERE id = $1', [meterId]);
+    const isMeterActive = (meterRow.rows[0]?.status) === 'Connected';
+
+    // Query latest real telemetry reading for live power and solar export for CURRENT_DATE
     const latestLogRes = await pool.query(
       `SELECT consumption, energy_export FROM consumption_logs 
-       WHERE meter_id = $1 
-       ORDER BY reading_date DESC, reading_hour DESC LIMIT 1`,
+       WHERE meter_id = $1 AND reading_date = CURRENT_DATE
+       ORDER BY reading_hour DESC LIMIT 1`,
       [meterId]
     );
-    const currentPower = latestLogRes.rows.length > 0 ? parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2) : '0.00';
-    const currentExport = latestLogRes.rows.length > 0 ? parseFloat(latestLogRes.rows[0].energy_export || 0).toFixed(2) : '0.00';
+    const currentPower = (isMeterActive && latestLogRes.rows.length > 0) ? parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2) : '0.00';
+    const currentExport = (isMeterActive && latestLogRes.rows.length > 0) ? parseFloat(latestLogRes.rows[0].energy_export || 0).toFixed(2) : '0.00';
 
     // Fetch daily history for LECO wallet lifetime prediction (Net consumption: Import - Export)
     const historyResult = await pool.query(
@@ -311,7 +319,6 @@ const getMeterConsumption = async (req, res) => {
       [meterId]
     );
 
-    const meterRow = await pool.query('SELECT balance, emergency_credit_limit, emergency_credit_active FROM meters WHERE id = $1', [meterId]);
     const balance = parseFloat(meterRow.rows[0]?.balance || 0);
     const emergencyCreditLimit = parseFloat(meterRow.rows[0]?.emergency_credit_limit || 500);
     const emergencyCreditActive = Boolean(meterRow.rows[0]?.emergency_credit_active);
@@ -341,11 +348,14 @@ const getMeterConsumption = async (req, res) => {
           conservativeWarningTime: mlPrepaid.conservative_warning_time,
           trajectories: mlPrepaid.trajectories,
           confidenceScore: mlPrepaid.confidence_score,
-          modelWeights: mlPrepaid.model_weights
+          modelWeights: mlPrepaid.model_weights,
+          dailyBurnRate: mlPrepaid.daily_burn_rate_lkr
         };
+      } else {
+        prediction.ml = { isAvailable: false };
       }
     } catch (_) {
-      // Graceful fallback
+      prediction.ml = { isAvailable: false };
     }
 
     res.json({

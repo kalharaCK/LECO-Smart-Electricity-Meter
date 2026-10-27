@@ -699,7 +699,6 @@ export default function AuthPage() {
                         <Input
                           id="login-email"
                           type="email"
-                          autoComplete="username"
                           placeholder={t.fields.emailPlaceholder}
                           value={loginEmail}
                           onChange={(e) => setLoginEmail(e.target.value)}
