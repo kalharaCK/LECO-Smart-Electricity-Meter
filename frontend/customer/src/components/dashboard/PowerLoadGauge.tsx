@@ -18,7 +18,7 @@ interface PowerLoadGaugeProps {
 }
 
 export default function PowerLoadGauge({
-  currentPowerKw = 1.15,
+  currentPowerKw = 0.00,
   contractedDemandKw = 5.0,
   voltage = 230.4,
   frequency = 50.0,

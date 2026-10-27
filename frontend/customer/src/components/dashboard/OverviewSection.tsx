@@ -313,6 +313,70 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
   }
 
   const [downloadingStatement, setDownloadingStatement] = useState(false)
+  // Multi-timeframe analytics selection (24h, 7d, 30d, 90d)
+  const [selectedTimeframe, setSelectedTimeframe] = useState<"24h" | "7d" | "30d" | "90d">("7d")
+
+  const activeChartData = useMemo(() => {
+    const raw7 = consumption?.chartData || []
+    if (selectedTimeframe === "7d") {
+      return raw7
+    }
+
+    if (selectedTimeframe === "24h") {
+      const now = new Date()
+      const hours = []
+      for (let i = 23; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 3600000)
+        const hourLabel = d.toLocaleTimeString("en-US", { hour: "numeric", hour12: true })
+        const hourNum = d.getHours()
+        let baseImport = 0.25
+        if (hourNum >= 6 && hourNum <= 8) baseImport = 0.65
+        else if (hourNum >= 12 && hourNum <= 14) baseImport = 0.45
+        else if (hourNum >= 18 && hourNum <= 22) baseImport = 1.15
+        else if (hourNum >= 23 || hourNum <= 5) baseImport = 0.18
+
+        hours.push({
+          date: hourLabel,
+          import: parseFloat((baseImport + Math.sin(i) * 0.05).toFixed(2)),
+          export: (hourNum >= 9 && hourNum <= 16) ? 0.35 : 0
+        })
+      }
+      return hours
+    }
+
+    if (selectedTimeframe === "30d") {
+      const baseDaily = Number(meter?.daily_average) || 4.2
+      const days = []
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date()
+        d.setDate(d.getDate() - i)
+        const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        const weekendBonus = (d.getDay() === 0 || d.getDay() === 6) ? 1.2 : 0.95
+        const variance = Math.cos(i * 0.7) * 0.8
+        const val = Math.max(1.2, parseFloat((baseDaily * weekendBonus + variance).toFixed(2)))
+        days.push({
+          date: dateStr,
+          import: val,
+          export: parseFloat((val * 0.15).toFixed(2))
+        })
+      }
+      return days
+    }
+
+    // 90d (Quarterly profile)
+    const baseDaily = Number(meter?.daily_average) || 4.2
+    const weeks = []
+    for (let i = 12; i >= 0; i--) {
+      const label = `W-${13 - i}`
+      const weeklyVal = parseFloat((baseDaily * 7 * (0.9 + (i % 3) * 0.08)).toFixed(1))
+      weeks.push({
+        date: label,
+        import: weeklyVal,
+        export: parseFloat((weeklyVal * 0.12).toFixed(1))
+      })
+    }
+    return weeks
+  }, [selectedTimeframe, consumption?.chartData, meter?.daily_average])
 
   const handleDownloadStatementPdf = async () => {
     if (!meter) return
@@ -411,71 +475,6 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
 
   const dailyTargetKwh = userSettings.daily_kwh_budget || 12
   const todayUsedKwh = consumption ? Number(consumption.today || 0) : 0
-
-  // Multi-timeframe analytics selection (24h, 7d, 30d, 90d)
-  const [selectedTimeframe, setSelectedTimeframe] = useState<"24h" | "7d" | "30d" | "90d">("7d")
-
-  const activeChartData = useMemo(() => {
-    const raw7 = consumption?.chartData || []
-    if (selectedTimeframe === "7d") {
-      return raw7
-    }
-
-    if (selectedTimeframe === "24h") {
-      const now = new Date()
-      const hours = []
-      for (let i = 23; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 3600000)
-        const hourLabel = d.toLocaleTimeString("en-US", { hour: "numeric", hour12: true })
-        const hourNum = d.getHours()
-        let baseImport = 0.25
-        if (hourNum >= 6 && hourNum <= 8) baseImport = 0.65
-        else if (hourNum >= 12 && hourNum <= 14) baseImport = 0.45
-        else if (hourNum >= 18 && hourNum <= 22) baseImport = 1.15
-        else if (hourNum >= 23 || hourNum <= 5) baseImport = 0.18
-
-        hours.push({
-          date: hourLabel,
-          import: parseFloat((baseImport + Math.sin(i) * 0.05).toFixed(2)),
-          export: (hourNum >= 9 && hourNum <= 16) ? 0.35 : 0
-        })
-      }
-      return hours
-    }
-
-    if (selectedTimeframe === "30d") {
-      const baseDaily = Number(meter?.daily_average) || 4.2
-      const days = []
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date()
-        d.setDate(d.getDate() - i)
-        const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-        const weekendBonus = (d.getDay() === 0 || d.getDay() === 6) ? 1.2 : 0.95
-        const variance = Math.cos(i * 0.7) * 0.8
-        const val = Math.max(1.2, parseFloat((baseDaily * weekendBonus + variance).toFixed(2)))
-        days.push({
-          date: dateStr,
-          import: val,
-          export: parseFloat((val * 0.15).toFixed(2))
-        })
-      }
-      return days
-    }
-
-    // 90d (Quarterly profile)
-    const baseDaily = Number(meter?.daily_average) || 4.2
-    const weeks = []
-    for (let i = 12; i >= 0; i--) {
-      const label = `W-${13 - i}`
-      const weeklyVal = parseFloat((baseDaily * 7 * (0.9 + (i % 3) * 0.08)).toFixed(1))
-      weeks.push({
-        date: label,
-        import: weeklyVal,
-        export: parseFloat((weeklyVal * 0.12).toFixed(1))
-      })
-    }
-    return weeks
-  }, [selectedTimeframe, consumption?.chartData, meter?.daily_average])
 
   const totalPeriodKwh = activeChartData.reduce((acc: number, curr: any) => acc + (Number(curr.import) || 0), 0)
   const avgPeriodKwh = activeChartData.length > 0 ? (totalPeriodKwh / activeChartData.length) : 0
@@ -899,8 +898,8 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
         </Card>
       </div>
 
-      {/* 4. Monthly Budget Tracker, PUCSL Tariff Slab & Peak Hours Advisory Tier */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* 4. Monthly Budget Tracker, PUCSL Tariff Slab, Advisory & Live Power Gauge Tier */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Card: Monthly Electricity Bill & Budget Tracker */}
         <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
@@ -969,7 +968,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
         {/* Card: Peak Hours Advisory Widget */}
         <PeakHoursAdvisoryWidget />
         <PowerLoadGauge 
-          currentPowerKw={Number(consumption?.currentPower || 1.15)}
+          currentPowerKw={Number(consumption?.currentPower ?? 0)}
           contractedDemandKw={Number(meter?.contracted_demand || 5.0)}
           voltage={Number(consumption?.voltage || 230.4)}
           frequency={Number(consumption?.frequency || 50.0)}
