@@ -136,8 +136,6 @@ const sendRegisterOtp = async (req, res) => {
       [cleanMobile, otpCode, expiresAt]
     );
 
-    console.log(`[LECO SMS Gateway] Registration OTP for ${cleanMobile}: ${otpCode}`);
-
     // Dispatch SMS via Text.lk Gateway in customer preferred language
     const userLang = req.body.language || 'en';
     const smsRes = await smsService.sendEventSms({
@@ -296,8 +294,6 @@ const sendForgotPasswordOtp = async (req, res) => {
       [cleanNic, otpCode, expiresAt]
     );
 
-    console.log(`[LECO SMS Gateway] Password Reset OTP for NIC ${cleanNic} (${user.mobile_number}): ${otpCode}`);
-
     // Dispatch SMS via Text.lk Gateway
     const targetMobile = user.mobile_number || cleanMobile;
     const userLang = req.body.language || 'en';
@@ -404,7 +400,7 @@ const resetPasswordWithOtp = async (req, res) => {
       return res.status(404).json({ success: false, error: 'User account not found' });
     }
 
-    console.log(`[Auth] Password reset successfully for NIC ${cleanNic} (${updateRes.rows[0].email})`);
+    console.log('[Auth] Password reset completed.');
 
     return res.json({
       success: true,
