@@ -53,6 +53,32 @@ export default function MetersManagement({
   const [actionLoading, setActionLoading] = useState(false)
   const [topupAmount, setTopupAmount] = useState<number>(500)
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null)
+  const [downloadingStatement, setDownloadingStatement] = useState(false)
+
+  const handleDownloadStatementPdf = async (meter: StaffMeter) => {
+    try {
+      setDownloadingStatement(true)
+      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/statement-pdf`, {
+        headers: getAuthHeaders(),
+        credentials: "include"
+      })
+      if (!res.ok) throw new Error("Failed to download statement PDF")
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `LECO_Monthly_Statement_${meter.meter_number || meter.id}_${new Date().toISOString().slice(0, 7)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error("Statement PDF download failed:", e)
+      showToast("Unable to generate meter statement PDF.", "error")
+    } finally {
+      setDownloadingStatement(false)
+    }
+  }
 
   const showToast = (text: string, type: "success" | "error") => {
     setToastMessage({ text, type })
@@ -776,7 +802,22 @@ export default function MetersManagement({
 
             {/* Direct Operational Controls Inside Details */}
             <div className="pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  onClick={() => handleDownloadStatementPdf(activeMeterDetail)}
+                  disabled={downloadingStatement}
+                  variant="outline"
+                  className="bg-white/10 hover:bg-white/20 text-white border-white/20 text-xs h-9 px-3.5 rounded-xl flex items-center gap-2 cursor-pointer"
+                  title="Download standard 30-day consumption statement PDF"
+                >
+                  {downloadingStatement ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
+                  ) : (
+                    <Download className="h-4 w-4 text-yellow-400" />
+                  )}
+                  <span>Statement PDF</span>
+                </Button>
+
                 <Button
                   onClick={() => setTopupModalMeter(activeMeterDetail)}
                   className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-xs h-9 px-4 rounded-xl shadow-lg shadow-yellow-400/20 flex items-center gap-2 cursor-pointer"

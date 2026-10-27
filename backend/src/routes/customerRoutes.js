@@ -20,6 +20,7 @@ const { handleChat } = require('../controllers/chatController');
 const { meterLinkRateLimiter, complaintRateLimiter } = require('../middlewares/rateLimiter');
 const { validateMeterInput } = require('../middlewares/sanitizer');
 const { initPayhereCheckout, completePayhereCheckout } = require('../controllers/payhereController');
+const { downloadPaymentReceiptPdf, downloadMeterStatementPdf } = require('../controllers/pdfController');
 
 const router = express.Router();
 
@@ -32,6 +33,8 @@ router.post('/meters/add', meterLinkRateLimiter, validateMeterInput, addMeter);
 router.patch('/meters/:meterId/name', updateMeterName);
 router.get('/meters/:meterId/consumption', getMeterConsumption);
 router.get('/meters/:meterId/prediction', getMeterPrediction);
+router.get('/meters/:id/statement-pdf', downloadMeterStatementPdf);
+router.get('/meters/statement-pdf', downloadMeterStatementPdf);
 router.post('/meters/:meterId/recharge', rechargeMeter);
 router.post('/meters/:meterId/emergency-credit', activateEmergencyCredit);
 router.post('/meters/:meterId/simulate-consumption', developmentOnly, simulateConsumption);
@@ -40,6 +43,8 @@ router.post('/meters/:meterId/set-balance', developmentOnly, setMeterBalance);
 
 // Payments & Ledger
 router.get('/payments/history', getPaymentHistory);
+router.get('/payments/:id/receipt-pdf', downloadPaymentReceiptPdf);
+router.get('/payments/receipt-pdf', downloadPaymentReceiptPdf);
 router.post('/payments/payhere-init', initPayhereCheckout);
 router.post('/payments/payhere-complete', completePayhereCheckout);
 

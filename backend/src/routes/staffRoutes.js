@@ -13,12 +13,19 @@ const {
   getStaffPayhereTransactions,
   verifyStaffPayhereTransaction
 } = require('../controllers/payhereController');
+const { downloadPaymentReceiptPdf, downloadMeterStatementPdf } = require('../controllers/pdfController');
 const { pool } = require('../config/db');
 
 const router = express.Router();
 
 // Strict Security Barrier: All staff endpoints require valid LECO Staff authorization
 router.use(requireStaff);
+
+// PDF Receipts & Audit Statements for Staff
+router.get('/payments/:id/receipt-pdf', downloadPaymentReceiptPdf);
+router.get('/payments/receipt-pdf', downloadPaymentReceiptPdf);
+router.get('/meters/:id/statement-pdf', downloadMeterStatementPdf);
+router.get('/meters/statement-pdf', downloadMeterStatementPdf);
 
 /**
  * GET /api/staff/me

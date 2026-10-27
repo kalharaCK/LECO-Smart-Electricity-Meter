@@ -20,6 +20,7 @@ const { createHealthResponse } = require('./services/healthStatus');
 const { requireAuth } = require('./middlewares/authMiddleware');
 const { handlePayhereNotify, initPayhereCheckout, completePayhereCheckout } = require('./controllers/payhereController');
 const { getPaymentHistory } = require('./controllers/meterController');
+const { downloadPaymentReceiptPdf, downloadMeterStatementPdf } = require('./controllers/pdfController');
 const { pool } = require('./config/db');
 const { setupProcessImmunity, shutdownGuardMiddleware } = require('./utils/immunitySupervisor');
 const { malformedUriGuard, prototypePollutionGuard } = require('./middlewares/malformedRequestGuard');
@@ -130,6 +131,12 @@ app.post('/api/payments/payhere-notify', handlePayhereNotify);
 app.post('/api/payments/payhere-init', requireAuth, initPayhereCheckout);
 app.post('/api/payments/payhere-complete', requireAuth, completePayhereCheckout);
 app.get('/api/payments/history', requireAuth, getPaymentHistory);
+
+// 6b. Official PDF Receipts & Consumption Statements
+app.get('/api/payments/:id/receipt-pdf', requireAuth, downloadPaymentReceiptPdf);
+app.get('/api/payments/receipt-pdf', requireAuth, downloadPaymentReceiptPdf);
+app.get('/api/meters/:id/statement-pdf', requireAuth, downloadMeterStatementPdf);
+app.get('/api/meters/statement-pdf', requireAuth, downloadMeterStatementPdf);
 
 // 7. REST Health & Diagnostics Check
 app.get('/api/health', async (req, res) => {

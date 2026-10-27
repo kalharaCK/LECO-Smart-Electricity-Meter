@@ -41,6 +41,33 @@ export default function PayhereVerification({
   const [auditNotes, setAuditNotes] = useState("")
   const [actionLoading, setActionLoading] = useState(false)
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false)
+
+  const handleDownloadReceiptPdf = async (tx: PayhereTransaction) => {
+    try {
+      setDownloadingReceipt(true)
+      const targetId = tx.transaction_id || tx.order_id || tx.id
+      const res = await fetch(`http://localhost:3000/api/payments/${targetId}/receipt-pdf`, {
+        headers: getAuthHeaders(),
+        credentials: "include"
+      })
+      if (!res.ok) throw new Error("Failed to download PDF receipt")
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `LECO_Official_Receipt_${tx.transaction_id || targetId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error("PDF receipt download failed:", e)
+      alert("Unable to generate PDF receipt. Please check network/session.")
+    } finally {
+      setDownloadingReceipt(false)
+    }
+  }
 
   // Filtered transactions
   const filteredTransactions = useMemo(() => {
@@ -401,18 +428,30 @@ export default function PayhereVerification({
                     </td>
 
                     <td className="py-3 px-4 text-right">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedTx(tx)
-                          setAuditNotes(tx.verification_notes || "")
-                        }}
-                        className="bg-yellow-400 hover:bg-yellow-300 text-black text-xs h-8 px-3 rounded-lg font-semibold cursor-pointer shadow-sm"
-                      >
-                        <FileCheck className="h-3.5 w-3.5 mr-1" />
-                        Audit Details
-                      </Button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownloadReceiptPdf(tx)}
+                          title="Download Official PDF Receipt"
+                          className="h-8 w-8 p-0 text-white/70 hover:text-yellow-400 hover:bg-white/10 cursor-pointer rounded-lg"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedTx(tx)
+                            setAuditNotes(tx.verification_notes || "")
+                          }}
+                          className="bg-yellow-400 hover:bg-yellow-300 text-black text-xs h-8 px-3 rounded-lg font-semibold cursor-pointer shadow-sm"
+                        >
+                          <FileCheck className="h-3.5 w-3.5 mr-1" />
+                          Audit Details
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -551,15 +590,32 @@ export default function PayhereVerification({
             </div>
 
             {/* Modal Actions */}
-            <div className="p-4 border-t border-white/10 bg-black/40 flex items-center justify-between gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setSelectedTx(null)}
-                className="bg-white/5 border-white/15 text-white text-xs h-9 rounded-xl cursor-pointer"
-              >
-                Close
-              </Button>
+            <div className="p-4 border-t border-white/10 bg-black/40 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSelectedTx(null)}
+                  className="bg-white/5 border-white/15 text-white text-xs h-9 rounded-xl cursor-pointer"
+                >
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={downloadingReceipt}
+                  onClick={() => handleDownloadReceiptPdf(selectedTx)}
+                  className="bg-white/5 hover:bg-white/10 border-white/20 text-yellow-400 text-xs h-9 px-3 rounded-xl cursor-pointer flex items-center gap-1.5"
+                  title="Download standard official receipt PDF"
+                >
+                  {downloadingReceipt ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5" />
+                  )}
+                  <span>Download PDF Receipt</span>
+                </Button>
+              </div>
 
               <div className="flex items-center gap-2">
                 <Button

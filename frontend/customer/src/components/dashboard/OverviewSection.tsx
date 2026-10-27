@@ -303,6 +303,42 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
     }
   }
 
+  const [downloadingStatement, setDownloadingStatement] = useState(false)
+
+  const handleDownloadStatementPdf = async () => {
+    if (!meter) return
+    try {
+      setDownloadingStatement(true)
+      const token = localStorage.getItem("token")
+      const headers: Record<string, string> = {}
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
+      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/statement-pdf`, {
+        headers,
+        credentials: "include",
+      })
+
+      if (!res.ok) {
+        throw new Error("Failed to download statement PDF")
+      }
+
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `LECO_Monthly_Statement_${meter.meter_number || meter.id}_${new Date().toISOString().slice(0, 7)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("Statement PDF download failed:", err)
+      alert("Unable to generate monthly statement PDF. Please check connection.")
+    } finally {
+      setDownloadingStatement(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -406,7 +442,22 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
           </div>
 
           {/* Primary Action Buttons */}
-          <div className="flex items-center gap-2.5 shrink-0 self-start lg:self-auto">
+          <div className="flex items-center gap-2.5 shrink-0 self-start lg:self-auto flex-wrap sm:flex-nowrap">
+            <Button
+              type="button"
+              onClick={handleDownloadStatementPdf}
+              disabled={downloadingStatement}
+              variant="outline"
+              className="bg-white/5 hover:bg-white/10 text-white border-white/15 text-xs font-semibold h-11 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-all hover:border-white/30"
+              title="Download Official LECO Monthly Statement PDF"
+            >
+              {downloadingStatement ? (
+                <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
+              ) : (
+                <FileText className="h-4 w-4 text-yellow-400" />
+              )}
+              <span>Statement PDF</span>
+            </Button>
             <Button
               type="button"
               onClick={handleOpenBudgetModal}

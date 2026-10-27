@@ -19,7 +19,8 @@ import {
   Zap,
   TrendingUp,
   Download,
-  X
+  X,
+  FileText
 } from "lucide-react"
 import { useDashboardI18n } from "@/lib/dashboardI18n"
 
@@ -54,6 +55,7 @@ export default function PaymentHistorySection({
   const [methodFilter, setMethodFilter] = useState<string>("all")
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentRecord | null>(null)
+  const [downloadingId, setDownloadingId] = useState<number | string | null>(null)
 
   const fetchPayments = async () => {
     try {
@@ -154,6 +156,40 @@ export default function PaymentHistorySection({
       </html>
     `)
     printWindow.document.close()
+  }
+
+  const handleDownloadPdf = async (receipt: PaymentRecord) => {
+    const targetId = receipt.id || receipt.transaction_id
+    try {
+      setDownloadingId(targetId)
+      const token = localStorage.getItem("token")
+      const headers: Record<string, string> = {}
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
+      const res = await fetch(`http://localhost:3000/api/payments/${targetId}/receipt-pdf`, {
+        headers,
+        credentials: "include",
+      })
+
+      if (!res.ok) {
+        throw new Error("Failed to generate PDF")
+      }
+
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `LECO_Payment_Receipt_${receipt.transaction_id || targetId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("PDF download failed:", err)
+      handlePrintReceipt(receipt)
+    } finally {
+      setDownloadingId(null)
+    }
   }
 
   // Filtered payments
@@ -569,15 +605,31 @@ export default function PaymentHistorySection({
                         </td>
 
                         <td className="py-3.5 px-4 whitespace-nowrap text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedReceipt(item)}
-                            className="h-8 px-2.5 text-xs text-white/70 hover:text-white hover:bg-white/10 cursor-pointer"
-                          >
-                            {t.history.receiptCol}
-                            <ArrowUpRight className="h-3 w-3 ml-1" />
-                          </Button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownloadPdf(item)}
+                              title="Download Official PDF Receipt"
+                              disabled={downloadingId === (item.id || item.transaction_id)}
+                              className="h-8 w-8 p-0 text-white/70 hover:text-yellow-400 hover:bg-white/10 cursor-pointer rounded-lg"
+                            >
+                              {downloadingId === (item.id || item.transaction_id) ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-yellow-400" />
+                              ) : (
+                                <FileText className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedReceipt(item)}
+                              className="h-8 px-2.5 text-xs text-white/70 hover:text-white hover:bg-white/10 cursor-pointer rounded-lg"
+                            >
+                              {t.history.receiptCol}
+                              <ArrowUpRight className="h-3 w-3 ml-1" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -677,7 +729,7 @@ export default function PaymentHistorySection({
               </div>
             </div>
 
-            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 mt-5 sm:mt-6 pb-2 sm:pb-0">
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-2.5 mt-5 sm:mt-6 pb-2 sm:pb-0">
               <Button
                 variant="outline"
                 onClick={() => setSelectedReceipt(null)}
@@ -686,10 +738,23 @@ export default function PaymentHistorySection({
                 {t.history.closeBtn}
               </Button>
               <Button
+                variant="outline"
                 onClick={() => handlePrintReceipt(selectedReceipt)}
-                className="w-full sm:flex-1 bg-yellow-400 text-black hover:bg-yellow-500 font-bold h-10 text-xs sm:text-sm cursor-pointer"
+                className="w-full sm:flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10 font-medium h-10 text-xs sm:text-sm cursor-pointer"
               >
                 {t.history.viewReceipt}
+              </Button>
+              <Button
+                onClick={() => handleDownloadPdf(selectedReceipt)}
+                disabled={downloadingId === (selectedReceipt.id || selectedReceipt.transaction_id)}
+                className="w-full sm:flex-1 bg-yellow-400 text-black hover:bg-yellow-500 font-bold h-10 text-xs sm:text-sm cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-yellow-400/20"
+              >
+                {downloadingId === (selectedReceipt.id || selectedReceipt.transaction_id) ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-black" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                <span>Download PDF</span>
               </Button>
             </div>
           </div>
