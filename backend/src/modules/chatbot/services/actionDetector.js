@@ -104,10 +104,10 @@ function detectActions(userMessage, botReply, userContext, language = 'en') {
     });
   }
 
-  // 4. Account Settings action
+  // 4. Account Settings & Budget action
   const settingsKeywords = [
-    'setting', 'profile', 'password', 'phone', 'email', 'alert', 'notification', 'language',
-    'සැකසුම්', 'මුරපදය', 'දැනුම්දීම්', 'அமைப்புகள்', 'கடவுச்சொல்', 'அறிவிப்பு'
+    'setting', 'profile', 'password', 'phone', 'email', 'alert', 'notification', 'language', 'budget',
+    'සැකසුම්', 'මුරපදය', 'දැනුම්දීම්', 'අයවැය', 'දුරකථන', 'அமைப்புகள்', 'கடவுச்சொல்', 'அறிவிப்பு', 'பட்ஜெட்'
   ];
   if (settingsKeywords.some(kw => combinedText.includes(kw))) {
     actions.push({
@@ -117,11 +117,26 @@ function detectActions(userMessage, botReply, userContext, language = 'en') {
     });
   }
 
-  // 5. Energy Saving & Consumption Insights action
-  const tipsKeywords = [
-    'tip', 'saving', 'save', 'conservation', 'suggest', 'plan', 'උපදෙස්', 'ඉතිරි', 'ஆலோசனை', 'சேமிக்க'
+  // 5. Add / Link Meter action
+  const addMeterKeywords = [
+    'add meter', 'link meter', 'new meter', 'pin', 'secret pin', 'multi meter',
+    'මීටරය එක් කරන්න', 'මීටර් අංකය', 'மீட்டர் சேர்க்க'
   ];
-  if (tipsKeywords.some(kw => combinedText.includes(kw))) {
+  if (addMeterKeywords.some(kw => combinedText.includes(kw))) {
+    actions.push({
+      label: ACTION_LABELS.addMeter[lang],
+      route: "add-meter",
+      variant: "outline"
+    });
+  }
+
+  // 6. Energy Saving & Consumption Insights action
+  const overviewKeywords = [
+    'tip', 'saving', 'save', 'conservation', 'suggest', 'plan', 'solar', 'usage', 'trend',
+    'spike', 'tariff', 'peak', 'appliance', 'wattage', 'burn rate',
+    'උපදෙස්', 'ඉතිරි', 'සූර්ය', 'පරිභෝජනය', 'ගාස්තු', 'ஆலோசனை', 'சேமிக்க', 'நுகர்வு'
+  ];
+  if (overviewKeywords.some(kw => combinedText.includes(kw))) {
     if (!actions.some(a => a.route === "overview")) {
       actions.push({
         label: ACTION_LABELS.overview[lang],

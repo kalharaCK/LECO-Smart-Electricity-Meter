@@ -189,3 +189,142 @@ test('tri-lingual offline engine generates customized energy saving suggestions 
   assert.ok(taReply.includes('24%'));
   assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(taReply), false, "Strict no-emoji rule in Tamil suggestion");
 });
+
+test('RAG retriever indexes and retrieves all expanded domain knowledge docs', () => {
+  const spikeResults = retrieveRelevantKnowledge('Why did my electricity bill spike suddenly? High consumption check');
+  assert.ok(spikeResults.length > 0);
+  assert.ok(spikeResults.some(d => d.id === 'high_usage_spike_investigation'));
+
+  const solarResults = retrieveRelevantKnowledge('How does solar rooftop net metering and bi-directional meter export work?');
+  assert.ok(solarResults.length > 0);
+  assert.ok(solarResults.some(d => d.id === 'solar_rooftop_net_metering'));
+
+  const applianceResults = retrieveRelevantKnowledge('What is the power wattage of air conditioner, refrigerator, and water pump?');
+  assert.ok(applianceResults.length > 0);
+  assert.ok(applianceResults.some(d => d.id === 'appliance_power_consumption_guide'));
+
+  const reconnectResults = retrieveRelevantKnowledge('How does automatic remote reconnection work after bill recharge?');
+  assert.ok(reconnectResults.length > 0);
+  assert.ok(reconnectResults.some(d => d.id === 'automatic_disconnection_and_reconnection'));
+
+  const accountResults = retrieveRelevantKnowledge('How to link multiple smart meters using PIN and configure SMS alerts');
+  assert.ok(accountResults.length > 0);
+  assert.ok(accountResults.some(d => d.id === 'account_management_and_meters'));
+
+  const complaintResults = retrieveRelevantKnowledge('How to report power outage breakdown and track ticket on 1987 hotline?');
+  assert.ok(complaintResults.length > 0);
+  assert.ok(complaintResults.some(d => d.id === 'complaint_categories_and_tracking'));
+});
+
+test('offline engine answers Electricity Usage, Savings, Account, and Complaint domains with zero emojis', () => {
+  const mockContext = {
+    hasMeters: true,
+    primaryMeter: {
+      id: 1,
+      meterNumber: 'MTR-99001',
+      balance: 1450.00,
+      status: 'CONNECTED',
+      emergencyCreditLimit: 500,
+      emergencyCreditActive: false
+    },
+    todayUsage: {
+      importKwh: 6.2,
+      exportKwh: 3.8,
+      netKwh: 2.4
+    },
+    prediction: {
+      averageDailyUsageKwh: 4.0,
+      currentTariffGroup: 'Block 2: 31-60 kWh'
+    },
+    currentTOU: {
+      name: 'Day Hours',
+      window: '05:30 - 18:30',
+      ratePerKwh: 25.00
+    }
+  };
+
+  // 1. High bill / spike investigation in en, si, ta
+  const spikeEn = generateOfflineReply('Why is my bill high? Check consumption spike', mockContext, 'en');
+  assert.ok(spikeEn.includes('HIGH BILL & USAGE SPIKE INVESTIGATION'));
+  assert.ok(spikeEn.includes('Float Switch'));
+  assert.ok(spikeEn.includes('Door Gasket'));
+  assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(spikeEn), false);
+
+  const spikeSi = generateOfflineReply('බිල වැඩි වෙලා ඇයි? වැඩිපුර ඒකක යන්නේ ඇයි?', mockContext, 'si');
+  assert.ok(spikeSi.includes('අධික විදුලි බිල'));
+  assert.ok(spikeSi.includes('Float Switch'));
+  assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(spikeSi), false);
+
+  const spikeTa = generateOfflineReply('எனக்கு அதிக கட்டணம் வந்துள்ளது ஏன்?', mockContext, 'ta');
+  assert.ok(spikeTa.includes('அதிக மின் கட்டணம்'));
+  assert.ok(spikeTa.includes('Float Switch'));
+  assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(spikeTa), false);
+
+  // 2. Solar net metering in en, si, ta
+  const solarEn = generateOfflineReply('Tell me about solar net metering and my rooftop export', mockContext, 'en');
+  assert.ok(solarEn.includes('SOLAR & NET METERING'));
+  assert.ok(solarEn.includes('3.8 kWh'));
+  assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(solarEn), false);
+
+  const solarSi = generateOfflineReply('මගේ සූර්ය පැනල අපනයන දත්ත මොනවාද?', mockContext, 'si');
+  assert.ok(solarSi.includes('සූර්ය බලශක්ති'));
+  assert.ok(solarSi.includes('3.8 kWh'));
+  assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(solarSi), false);
+
+  // 3. Appliance power consumption
+  const appEn = generateOfflineReply('How much power does my air conditioner and water pump consume?', mockContext, 'en');
+  assert.ok(appEn.includes('HOUSEHOLD APPLIANCE POWER CONSUMPTION GUIDE'));
+  assert.ok(appEn.includes('Inverter AC'));
+  assert.ok(appEn.includes('Water Pump'));
+  assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(appEn), false);
+
+  // 4. Automatic disconnection & reconnection
+  const reconEn = generateOfflineReply('How does remote automatic reconnection work after paying?', mockContext, 'en');
+  assert.ok(reconEn.includes('RECONNECTION POLICY'));
+  assert.ok(reconEn.includes('22:00'));
+  assert.ok(reconEn.includes('06:00'));
+  assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(reconEn), false);
+
+  // 5. Account and multi-meter management
+  const accEn = generateOfflineReply('How do I link another smart meter to my account?', mockContext, 'en');
+  assert.ok(accEn.includes('ACCOUNT & SMART METER MANAGEMENT'));
+  assert.ok(accEn.includes('9-digit'));
+  assert.ok(accEn.includes('SMS'));
+  assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(accEn), false);
+
+  // 6. Complaints, hotline & outage reporting
+  const helpEn = generateOfflineReply('How do I report a power outage or call 1987 hotline?', mockContext, 'en');
+  assert.ok(helpEn.includes('1987'));
+  assert.ok(helpEn.includes('1910'));
+  assert.ok(helpEn.includes('Complaints & Support'));
+  assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(helpEn), false);
+
+  const helpSi = generateOfflineReply('විදුලිය ඇනහිටීමක් පැමිණිලි කරන්නේ කොහොමද?', mockContext, 'si');
+  assert.ok(helpSi.includes('1987'));
+  assert.ok(helpSi.includes('පැමිණිලි සහ සහාය'));
+  assert.equal(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/u.test(helpSi), false);
+});
+
+test('action detector suggests addMeter, settings, complaints, and overview actions', () => {
+  const mockContext = {
+    hasMeters: true,
+    primaryMeter: { balance: 2500.00, status: 'CONNECTED' }
+  };
+
+  // Add meter action
+  const addMeterActions = detectActions('I want to link a new meter to my account', 'Add meter', mockContext, 'en');
+  assert.ok(addMeterActions.some(a => a.route === 'add-meter'));
+
+  // Settings budget action
+  const budgetActions = detectActions('Change my monthly budget limit', 'Budget settings', mockContext, 'en');
+  assert.ok(budgetActions.some(a => a.route === 'settings'));
+
+  // Complaints action
+  const complaintActions = detectActions('There is a flicker in voltage', 'Report issue', mockContext, 'en');
+  assert.ok(complaintActions.some(a => a.route === 'complaints'));
+
+  // Overview action for usage & solar
+  const solarActions = detectActions('What is my solar export today?', 'Solar overview', mockContext, 'en');
+  assert.ok(solarActions.some(a => a.route === 'overview'));
+});
+

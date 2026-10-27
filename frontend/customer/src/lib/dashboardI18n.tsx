@@ -331,6 +331,9 @@ export interface DashboardTranslations {
     promptCompareUsage: string
     promptLifelineActive: string
     promptSavingTips: string
+    promptBillSpike: string
+    promptReportOutage: string
+    promptReconnection: string
     inputPlaceholder: string
     typingNotice: string
     networkError: string
@@ -657,6 +660,9 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       promptCompareUsage: "Compare my weekly electricity usage",
       promptLifelineActive: "Is Lifeline Mode active?",
       promptSavingTips: "How can I reduce my bill based on my usage?",
+      promptBillSpike: "Why is my electricity bill higher this month?",
+      promptReportOutage: "How do I report a power outage or line fault?",
+      promptReconnection: "How does automatic reconnection work?",
       inputPlaceholder: "Ask about days left, tariffs, usage...",
       typingNotice: "Querying energy engine...",
       networkError: "I encountered a network issue connecting to the energy database. Please try again.",
@@ -982,6 +988,9 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       promptCompareUsage: "සතිපතා විදුලි පරිභෝජනය සංසන්දනය කරන්න",
       promptLifelineActive: "හදිසි ණය (Lifeline) ක්‍රියාත්මකද?",
       promptSavingTips: "මගේ භාවිතය අනුව විදුලිය ඉතිරි කරන්නේ කෙසේද?",
+      promptBillSpike: "මගේ විදුලි බිල වැඩි වී ඇත්තේ ඇයි?",
+      promptReportOutage: "විදුලිය ඇනහිටීමක් වාර්තා කරන්නේ කෙසේද?",
+      promptReconnection: "නැවත විදුලිය සම්බන්ධ වන්නේ කෙසේද?",
       inputPlaceholder: "ඉතිරි දින, ගාස්තු, පරිභෝජනය ගැන විමසන්න...",
       typingNotice: "බලශක්ති දත්ත පරීක්ෂා කරමින් පවතී...",
       networkError: "බලශක්ති පද්ධතියට සම්බන්ධ වීමේදී දෝෂයක් ඇති විය. කරුණාකර නැවත උත්සාහ කරන්න.",
@@ -1307,6 +1316,9 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       promptCompareUsage: "வாராந்திர மின் நுகர்வை ஒப்பிடுக",
       promptLifelineActive: "அவசர கடன் (Lifeline) முறையில் உள்ளதா?",
       promptSavingTips: "எனது பயன்பாட்டின் அடிப்படையில் மின்சாரத்தை எவ்வாறு சேமிப்பது?",
+      promptBillSpike: "இந்த மாதம் எனது மின் கட்டணம் ஏன் அதிகமாக உள்ளது?",
+      promptReportOutage: "மின் தடையை எவ்வாறு பதிவு செய்வது?",
+      promptReconnection: "உடனடி மறுஇணைப்பு எவ்வாறு செயல்படுகிறது?",
       inputPlaceholder: "மீதமுள்ள நாட்கள், கட்டணங்கள், பயன்பாடு பற்றி கேட்க...",
       typingNotice: "மின்சார தரவுகளை சரிபார்க்கிறது...",
       networkError: "மின்சார அமைப்புடன் இணைப்பதில் பிணைய பிழை ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.",

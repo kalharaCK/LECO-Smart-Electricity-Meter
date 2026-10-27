@@ -20,7 +20,8 @@ import {
   MessageSquareWarning,
   Settings,
   PlusCircle,
-  LayoutDashboard
+  LayoutDashboard,
+  AlertCircle
 } from "lucide-react"
 import { useDashboardI18n } from "@/lib/dashboardI18n"
 
@@ -96,8 +97,11 @@ export default function EnergyAssistantBot({ onNavigate }: EnergyAssistantBotPro
 
   const suggestedPrompts = [
     { label: t.bot.promptSavingTips, icon: Zap },
+    { label: t.bot.promptBillSpike, icon: AlertCircle },
     { label: t.bot.promptDaysLeft, icon: Calendar },
+    { label: t.bot.promptReportOutage, icon: MessageSquareWarning },
     { label: t.bot.promptLastTopup, icon: CreditCard },
+    { label: t.bot.promptReconnection, icon: RotateCcw },
     { label: t.bot.promptCompareUsage, icon: TrendingUp },
     { label: t.bot.promptLifelineActive, icon: ShieldAlert },
   ]

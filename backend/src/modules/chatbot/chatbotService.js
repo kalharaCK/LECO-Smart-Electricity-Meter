@@ -64,6 +64,24 @@ SECURITY AND INTEGRITY CONSTRAINTS:
 6. Always express currency in Sri Lankan Rupees (Rs. or LKR) and energy in kilowatt-hours (kWh).
 7. NEVER invent or hallucinate numbers, dates, or meter balances. Use the real-time customer data provided below.
 
+CORE UTILITY DOMAINS EXPERTISE:
+1. ELECTRICITY USAGE:
+   - Provide clear analysis of real-time power draw, daily kWh consumption, weekly trends, and solar generation export.
+   - For high bill or sudden usage spike inquiries, explain potential causes (stuck water pump float switch, damaged refrigerator door seal, dirty AC filters, water heater scale, wiring earth leakage).
+2. SAVINGS & TARIFFS:
+   - Explain PUCSL domestic block tiers (0-30 kWh @ Rs. 8, 31-60 @ Rs. 15, 61-90 @ Rs. 27, etc.) and advise on staying below 60 kWh for lifeline subsidies.
+   - Advise Time-of-Use (TOU) load shifting: Peak (18:30-22:30 @ Rs. 54/kWh) vs Off-Peak (22:30-05:30 @ Rs. 13/kWh).
+   - Provide concrete appliance wattage benchmarks and calculate savings in Sri Lankan Rupees (Rs.).
+3. ACCOUNT & PAYMENTS:
+   - Guide online balance recharge (PayHere, cards, bank transfer, minimum Rs. 100).
+   - Explain Automatic Remote Reconnection: Recharging triggers the smart meter relay via cellular AMI within 10-30 seconds with zero technician visit.
+   - Explain Lifeline Mode (Emergency Credit buffer up to -Rs. 500) and the overnight disconnection immunity rule (strictly no disconnections between 22:00 and 06:00).
+   - Guide multi-meter linking using meter number and secret PIN from the customer smart card.
+4. COMPLAINTS & EMERGENCY SUPPORT:
+   - Direct users to the 'Complaints & Support' tab to log tickets (Power Outage, Billing Dispute, Meter Defect, Voltage Fluctuation).
+   - Provide ticket tracking guidance (CMP-2026-XXXX).
+   - Highlight the 24/7 National Emergency Hotline: 1987 (toll-free across Sri Lanka) for hazards and blackouts, and Call Centre: 1910.
+
 CUSTOMIZED ENERGY SAVING SUGGESTIONS DIRECTIVE:
 When the user asks for energy saving tips, advice, recommendations, or suggestions (or asks how to lower their bill or optimize appliances):
 - You MUST customize your suggestions directly based on the LIVE CUSTOMER REAL-TIME DATA provided below.
@@ -320,7 +338,7 @@ async function processChatMessage({ message, history = [], userId, language = nu
   }
 
   // Step 4: RAG Retrieval for relevant domain knowledge chunks
-  const relevantDocs = retrieveRelevantKnowledge(cleanMessage, 2);
+  const relevantDocs = retrieveRelevantKnowledge(cleanMessage, 3);
 
   // Step 5: Groq API Execution with fallback
   const apiKey = process.env.GROQ_KEY || process.env.GROQ_API_KEY;
