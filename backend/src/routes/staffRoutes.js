@@ -5,7 +5,9 @@ const {
   toggleMeterRelay, 
   staffTopupMeter,
   registerMeterForStaff,
-  regenerateMeterPasscodeForStaff
+  regenerateMeterPasscodeForStaff,
+  assignMeterToCustomerForStaff,
+  getUnregisteredHardwareMetersForStaff
 } = require('../controllers/meterController');
 const { 
   getAllComplaints, 
@@ -163,8 +165,10 @@ router.get('/analytics', async (req, res) => {
 /**
  * Meters Management (Grid Control & Provisioning)
  */
+router.get('/meters/unregistered-hardware', getUnregisteredHardwareMetersForStaff);
 router.get('/meters', getAllMetersForStaff);
 router.post('/meters/register', registerMeterForStaff);
+router.post('/meters/:meterId/assign', assignMeterToCustomerForStaff);
 router.post('/meters/:meterId/relay', toggleMeterRelay);
 router.post('/meters/:meterId/topup', staffTopupMeter);
 router.post('/meters/:meterId/regenerate-passcode', regenerateMeterPasscodeForStaff);

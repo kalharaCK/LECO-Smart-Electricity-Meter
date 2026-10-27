@@ -1,0 +1,79 @@
+<html>
+<body>
+<pre>
+<h1>µVision Build Log</h1>
+<h2>Tool Versions:</h2>
+IDE-Version: µVision V5.43.1.0
+Copyright (C) 2025 ARM Ltd and ARM Germany GmbH. All rights reserved.
+License Information: Sahan Sadeepa, Faculty of Enginnering , LIC=----
+ 
+Tool Versions:
+Toolchain:       MDK-Lite  Version: 5.43.0.0
+Toolchain Path:  C:\Users\Sahan\AppData\Local\Keil_v5\ARM\ARMCLANG\Bin
+C Compiler:      ArmClang.exe V6.24
+Assembler:       Armasm.exe V6.24
+Linker/Locator:  ArmLink.exe V6.24
+Library Manager: ArmAr.exe V6.24
+Hex Converter:   FromElf.exe V6.24
+CPU DLL:         SARMCM3.DLL V5.43.0.0
+Dialog DLL:      DARMCM1.DLL V1.19.6.0
+Target DLL:      Nu_Link.dll V3.24
+Dialog DLL:      TARMCM1.DLL V1.14.6.0
+ 
+<h2>Project:</h2>
+C:\Users\Sahan\Downloads\Template\Keil\Template.uvprojx
+Project File Date:  10/28/2026
+
+<h2>Output:</h2>
+*** Using Compiler 'V6.24', folder: 'C:\Users\Sahan\AppData\Local\Keil_v5\ARM\ARMCLANG\Bin'
+Build target 'Template'
+creating preprocessor file for retarget.c...
+creating list file for system_M031Series.c...
+creating preprocessor file for system_M031Series.c...
+creating preprocessor file for uart.c...
+armclang: error: no such file or directory: '../../../Library/Device/Nuvoton/M031/Source/ARM/startup_M031Series.s'
+armclang: error: no input files
+assembling startup_M031Series.s...
+armclang: error: no such file or directory: '../../../Library/StdDriver/src/retarget.c'
+armclang: error: no input files
+compiling retarget.c...
+creating list file for uart.c...
+creating list file for retarget.c...
+armclang: error: no such file or directory: '../../../Library/Device/Nuvoton/M031/Source/system_M031Series.c'
+armclang: error: no input files
+compiling system_M031Series.c...
+creating list file for clk.c...
+creating preprocessor file for clk.c...
+armclang: error: no such file or directory: '../../../Library/StdDriver/src/clk.c'
+armclang: error: no input files
+compiling clk.c...
+armclang: error: no such file or directory: '../../../Library/StdDriver/src/uart.c'
+armclang: error: no input files
+compiling uart.c...
+creating list file for main.c...
+creating preprocessor file for main.c...
+../main.c(5): warning: In file included from...
+C:/Users/Sahan/AppData/Local/Arm/Packs/Nuvoton/NuMicroM0_DFP/1.0.3/Device/M031/Include\NuMicro.h(12): warning: In file included from...
+C:/Users/Sahan/AppData/Local/Arm/Packs/Nuvoton/NuMicroM0_DFP/1.0.3/Device/M031/Include\M031Series.h(134): error: 'core_cm0.h' file not found
+  134 | #include "core_cm0.h"                   /*!< Cortex-M0 processor and core peripherals             */
+      |          ^~~~~~~~~~~~
+1 error generated.
+compiling main.c...
+".\obj\template.axf" - 11 Error(s), 0 Warning(s).
+
+<h2>Software Packages used:</h2>
+
+Package Vendor: Nuvoton
+                https://github.com/OpenNuvoton/cmsis-packs/raw/master/Nuvoton_DFP/Nuvoton.NuMicroM0_DFP.1.0.3.pack
+                Nuvoton::NuMicroM0_DFP@1.0.3
+                Nuvoton ARM Cortex-M0 NuMicro Family Device Support
+
+<h2>Collection of Component include folders:</h2>
+  C:/Users/Sahan/AppData/Local/Arm/Packs/Nuvoton/NuMicroM0_DFP/1.0.3/Device/M031/Include
+
+<h2>Collection of Component Files used:</h2>
+Target not created.
+Build Time Elapsed:  00:00:02
+</pre>
+</body>
+</html>

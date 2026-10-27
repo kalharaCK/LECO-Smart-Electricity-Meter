@@ -191,6 +191,7 @@ const sendRegisterOtp = async (req, res) => {
       deliveryNotice = `Verification code sent to your mobile (${cleanMobile}) and email (${cleanEmail})`;
     }
 
+    if (res.headersSent) return;
     return res.json({
       success: true,
       message: deliveryNotice,
@@ -199,6 +200,7 @@ const sendRegisterOtp = async (req, res) => {
     });
   } catch (err) {
     console.error('[Send Register OTP Error]:', err);
+    if (res.headersSent) return;
     return res.status(500).json({ success: false, error: 'Server error sending verification code' });
   }
 };

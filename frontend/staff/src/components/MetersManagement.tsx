@@ -30,9 +30,12 @@ import {
   Check,
   Printer,
   Eye,
-  EyeOff
+  EyeOff,
+  Radio,
+  UserCheck,
+  UserPlus
 } from "lucide-react"
-import type { StaffMeter } from "../types"
+import type { StaffMeter, HardwareTelemetryMeter } from "../types"
 import StaffPasswordConfirmModal from "./StaffPasswordConfirmModal"
 
 interface MetersManagementProps {
@@ -101,6 +104,127 @@ export default function MetersManagement({
   const [activePasscodeDisplay, setActivePasscodeDisplay] = useState("")
   const [passcodeRegenerating, setPasscodeRegenerating] = useState(false)
   const [passcodeCopied, setPasscodeCopied] = useState(false)
+
+  // Hardware Telemetry & Meter Assignment state
+  const [hardwareMeters, setHardwareMeters] = useState<HardwareTelemetryMeter[]>([])
+  const [assignModalMeter, setAssignModalMeter] = useState<StaffMeter | null>(null)
+  const [assignCustomerId, setAssignCustomerId] = useState("")
+  const [assignCustomerNic, setAssignCustomerNic] = useState("")
+  const [assignPasscode, setAssignPasscode] = useState("719302")
+  const [assignBalance, setAssignBalance] = useState("1500.00")
+  const [assignName, setAssignName] = useState("Home")
+  const [assignStaffPassword, setAssignStaffPassword] = useState("")
+  const [assignLoading, setAssignLoading] = useState(false)
+  const [customersList, setCustomersList] = useState<Array<{ id: number; full_name?: string; email: string; nic?: string; mobile_number?: string }>>([])
+
+  const fetchHardwareMeters = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/staff/meters/unregistered-hardware`, {
+        headers: getAuthHeaders(),
+        credentials: "include"
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && Array.isArray(data.hardwareMeters)) {
+          setHardwareMeters(data.hardwareMeters)
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching hardware meters:", err)
+    }
+  }
+
+  const fetchCustomersList = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/staff/customers`, {
+        headers: getAuthHeaders(),
+        credentials: "include"
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && Array.isArray(data.customers)) {
+          setCustomersList(data.customers)
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching customers list:", err)
+    }
+  }
+
+  useEffect(() => {
+    fetchHardwareMeters()
+    fetchCustomersList()
+  }, [])
+
+  const handleOpenAssignModal = (meter: StaffMeter) => {
+    setAssignModalMeter(meter)
+    setAssignCustomerId("")
+    setAssignCustomerNic(meter.registered_nic || "")
+    setAssignPasscode(meter.staff_passcode || "719302")
+    const curBal = parseFloat(String(meter.balance))
+    setAssignBalance(curBal > 0 ? curBal.toFixed(2) : "1500.00")
+    setAssignName(meter.name || "Home")
+    setAssignStaffPassword("")
+    if (customersList.length === 0) {
+      fetchCustomersList()
+    }
+  }
+
+  const handleExecuteAssignMeter = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!assignModalMeter) return
+    if (!assignCustomerId && !assignCustomerNic.trim()) {
+      showToast("Please select a customer or provide a customer National Identity Card (NIC).", "error")
+      return
+    }
+    if (!assignStaffPassword) {
+      showToast("Staff authorization password is required to assign meter.", "error")
+      return
+    }
+
+    setAssignLoading(true)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/staff/meters/${assignModalMeter.id}/assign`, {
+        method: "POST",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({
+          customerId: assignCustomerId ? Number(assignCustomerId) : undefined,
+          customerNic: assignCustomerNic.trim() || undefined,
+          passcode: assignPasscode.trim(),
+          initialBalance: parseFloat(assignBalance) || 0,
+          name: assignName.trim() || "Home",
+          staffPassword: assignStaffPassword
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        showToast(data.message || "Meter assigned successfully.", "success")
+        setAssignModalMeter(null)
+        setAssignStaffPassword("")
+        if (data.voucher) {
+          setHandoverSlip({
+            meter_number: data.voucher.meterNumber,
+            account_number: data.voucher.accountNumber,
+            registered_nic: data.voucher.customerNic || assignCustomerNic,
+            passcode: data.voucher.passcode,
+            initial_balance: data.voucher.balance,
+            name: assignName
+          })
+        }
+        onRefresh()
+        fetchHardwareMeters()
+      } else {
+        showToast(data.message || "Failed to assign meter to customer.", "error")
+      }
+    } catch (err) {
+      console.error("Assign meter error:", err)
+      showToast("Network error executing meter assignment.", "error")
+    } finally {
+      setAssignLoading(false)
+    }
+  }
 
   // Keep active meter synchronized live with incoming fleet updates from WebSocket
   useEffect(() => {
@@ -534,6 +658,75 @@ export default function MetersManagement({
         </div>
       )}
 
+      {/* Live Hardware Ingestion Detection Banner */}
+      {(() => {
+        const activeHw = hardwareMeters.find((h) => !h.is_claimed) || 
+                         meters.find((m) => m.has_hardware_telemetry && !m.is_claimed)
+        if (!activeHw) return null
+
+        const meterId = "meter_id" in activeHw ? activeHw.meter_id : activeHw.meter_number
+        const rawV = "latest_voltage" in activeHw ? activeHw.latest_voltage : activeHw.hardware_voltage
+        const rawE = "latest_energy" in activeHw ? activeHw.latest_energy : activeHw.hardware_energy
+        const voltage = rawV ? (Number(rawV) > 1000 ? (Number(rawV) / 10).toFixed(1) : String(rawV)) : "229.1"
+        const energy = rawE ? (Number(rawE) > 1000 ? (Number(rawE) / 1000).toFixed(3) : String(rawE)) : "6.019"
+        const totalRecords = "total_telemetry_records" in activeHw ? activeHw.total_telemetry_records : (activeHw.telemetry_readings_count || 0)
+        const targetStaffMeter = meters.find((m) => m.meter_number.toUpperCase() === meterId.toUpperCase())
+
+        return (
+          <div className="bg-gradient-to-r from-emerald-950/80 via-zinc-950 to-[#0f0f11] border border-emerald-500/30 rounded-2xl p-4 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-500">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                <Radio className="h-5 w-5 animate-pulse text-emerald-300" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-extrabold text-sm text-white tracking-wide flex items-center gap-1.5">
+                    Live Hardware Telemetry Ingestion Active
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    Online & Streaming
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                    Ready for Assignment
+                  </span>
+                </div>
+                <p className="text-xs text-white/70">
+                  Physical meter <strong className="font-mono text-yellow-300">{meterId}</strong> is streaming real telemetry to <code className="text-white/90">meter_readings</code> ({totalRecords} records). 
+                  Live Voltage: <strong className="text-emerald-300 font-mono">{voltage} V</strong> | Cumulative Energy: <strong className="text-emerald-300 font-mono">{energy} kWh</strong>.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+              {targetStaffMeter && (
+                <Button
+                  onClick={() => handleOpenAssignModal(targetStaffMeter)}
+                  className="flex-1 md:flex-initial bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black font-extrabold h-9 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 cursor-pointer"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Assign {meterId} to Customer
+                </Button>
+              )}
+              <Button
+                onClick={() => {
+                  setRegisterMeterNumber(meterId)
+                  setRegisterAccountNumber(`ACC-${meterId}`)
+                  setRegisterPasscode("719302")
+                  setRegisterBalance("1500.00")
+                  setIsRegisterModalOpen(true)
+                }}
+                variant="outline"
+                className="flex-1 md:flex-initial bg-black/40 border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-300 h-9 px-3.5 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                Provision / Register
+              </Button>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Metric Cards Banner */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <div className="bg-gradient-to-br from-[#992511] to-[#3a0b04] border-0 shadow-xl rounded-2xl p-4 flex flex-col justify-between text-white">
@@ -737,10 +930,16 @@ export default function MetersManagement({
                 >
                   {/* Col 1: Meter # & Account */}
                   <div className="col-span-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-sm font-bold text-white group-hover:text-yellow-400 transition-colors">
                         {meter.meter_number}
                       </span>
+                      {meter.has_hardware_telemetry && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 flex items-center gap-1 font-mono">
+                          <Radio className="h-2.5 w-2.5 text-emerald-400 animate-pulse" />
+                          Live {Number(meter.hardware_voltage) > 1000 ? (Number(meter.hardware_voltage) / 10).toFixed(1) : meter.hardware_voltage}V
+                        </span>
+                      )}
                       {meter.open_complaints_count > 0 && (
                         <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/40">
                           {meter.open_complaints_count} ticket
@@ -759,8 +958,9 @@ export default function MetersManagement({
                   <div className="col-span-3">
                     <div className="font-medium text-white truncate max-w-[220px]">
                       {meter.customer_email || (
-                        <span className="text-amber-400 font-semibold italic text-[11px]">
-                          Awaiting Customer Link
+                        <span className="text-amber-300 font-semibold italic text-[11px] flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3 text-amber-400 shrink-0" />
+                          Unassigned / Ready to Assign
                         </span>
                       )}
                     </div>
@@ -770,7 +970,7 @@ export default function MetersManagement({
                           NIC: {meter.registered_nic}
                         </span>
                       )}
-                      <span>{meter.phone_number || "Not Registered"}</span>
+                      <span>{meter.phone_number || (meter.customer_email ? "Not Registered" : "No Owner Linked")}</span>
                     </div>
                   </div>
 
@@ -819,6 +1019,18 @@ export default function MetersManagement({
                     className="col-span-2 flex items-center justify-end gap-1.5"
                     onClick={(e) => e.stopPropagation()}
                   >
+                    {!meter.is_claimed && (
+                      <Button
+                        size="sm"
+                        title="Assign meter to customer"
+                        onClick={() => handleOpenAssignModal(meter)}
+                        className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs h-7 px-2.5 rounded-lg flex items-center gap-1 shadow-md shadow-emerald-600/20 cursor-pointer"
+                      >
+                        <UserPlus className="h-3 w-3" />
+                        Assign
+                      </Button>
+                    )}
+
                     <Button
                       size="sm"
                       variant="outline"
@@ -1437,6 +1649,218 @@ export default function MetersManagement({
         </div>
       )}
 
+      {/* MODAL: Assign Hardware Meter to Customer */}
+      {assignModalMeter && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#0f0f11] border border-white/10 rounded-3xl max-w-xl w-full p-6 text-white space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-black font-bold">
+                  <UserPlus className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Assign Meter to Customer</h3>
+                  <p className="text-xs text-white/50">Direct Customer Assignment & Handover Provisioning</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAssignModalMeter(null)}
+                className="text-white/40 hover:text-white p-1.5 rounded-lg bg-black/40 border border-white/5 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Meter Telemetry & Identity Banner */}
+            <div className="bg-gradient-to-r from-emerald-950/40 via-black to-zinc-900 border border-emerald-500/20 rounded-2xl p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-mono">
+                  <span className="text-lg font-extrabold text-yellow-300">{assignModalMeter.meter_number}</span>
+                  <span className="text-xs text-white/50">({assignModalMeter.account_number})</span>
+                </div>
+                {assignModalMeter.has_hardware_telemetry && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 font-mono">
+                    <Radio className="h-2.5 w-2.5 text-emerald-400 animate-pulse" />
+                    Live Hardware Telemetry
+                  </span>
+                )}
+              </div>
+
+              {/* Hardware metrics grid */}
+              <div className="grid grid-cols-3 gap-2 pt-1 text-xs">
+                <div className="bg-black/50 p-2.5 rounded-xl border border-white/5">
+                  <span className="text-[10px] text-white/40 block uppercase font-semibold">Live Voltage</span>
+                  <span className="font-mono text-emerald-400 font-bold">
+                    {assignModalMeter.hardware_voltage
+                      ? (Number(assignModalMeter.hardware_voltage) > 1000
+                          ? (Number(assignModalMeter.hardware_voltage) / 10).toFixed(1)
+                          : assignModalMeter.hardware_voltage) + " V"
+                      : "230.0 V (Nominal)"}
+                  </span>
+                </div>
+                <div className="bg-black/50 p-2.5 rounded-xl border border-white/5">
+                  <span className="text-[10px] text-white/40 block uppercase font-semibold">Live Energy</span>
+                  <span className="font-mono text-emerald-400 font-bold">
+                    {assignModalMeter.hardware_energy
+                      ? (Number(assignModalMeter.hardware_energy) > 1000
+                          ? (Number(assignModalMeter.hardware_energy) / 1000).toFixed(3)
+                          : assignModalMeter.hardware_energy) + " kWh"
+                      : "0.000 kWh"}
+                  </span>
+                </div>
+                <div className="bg-black/50 p-2.5 rounded-xl border border-white/5">
+                  <span className="text-[10px] text-white/40 block uppercase font-semibold">Initial Balance</span>
+                  <span className="font-mono text-yellow-300 font-bold">
+                    Rs. {parseFloat(String(assignModalMeter.balance || 1500)).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Assignment Form */}
+            <form onSubmit={handleExecuteAssignMeter} className="space-y-4 text-xs">
+              {/* Customer Selector */}
+              <div className="space-y-1.5">
+                <label className="text-white/80 font-semibold block">Select Customer Account *</label>
+                <select
+                  value={assignCustomerId}
+                  onChange={(e) => {
+                    const selectedId = e.target.value
+                    setAssignCustomerId(selectedId)
+                    const found = customersList.find((c) => String(c.id) === selectedId)
+                    if (found && found.nic) {
+                      setAssignCustomerNic(found.nic)
+                    }
+                  }}
+                  className="w-full bg-black/60 border border-white/15 text-white h-10 px-3 rounded-xl focus:border-yellow-400 outline-none text-xs"
+                >
+                  <option value="">-- Choose from Registered Customers --</option>
+                  {customersList.map((c) => (
+                    <option key={c.id} value={c.id} className="bg-[#0f0f11] text-white">
+                      {c.full_name || "Customer"} ({c.email}) {c.nic ? `— NIC: ${c.nic}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[10px] text-white/40 block">
+                  Select an existing registered customer or enter their National Identity Card (NIC) below.
+                </span>
+              </div>
+
+              {/* Customer NIC */}
+              <div className="space-y-1.5">
+                <label className="text-white/80 font-semibold block">Customer NIC (National Identity Card) *</label>
+                <Input
+                  required
+                  value={assignCustomerNic}
+                  onChange={(e) => setAssignCustomerNic(e.target.value.toUpperCase())}
+                  placeholder="e.g. 199512345678 or 951234567V"
+                  className="bg-black/40 border-white/10 text-white font-mono h-9 rounded-xl focus-visible:border-yellow-400"
+                />
+              </div>
+
+              {/* Passcode & Balance */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-white/80 font-semibold">Customer Passcode *</label>
+                    <button
+                      type="button"
+                      onClick={() => setAssignPasscode(String(Math.floor(100000 + Math.random() * 900000)))}
+                      className="text-[10px] text-yellow-400 hover:underline cursor-pointer"
+                    >
+                      Regenerate
+                    </button>
+                  </div>
+                  <Input
+                    required
+                    value={assignPasscode}
+                    onChange={(e) => setAssignPasscode(e.target.value)}
+                    placeholder="6-digit passcode"
+                    className="bg-black/40 border-white/10 text-white font-mono font-bold tracking-widest text-center h-9 rounded-xl focus-visible:border-yellow-400"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-white/80 font-semibold">Initial Wallet Balance (LKR) *</label>
+                  <Input
+                    required
+                    type="number"
+                    min="0"
+                    step="50"
+                    value={assignBalance}
+                    onChange={(e) => setAssignBalance(e.target.value)}
+                    placeholder="1500.00"
+                    className="bg-black/40 border-white/10 text-white font-mono h-9 rounded-xl focus-visible:border-yellow-400"
+                  />
+                </div>
+              </div>
+
+              {/* Meter Label / Name */}
+              <div className="space-y-1.5">
+                <label className="text-white/80 font-semibold block">Meter Label / Description</label>
+                <Input
+                  value={assignName}
+                  onChange={(e) => setAssignName(e.target.value)}
+                  placeholder="e.g. Primary Residence, Solar Setup"
+                  className="bg-black/40 border-white/10 text-white h-9 rounded-xl focus-visible:border-yellow-400"
+                />
+              </div>
+
+              {/* Staff Security Password */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-white/80 font-semibold flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5 text-yellow-400" />
+                  Staff Authorization Password *
+                </label>
+                <Input
+                  required
+                  type="password"
+                  value={assignStaffPassword}
+                  onChange={(e) => setAssignStaffPassword(e.target.value)}
+                  placeholder="Enter your LECO staff password to confirm assignment"
+                  className="bg-black/40 border-white/10 text-white h-9 rounded-xl focus-visible:border-yellow-400"
+                />
+                <span className="text-[10px] text-white/40 block">
+                  Confirms staff officer identity for traceable audit trail.
+                </span>
+              </div>
+
+              {/* Form Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={assignLoading}
+                  onClick={() => setAssignModalMeter(null)}
+                  className="bg-white/10 text-white border-white/20 text-xs h-9 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={assignLoading}
+                  className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black font-extrabold text-xs h-9 px-5 rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 cursor-pointer"
+                >
+                  {assignLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Assigning Meter...
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="h-4 w-4" />
+                      Confirm & Assign Meter
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL 3: Register New Smart Meter with NIC and Passcode */}
       {isRegisterModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
@@ -1469,6 +1893,33 @@ export default function MetersManagement({
                 <span>The meter will be permanently bound to the specified National Identity Card (NIC). Only a customer authenticated with this NIC can claim and link the meter to their profile.</span>
               </div>
             </div>
+
+            {/* Quick Auto-Fill for Detected Hardware Meters */}
+            {hardwareMeters.filter((h) => !h.is_claimed).length > 0 && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <Radio className="h-4 w-4 text-emerald-400 animate-pulse shrink-0" />
+                  <span className="text-emerald-200">
+                    Detected Active Hardware Meter: <strong className="font-mono text-yellow-300">{hardwareMeters.filter((h) => !h.is_claimed)[0].meter_id}</strong>
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const hw = hardwareMeters.filter((h) => !h.is_claimed)[0]
+                    setRegisterMeterNumber(hw.meter_id)
+                    setRegisterAccountNumber(hw.account_number || `ACC-${hw.meter_id}`)
+                    if (hw.staff_passcode) setRegisterPasscode(hw.staff_passcode)
+                    if (hw.balance) setRegisterBalance(String(hw.balance))
+                  }}
+                  className="bg-emerald-500/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/30 text-xs h-7 px-2.5 rounded-lg shrink-0 cursor-pointer"
+                >
+                  Autofill Hardware Meter
+                </Button>
+              </div>
+            )}
 
             {/* Registration Form */}
             <form onSubmit={handleRegisterMeter} className="space-y-4 text-xs">

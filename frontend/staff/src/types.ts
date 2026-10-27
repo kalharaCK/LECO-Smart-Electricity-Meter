@@ -27,6 +27,33 @@ export interface StaffMeter {
   open_complaints_count: number
   last_payment_amount: number | string
   last_payment_date?: string
+  hardware_voltage?: string | number
+  hardware_current?: string | number
+  hardware_power?: string | number
+  hardware_energy?: string | number
+  hardware_meter_timestamp?: string
+  hardware_last_seen?: string
+  telemetry_readings_count?: number
+  has_hardware_telemetry?: boolean
+  is_hardware_active?: boolean
+}
+
+export interface HardwareTelemetryMeter {
+  meter_id: string
+  meter_db_id?: number
+  account_number?: string
+  status?: string
+  balance?: string | number
+  staff_passcode?: string
+  user_id?: number | null
+  is_claimed: boolean
+  total_telemetry_records: number
+  last_seen: string
+  latest_voltage: string | number
+  latest_current: string | number
+  latest_power: string | number
+  latest_energy: string | number
+  latest_timestamp?: string
 }
 
 export interface StaffComplaint {

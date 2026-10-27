@@ -242,6 +242,36 @@ const initDb = async () => {
       console.log(`[Security] Migrated ${unhashedMeters.rows.length} legacy meter PIN(s) to bcrypt hashes.`);
     }
 
+    // Auto-discover and provision hardware meters sending telemetry to meter_readings table
+    try {
+      const hwMetersRes = await pool.query(`
+        SELECT DISTINCT meter_id 
+        FROM meter_readings 
+        WHERE meter_id IS NOT NULL AND TRIM(meter_id) != ''
+      `);
+      for (const hwRow of hwMetersRes.rows) {
+        const cleanMeterId = String(hwRow.meter_id).trim().toUpperCase();
+        const existingCheck = await pool.query('SELECT id, staff_passcode FROM meters WHERE UPPER(meter_number) = $1', [cleanMeterId]);
+        if (existingCheck.rows.length === 0) {
+          const defaultPasscode = '719302';
+          const hashedPin = await bcrypt.hash(defaultPasscode, 10);
+          await pool.query(`
+            INSERT INTO meters (
+              meter_number, account_number, pin, staff_passcode, balance, status, 
+              daily_average, name, user_id, registered_nic, emergency_credit_limit
+            ) VALUES (
+              $1, $2, $3, $4, 1500.00, 'Connected', 150.00, $5, NULL, NULL, 500.00
+            )
+          `, [cleanMeterId, `ACC-${cleanMeterId}`, hashedPin, defaultPasscode, `Smart Hardware Meter ${cleanMeterId}`]);
+          console.log(`[Hardware Discovery] Auto-provisioned hardware meter ${cleanMeterId} into meters catalog.`);
+        } else if (!existingCheck.rows[0].staff_passcode) {
+          await pool.query('UPDATE meters SET staff_passcode = $1 WHERE id = $2', ['719302', existingCheck.rows[0].id]);
+        }
+      }
+    } catch (hwErr) {
+      console.warn('[Hardware Discovery Warning]:', hwErr.message);
+    }
+
     // Demo accounts are strictly for local development and must never be seeded in production.
     if (process.env.NODE_ENV === 'production') return;
 

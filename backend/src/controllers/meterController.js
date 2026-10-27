@@ -324,8 +324,34 @@ const getMeterConsumption = async (req, res) => {
     );
 
     // Fetch meter record for status and balance
-    const meterRow = await pool.query('SELECT balance, status, emergency_credit_limit, emergency_credit_active FROM meters WHERE id = $1', [meterId]);
+    const meterRow = await pool.query('SELECT meter_number, balance, status, emergency_credit_limit, emergency_credit_active FROM meters WHERE id = $1', [meterId]);
     const isMeterActive = (meterRow.rows[0]?.status) === 'Connected';
+    const meterNum = meterRow.rows[0]?.meter_number;
+
+    // Check if there is live telemetry from physical hardware meter (meter_readings)
+    let liveTelemetry = null;
+    if (meterNum) {
+      const hwRes = await pool.query(
+        `SELECT voltage, current, power, energy, meter_timestamp, received_at
+         FROM meter_readings
+         WHERE UPPER(meter_id) = UPPER($1)
+         ORDER BY id DESC LIMIT 1`,
+        [meterNum]
+      );
+      if (hwRes.rows.length > 0) {
+        const hw = hwRes.rows[0];
+        const v = parseFloat(hw.voltage || 0);
+        const e = parseFloat(hw.energy || 0);
+        liveTelemetry = {
+          voltage: v > 1000 ? +(v / 10).toFixed(1) : v,
+          current: parseFloat(hw.current || 0),
+          power: parseFloat(hw.power || 0),
+          energy: e > 1000 ? +(e / 1000).toFixed(3) : e,
+          meterTimestamp: hw.meter_timestamp,
+          receivedAt: hw.received_at
+        };
+      }
+    }
 
     // Query latest real telemetry reading for live power and solar export for CURRENT_DATE
     const latestLogRes = await pool.query(
@@ -334,7 +360,10 @@ const getMeterConsumption = async (req, res) => {
        ORDER BY reading_hour DESC LIMIT 1`,
       [meterId]
     );
-    const currentPower = (isMeterActive && latestLogRes.rows.length > 0) ? parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2) : '0.00';
+    let currentPower = (isMeterActive && latestLogRes.rows.length > 0) ? parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2) : '0.00';
+    if (currentPower === '0.00' && liveTelemetry && liveTelemetry.power > 0) {
+      currentPower = liveTelemetry.power.toFixed(2);
+    }
     const currentExport = (isMeterActive && latestLogRes.rows.length > 0) ? parseFloat(latestLogRes.rows[0].energy_export || 0).toFixed(2) : '0.00';
 
     // Fetch daily history for LECO wallet lifetime prediction (Net consumption: Import - Export)
@@ -415,6 +444,7 @@ const getMeterConsumption = async (req, res) => {
       currentExport: currentExport,
       
       prediction: prediction,
+      liveTelemetry: liveTelemetry,
 
       chartData: chartResult.rows.map(row => ({
         date: row.date,
@@ -1189,10 +1219,41 @@ const getAllMetersForStaff = async (req, res) => {
         COALESCE(total_c.total_consumption, 0) AS total_kwh,
         COALESCE(complaints_cnt.open_complaints, 0) AS open_complaints_count,
         COALESCE(last_pay.last_payment_amount, 0) AS last_payment_amount,
-        last_pay.last_payment_date
+        last_pay.last_payment_date,
+        hw.hardware_voltage,
+        hw.hardware_current,
+        hw.hardware_power,
+        hw.hardware_energy,
+        hw.hardware_meter_timestamp,
+        hw.hardware_last_seen,
+        COALESCE(hw.telemetry_readings_count, 0) AS telemetry_readings_count,
+        (hw.meter_id IS NOT NULL) AS has_hardware_telemetry,
+        (hw.hardware_last_seen IS NOT NULL AND hw.hardware_last_seen >= NOW() - INTERVAL '30 minutes') AS is_hardware_active
       FROM meters m
       LEFT JOIN users u ON m.user_id = u.id
       LEFT JOIN user_settings us ON us.user_id = u.id
+      LEFT JOIN (
+        SELECT 
+          r.meter_id,
+          r.voltage AS hardware_voltage,
+          r.current AS hardware_current,
+          r.power AS hardware_power,
+          r.energy AS hardware_energy,
+          r.meter_timestamp AS hardware_meter_timestamp,
+          r.received_at AS hardware_last_seen,
+          rc.readings_count AS telemetry_readings_count
+        FROM (
+          SELECT DISTINCT ON (meter_id) 
+            meter_id, voltage, current, power, energy, meter_timestamp, received_at
+          FROM meter_readings
+          ORDER BY meter_id, id DESC
+        ) r
+        JOIN (
+          SELECT meter_id, COUNT(*)::int AS readings_count
+          FROM meter_readings
+          GROUP BY meter_id
+        ) rc ON rc.meter_id = r.meter_id
+      ) hw ON UPPER(hw.meter_id) = UPPER(m.meter_number)
       LEFT JOIN (
         SELECT meter_id, ROUND(SUM(consumption)::numeric, 2) AS today_consumption
         FROM consumption_logs
@@ -1466,9 +1527,68 @@ const registerMeterForStaff = async (req, res) => {
     const cleanNic = String(registered_nic).trim().toUpperCase();
 
     // Check if meter number already exists
-    const existing = await pool.query('SELECT id FROM meters WHERE UPPER(meter_number) = $1', [cleanMeterNumber]);
+    const existing = await pool.query('SELECT id, user_id, meter_number FROM meters WHERE UPPER(meter_number) = $1', [cleanMeterNumber]);
     if (existing.rows.length > 0) {
-      return res.status(409).json({ success: false, message: `Meter ${cleanMeterNumber} is already registered in the system.` });
+      const existingMeter = existing.rows[0];
+      if (existingMeter.user_id) {
+        return res.status(409).json({ success: false, message: `Meter ${cleanMeterNumber} is already registered and claimed by a customer account.` });
+      }
+
+      // Meter exists but is unassigned (e.g. pre-discovered hardware meter)
+      let securePasscode = passcode && String(passcode).trim();
+      if (!securePasscode) {
+        securePasscode = String(Math.floor(100000 + Math.random() * 900000));
+      }
+
+      const hashedPin = await bcrypt.hash(securePasscode, 10);
+      const numBalance = parseFloat(initial_balance) || 0;
+
+      const updateRes = await pool.query(
+        `UPDATE meters SET
+          account_number = $1,
+          registered_nic = $2,
+          pin = $3,
+          staff_passcode = $4,
+          balance = $5,
+          name = $6,
+          status = 'Connected'
+         WHERE id = $7
+         RETURNING id, meter_number, account_number, registered_nic, staff_passcode, balance, status, name, created_at`,
+        [cleanAccountNumber, cleanNic, hashedPin, securePasscode, numBalance, name ? String(name).trim() : 'Home', existingMeter.id]
+      );
+      const updatedMeter = updateRes.rows[0];
+
+      if (numBalance > 0) {
+        await pool.query(
+          `INSERT INTO payments (meter_id, amount, payment_method, transaction_id, previous_balance, new_balance, status)
+           VALUES ($1, $2, 'Staff Initial Credit', $3, 0, $4, 'Success')`,
+          [updatedMeter.id, numBalance, `PROV-${Date.now()}`, numBalance]
+        );
+      }
+
+      await logStaffActivity({
+        staffId: req.user?.id || null,
+        staffEmail: req.user?.email || 'staff@leco.lk',
+        actionType: 'METER_PROVISION_UPDATE',
+        targetEntity: `Meter #${cleanMeterNumber} (NIC: ${cleanNic})`,
+        details: {
+          meterId: updatedMeter.id,
+          meterNumber: cleanMeterNumber,
+          accountNumber: cleanAccountNumber,
+          registeredNic: cleanNic,
+          passcodeProvided: securePasscode,
+          initialBalance: numBalance
+        },
+        ipAddress: req.ip || '127.0.0.1',
+        status: 'success'
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Hardware meter ${cleanMeterNumber} provisioned successfully for NIC ${cleanNic}.`,
+        meter: updatedMeter,
+        passcode: securePasscode
+      });
     }
 
     // Generate secure 6-digit passcode if not provided by staff
@@ -1592,6 +1712,214 @@ const regenerateMeterPasscodeForStaff = async (req, res) => {
   }
 };
 
+/**
+ * Staff API: Directly assign an unassigned/hardware meter to a registered customer
+ * POST /api/staff/meters/:meterId/assign
+ */
+const assignMeterToCustomerForStaff = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const {
+      customerId,
+      customerEmail,
+      customerNic,
+      passcode,
+      initialBalance,
+      name,
+      staffPassword
+    } = req.body;
+
+    if (!staffPassword) {
+      return res.status(400).json({ success: false, message: 'Staff authorization password is required to assign meter.' });
+    }
+
+    const staffRes = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+    if (staffRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Staff profile not found.' });
+    }
+    const isStaffAuthValid = await bcrypt.compare(String(staffPassword), staffRes.rows[0].password);
+    if (!isStaffAuthValid) {
+      return res.status(401).json({ success: false, message: 'Incorrect staff authorization password.' });
+    }
+
+    // Check target meter
+    const meterRes = await pool.query('SELECT * FROM meters WHERE id = $1', [meterId]);
+    if (meterRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Meter not found.' });
+    }
+    const targetMeter = meterRes.rows[0];
+
+    // Find customer account
+    let customer = null;
+    if (customerId) {
+      const cRes = await pool.query('SELECT id, email, full_name, mobile_number, nic, role FROM users WHERE id = $1', [customerId]);
+      if (cRes.rows.length > 0) customer = cRes.rows[0];
+    } else if (customerNic) {
+      const cRes = await pool.query('SELECT id, email, full_name, mobile_number, nic, role FROM users WHERE UPPER(nic) = $1', [String(customerNic).trim().toUpperCase()]);
+      if (cRes.rows.length > 0) customer = cRes.rows[0];
+    } else if (customerEmail) {
+      const cRes = await pool.query('SELECT id, email, full_name, mobile_number, nic, role FROM users WHERE LOWER(email) = $1', [String(customerEmail).trim().toLowerCase()]);
+      if (cRes.rows.length > 0) customer = cRes.rows[0];
+    }
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Target customer account not found. Please ensure the customer has registered on the platform or provide a valid NIC.'
+      });
+    }
+
+    const securePasscode = (passcode && String(passcode).trim()) 
+      ? String(passcode).trim()
+      : (targetMeter.staff_passcode || String(Math.floor(100000 + Math.random() * 900000)));
+
+    const hashedPin = await bcrypt.hash(securePasscode, 10);
+    const balanceNum = initialBalance !== undefined && !isNaN(parseFloat(initialBalance)) 
+      ? parseFloat(initialBalance) 
+      : parseFloat(targetMeter.balance || 0);
+
+    const meterLabel = name && String(name).trim() ? String(name).trim() : (targetMeter.name || 'Primary Residence');
+    const assignedNic = customer.nic || targetMeter.registered_nic || null;
+
+    const updateRes = await pool.query(
+      `UPDATE meters SET
+        user_id = $1,
+        registered_nic = $2,
+        staff_passcode = $3,
+        pin = $4,
+        balance = $5,
+        name = $6,
+        status = 'Connected'
+       WHERE id = $7
+       RETURNING *`,
+      [customer.id, assignedNic, securePasscode, hashedPin, balanceNum, meterLabel, meterId]
+    );
+    const updatedMeter = updateRes.rows[0];
+
+    // Record adjustment payment if balance changed
+    if (balanceNum > 0 && balanceNum !== parseFloat(targetMeter.balance || 0)) {
+      await pool.query(
+        `INSERT INTO payments (user_id, meter_id, amount, payment_method, transaction_id, previous_balance, new_balance, status)
+         VALUES ($1, $2, $3, 'Staff Assignment Initial Credit', $4, $5, $6, 'Success')`,
+        [customer.id, meterId, balanceNum, `ASSIGN-${Date.now()}`, targetMeter.balance || 0, balanceNum]
+      );
+    }
+
+    // Customer Notification
+    await pool.query(
+      `INSERT INTO notifications (user_id, meter_id, type, title, message)
+       VALUES ($1, $2, 'success', 'Smart Meter Assigned', $3)`,
+      [
+        customer.id,
+        meterId,
+        `LECO Smart Meter ${targetMeter.meter_number} (Account #${targetMeter.account_number}) has been assigned to your account with initial balance Rs. ${balanceNum.toFixed(2)}.`
+      ]
+    );
+
+    // SMS dispatch if phone available
+    const customerPhone = customer.mobile_number;
+    if (customerPhone) {
+      smsService.sendEventSms({
+        recipient: customerPhone,
+        eventType: 'provisioning',
+        language: 'en',
+        data: {
+          meter_number: targetMeter.meter_number,
+          account_no: targetMeter.account_number,
+          passcode: securePasscode
+        }
+      }).catch(err => console.error('[Assign Meter SMS Error]:', err.message));
+    }
+
+    // Log staff action
+    await logStaffActivity({
+      staffId: req.user?.id || null,
+      staffEmail: req.user?.email || 'staff@leco.lk',
+      actionType: 'METER_ASSIGN_TO_CUSTOMER',
+      targetEntity: `Meter #${targetMeter.meter_number} -> ${customer.email}`,
+      details: {
+        meterId,
+        meterNumber: targetMeter.meter_number,
+        accountNumber: targetMeter.account_number,
+        customerId: customer.id,
+        customerEmail: customer.email,
+        customerNic: customer.nic,
+        assignedBalance: balanceNum,
+        passcode: securePasscode
+      },
+      ipAddress: req.ip || '127.0.0.1',
+      status: 'success'
+    });
+
+    return res.json({
+      success: true,
+      message: `Meter ${targetMeter.meter_number} assigned successfully to ${customer.full_name || customer.email}.`,
+      voucher: {
+        meterId: updatedMeter.id,
+        meterNumber: updatedMeter.meter_number,
+        accountNumber: updatedMeter.account_number,
+        customerName: customer.full_name || 'LECO Customer',
+        customerEmail: customer.email,
+        customerNic: customer.nic || '',
+        customerPhone: customer.mobile_number || '',
+        passcode: securePasscode,
+        balance: balanceNum,
+        status: updatedMeter.status,
+        assignedAt: new Date().toISOString()
+      }
+    });
+  } catch (err) {
+    console.error('[Assign Meter Error]:', err);
+    return res.status(500).json({ success: false, message: 'Failed to assign meter to customer.' });
+  }
+};
+
+/**
+ * Staff API: Fetch hardware meters sending telemetry in meter_readings that are unassigned
+ * GET /api/staff/meters/unregistered-hardware
+ */
+const getUnregisteredHardwareMetersForStaff = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        mr.meter_id,
+        m.id AS meter_db_id,
+        m.account_number,
+        m.status,
+        m.balance,
+        m.staff_passcode,
+        m.user_id,
+        (m.user_id IS NOT NULL) AS is_claimed,
+        COUNT(mr.id)::int AS total_telemetry_records,
+        MAX(mr.received_at) AS last_seen,
+        latest.voltage AS latest_voltage,
+        latest.current AS latest_current,
+        latest.power AS latest_power,
+        latest.energy AS latest_energy,
+        latest.meter_timestamp AS latest_timestamp
+      FROM meter_readings mr
+      LEFT JOIN meters m ON UPPER(m.meter_number) = UPPER(mr.meter_id)
+      LEFT JOIN (
+        SELECT DISTINCT ON (meter_id)
+          meter_id, voltage, current, power, energy, meter_timestamp, received_at
+        FROM meter_readings
+        ORDER BY meter_id, id DESC
+      ) latest ON latest.meter_id = mr.meter_id
+      GROUP BY mr.meter_id, m.id, m.account_number, m.status, m.balance, m.staff_passcode, m.user_id,
+               latest.voltage, latest.current, latest.power, latest.energy, latest.meter_timestamp
+      ORDER BY last_seen DESC
+    `;
+    const result = await pool.query(query);
+    return res.json({
+      success: true,
+      hardwareMeters: result.rows
+    });
+  } catch (err) {
+    console.error('[Hardware Meters Telemetry Fetch Error]:', err);
+    return res.status(500).json({ success: false, message: 'Failed to retrieve hardware meters.' });
+  }
+};
+
 module.exports = { 
   getUserMeters, 
   addMeter, 
@@ -1608,5 +1936,7 @@ module.exports = {
   toggleMeterRelay,
   staffTopupMeter,
   registerMeterForStaff,
-  regenerateMeterPasscodeForStaff
+  regenerateMeterPasscodeForStaff,
+  assignMeterToCustomerForStaff,
+  getUnregisteredHardwareMetersForStaff
 };
