@@ -389,10 +389,16 @@ const resetPasswordWithOtp = async (req, res) => {
     }
 
     // Mark OTP as verified
-    await pool.query(
-      'UPDATE verification_otps SET verified = TRUE, otp_hash = NULL, otp_code = NULL WHERE id = $1',
+    const consumedOtp = await pool.query(
+      `UPDATE verification_otps
+       SET verified = TRUE, otp_hash = NULL, otp_code = NULL
+       WHERE id = $1 AND verified = FALSE AND expires_at > CURRENT_TIMESTAMP
+       RETURNING id`,
       [otpCheck.rows[0].id]
     );
+    if (consumedOtp.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired verification code. Please request a new code.' });
+    }
 
     // Update password
     const salt = await bcrypt.genSalt(10);
