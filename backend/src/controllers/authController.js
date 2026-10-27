@@ -18,6 +18,42 @@ function maskEmail(email) {
   return `${local.slice(0, 2)}***${local.slice(-1)}@${domain}`;
 }
 
+/**
+ * Safe SMS dispatch with a timeout cap (default 4000ms) to ensure external SMS gateway latency
+ * or failures NEVER delay Email OTP delivery, block the user, or exceed request timeouts.
+ */
+async function dispatchSmsSafe(smsPromiseFactory, timeoutMs = 4000) {
+  let timer;
+  try {
+    const timeoutPromise = new Promise((resolve) => {
+      timer = setTimeout(() => {
+        resolve({
+          success: false,
+          timedOut: true,
+          errorMessage: 'SMS dispatch gateway timed out'
+        });
+      }, timeoutMs);
+    });
+
+    const executionPromise = (typeof smsPromiseFactory === 'function' ? smsPromiseFactory() : smsPromiseFactory)
+      .then((res) => {
+        if (timer) clearTimeout(timer);
+        return res;
+      })
+      .catch((err) => {
+        if (timer) clearTimeout(timer);
+        console.error('[SMS Dispatch Error]:', err.message);
+        return { success: false, errorMessage: err.message };
+      });
+
+    return await Promise.race([executionPromise, timeoutPromise]);
+  } catch (err) {
+    if (timer) clearTimeout(timer);
+    console.error('[SMS Dispatch Exception]:', err.message);
+    return { success: false, errorMessage: err.message };
+  }
+}
+
 // Secure Cookie Configuration
 const getCookieOptions = () => {
   const isProd = process.env.NODE_ENV === 'production';
@@ -164,39 +200,55 @@ const sendRegisterOtp = async (req, res) => {
       );
     }
 
-    // Dispatch SMS via Text.lk Gateway in customer preferred language
+    // Dispatch SMS and Email OTP in parallel with safe timeout on SMS
     const userLang = req.body.language || 'en';
-    const smsRes = await smsService.sendEventSms({
+    const smsTask = dispatchSmsSafe(() => smsService.sendEventSms({
       recipient: cleanMobile,
       eventType: 'otp',
       eventSubtype: 'registration',
       language: userLang,
       data: { otp: otpCode }
-    });
+    }), 4000);
 
-    // Also dispatch Email OTP via Nodemailer if email was provided
-    let emailRes = { success: false };
-    if (cleanEmail) {
-      emailRes = await emailService.sendOtpEmail({
-        to: cleanEmail,
-        otp: otpCode,
-        purpose: 'registration',
-        recipientName: req.body.full_name || '',
-        expiresMinutes: 10
-      });
-    }
+    const emailTask = cleanEmail
+      ? emailService.sendOtpEmail({
+          to: cleanEmail,
+          otp: otpCode,
+          purpose: 'registration',
+          recipientName: req.body.full_name || '',
+          expiresMinutes: 10
+        }).catch((err) => {
+          console.error('[Email Dispatch Error]:', err.message);
+          return { success: false, errorMessage: err.message };
+        })
+      : Promise.resolve({ success: false, notRequested: true });
 
-    let deliveryNotice = `Verification code sent via SMS to ${cleanMobile}`;
-    if (cleanEmail) {
+    const [smsSettled, emailSettled] = await Promise.allSettled([smsTask, emailTask]);
+
+    const smsRes = smsSettled.status === 'fulfilled' ? smsSettled.value : { success: false, errorMessage: smsSettled.reason?.message };
+    const emailRes = emailSettled.status === 'fulfilled' ? emailSettled.value : { success: false, errorMessage: emailSettled.reason?.message };
+
+    const isSmsDelivered = Boolean(smsRes && smsRes.success);
+    const isEmailDelivered = Boolean(emailRes && emailRes.success);
+    const fallbackToEmail = !isSmsDelivered && Boolean(cleanEmail);
+
+    let deliveryNotice;
+    if (!isSmsDelivered && cleanEmail) {
+      deliveryNotice = `SMS delivery delayed or unavailable. Verification code sent directly to your email (${cleanEmail}).`;
+    } else if (cleanEmail) {
       deliveryNotice = `Verification code sent to your mobile (${cleanMobile}) and email (${cleanEmail})`;
+    } else {
+      deliveryNotice = `Verification code sent via SMS to ${cleanMobile}`;
     }
 
     if (res.headersSent) return;
     return res.json({
       success: true,
       message: deliveryNotice,
-      smsDelivered: smsRes.success,
-      emailDelivered: emailRes.success
+      smsDelivered: isSmsDelivered,
+      emailDelivered: isEmailDelivered,
+      fallbackToEmail,
+      email: cleanEmail
     });
   } catch (err) {
     console.error('[Send Register OTP Error]:', err);
@@ -397,29 +449,40 @@ const sendForgotPasswordOtp = async (req, res) => {
     }
 
     // Dispatch Email OTP to the user's registered/provided email address
-    let emailRes = { success: false };
-    if (destinationEmail) {
-      emailRes = await emailService.sendOtpEmail({
-        to: destinationEmail,
-        otp: otpCode,
-        purpose: 'forgot_password',
-        recipientName: targetUser.full_name || 'Valued Customer',
-        expiresMinutes: 10
-      });
-    }
+    // and SMS OTP in parallel with safe timeout on SMS
+    const userLang = req.body.language || 'en';
 
-    // Also dispatch SMS OTP if mobile is registered
-    let smsRes = { success: false };
-    if (destinationMobile) {
-      const userLang = req.body.language || 'en';
-      smsRes = await smsService.sendEventSms({
-        recipient: destinationMobile,
-        eventType: 'otp',
-        eventSubtype: 'forgot_password',
-        language: userLang,
-        data: { otp: otpCode }
-      });
-    }
+    const emailTask = destinationEmail
+      ? emailService.sendOtpEmail({
+          to: destinationEmail,
+          otp: otpCode,
+          purpose: 'forgot_password',
+          recipientName: targetUser.full_name || 'Valued Customer',
+          expiresMinutes: 10
+        }).catch((err) => {
+          console.error('[Forgot Password Email Dispatch Error]:', err.message);
+          return { success: false, errorMessage: err.message };
+        })
+      : Promise.resolve({ success: false, notRequested: true });
+
+    const smsTask = destinationMobile
+      ? dispatchSmsSafe(() => smsService.sendEventSms({
+          recipient: destinationMobile,
+          eventType: 'otp',
+          eventSubtype: 'forgot_password',
+          language: userLang,
+          data: { otp: otpCode }
+        }), 4000)
+      : Promise.resolve({ success: false, notRequested: true });
+
+    const [emailSettled, smsSettled] = await Promise.allSettled([emailTask, smsTask]);
+
+    const emailRes = emailSettled.status === 'fulfilled' ? emailSettled.value : { success: false, errorMessage: emailSettled.reason?.message };
+    const smsRes = smsSettled.status === 'fulfilled' ? smsSettled.value : { success: false, errorMessage: smsSettled.reason?.message };
+
+    const isEmailDelivered = Boolean(emailRes && emailRes.success);
+    const isSmsDelivered = Boolean(smsRes && smsRes.success);
+    const fallbackToEmail = !isSmsDelivered && Boolean(destinationEmail);
 
     // Mask destinations for UI feedback
     const maskedEmail = destinationEmail ? maskEmail(destinationEmail) : null;
@@ -429,9 +492,13 @@ const sendForgotPasswordOtp = async (req, res) => {
           : '••••' + destinationMobile.slice(-2))
       : null;
 
-    let deliveryMsg = `Verification code sent to your registered email (${maskedEmail})`;
-    if (destinationMobile) {
+    let deliveryMsg;
+    if (!isSmsDelivered && destinationEmail) {
+      deliveryMsg = `SMS delivery delayed or unavailable. Verification code sent directly to your registered email (${maskedEmail}).`;
+    } else if (destinationMobile && isEmailDelivered) {
       deliveryMsg = `Verification code sent to your email (${maskedEmail}) and mobile (${maskedMobile})`;
+    } else {
+      deliveryMsg = `Verification code sent to your registered email (${maskedEmail})`;
     }
 
     return res.json({
@@ -440,8 +507,9 @@ const sendForgotPasswordOtp = async (req, res) => {
       email: destinationEmail,
       maskedEmail,
       maskedPhone: maskedMobile,
-      emailDelivered: emailRes.success,
-      smsDelivered: smsRes.success
+      emailDelivered: isEmailDelivered,
+      smsDelivered: isSmsDelivered,
+      fallbackToEmail
     });
   } catch (err) {
     console.error('[Forgot Password Send OTP Error]:', err);
@@ -833,34 +901,51 @@ const sendEmailVerificationOtp = async (req, res) => {
       );
     }
 
-    // Dispatch Email OTP
-    const emailRes = await emailService.sendOtpEmail({
+    // Dispatch Email and SMS in parallel with safe SMS timeout
+    const emailTask = emailService.sendOtpEmail({
       to: cleanEmail,
       otp: otpCode,
       purpose: 'verify_email',
       recipientName: user?.full_name || req.user?.full_name || '',
       expiresMinutes: 10
+    }).catch((err) => {
+      console.error('[Verify Email Dispatch Error]:', err.message);
+      return { success: false, errorMessage: err.message };
     });
 
-    // Also dispatch SMS OTP if user has a mobile number registered
-    let smsRes = { success: false };
-    if (user?.mobile_number) {
-      smsRes = await smsService.sendEventSms({
-        recipient: user.mobile_number,
-        eventType: 'otp',
-        eventSubtype: 'registration',
-        language: req.body.language || 'en',
-        data: { otp: otpCode }
-      });
+    const smsTask = user?.mobile_number
+      ? dispatchSmsSafe(() => smsService.sendEventSms({
+          recipient: user.mobile_number,
+          eventType: 'otp',
+          eventSubtype: 'registration',
+          language: req.body.language || 'en',
+          data: { otp: otpCode }
+        }), 4000)
+      : Promise.resolve({ success: false, notRequested: true });
+
+    const [emailSettled, smsSettled] = await Promise.allSettled([emailTask, smsTask]);
+    const emailRes = emailSettled.status === 'fulfilled' ? emailSettled.value : { success: false, errorMessage: emailSettled.reason?.message };
+    const smsRes = smsSettled.status === 'fulfilled' ? smsSettled.value : { success: false, errorMessage: smsSettled.reason?.message };
+
+    const isEmailDelivered = Boolean(emailRes && emailRes.success);
+    const isSmsDelivered = Boolean(smsRes && smsRes.success);
+    const fallbackToEmail = !isSmsDelivered;
+
+    let deliveryMsg;
+    if (!isSmsDelivered && user?.mobile_number) {
+      deliveryMsg = `SMS delivery delayed or unavailable. Verification code dispatched to your email (${cleanEmail}).`;
+    } else if (user?.mobile_number && isEmailDelivered) {
+      deliveryMsg = `Verification code dispatched to email (${cleanEmail}) and SMS (${user.mobile_number})`;
+    } else {
+      deliveryMsg = `Verification code dispatched to email (${cleanEmail})`;
     }
 
     return res.json({
       success: true,
-      message: user?.mobile_number
-        ? `Verification code dispatched to email (${cleanEmail}) and SMS (${user.mobile_number})`
-        : `Verification code dispatched to email (${cleanEmail})`,
-      emailDelivered: emailRes.success,
-      smsDelivered: smsRes.success
+      message: deliveryMsg,
+      emailDelivered: isEmailDelivered,
+      smsDelivered: isSmsDelivered,
+      fallbackToEmail
     });
   } catch (err) {
     console.error('[Send Email Verification OTP Error]:', err);

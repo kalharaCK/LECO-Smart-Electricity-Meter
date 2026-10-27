@@ -26,7 +26,8 @@ import {
   Lock,
   Mail,
   MapPin,
-  CreditCard
+  CreditCard,
+  AlertTriangle
 } from "lucide-react"
 
 import { AdCarouselModal } from "@/components/AdCarouselModal"
@@ -46,7 +47,9 @@ export default function AuthPage() {
   const [view, setView] = useState<"auth" | "forgot_password">("auth")
   const [isLogin, setIsLogin] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [message, setMessage] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null)
+  const [regSmsFailed, setRegSmsFailed] = useState(false)
+  const [fpSmsFailed, setFpSmsFailed] = useState(false)
 
   // Language state (en, si, ta)
   const [language, setLanguage] = useState<Language>(() => {
@@ -165,18 +168,23 @@ export default function AuthPage() {
           nic,
           address,
           mobile_number: mobileNumber,
-          email: regEmail
+          email: regEmail,
+          language
         })
       })
       const data = await res.json()
-      if (!res.ok) {
+      if (!res.ok && !data.fallbackToEmail) {
         throw new Error(data.error || t.alerts.genericError)
       }
 
+      const smsFailed = data.smsDelivered === false || Boolean(data.fallbackToEmail)
+      setRegSmsFailed(smsFailed)
       setRegStep(3)
       setMessage({
-        type: "success",
-        text: data.message || `${t.alerts.otpSentSuccess} (${mobileNumber} & ${regEmail})`
+        type: smsFailed ? "warning" : "success",
+        text: data.message || (smsFailed
+          ? `SMS delivery unavailable. Your 6-digit verification code has been sent directly to your email (${regEmail}).`
+          : `${t.alerts.otpSentSuccess} (${mobileNumber} & ${regEmail})`)
       })
     } catch (err: any) {
       setMessage({ type: "error", text: err.message })
@@ -199,16 +207,21 @@ export default function AuthPage() {
           nic,
           address,
           mobile_number: mobileNumber,
-          email: regEmail
+          email: regEmail,
+          language
         })
       })
       const data = await res.json()
-      if (!res.ok) {
+      if (!res.ok && !data.fallbackToEmail) {
         throw new Error(data.error || t.alerts.genericError)
       }
+      const smsFailed = data.smsDelivered === false || Boolean(data.fallbackToEmail)
+      setRegSmsFailed(smsFailed)
       setMessage({
-        type: "success",
-        text: data.message || `New verification code dispatched to ${mobileNumber} and ${regEmail}`
+        type: smsFailed ? "warning" : "success",
+        text: data.message || (smsFailed
+          ? `SMS delivery unavailable. New verification code dispatched directly to your email (${regEmail}).`
+          : `New verification code dispatched to ${mobileNumber} and ${regEmail}`)
       })
     } catch (err: any) {
       setMessage({ type: "error", text: err.message })
@@ -279,20 +292,25 @@ export default function AuthPage() {
         credentials: "include",
         body: JSON.stringify({
           email: fpEmail.trim() || undefined,
-          nic: fpNic.trim() || undefined
+          nic: fpNic.trim() || undefined,
+          language
         })
       })
       const data = await res.json()
-      if (!res.ok) {
+      if (!res.ok && !data.fallbackToEmail) {
         throw new Error(data.error || t.alerts.genericError)
       }
 
+      const smsFailed = data.smsDelivered === false || Boolean(data.fallbackToEmail)
+      setFpSmsFailed(smsFailed)
       setFpMaskedEmail(data.maskedEmail || fpEmail.trim())
       setFpMaskedPhone(data.maskedPhone || "")
       setFpStep(2)
       setMessage({
-        type: "success",
-        text: data.message || `${t.alerts.otpSentSuccess} (${data.maskedEmail || fpEmail.trim()})`
+        type: smsFailed ? "warning" : "success",
+        text: data.message || (smsFailed
+          ? `SMS delivery unavailable. Your 6-digit verification code has been sent directly to your registered email (${data.maskedEmail || fpEmail.trim()}).`
+          : `${t.alerts.otpSentSuccess} (${data.maskedEmail || fpEmail.trim()})`)
       })
     } catch (err: any) {
       setMessage({ type: "error", text: err.message })
@@ -312,16 +330,21 @@ export default function AuthPage() {
         credentials: "include",
         body: JSON.stringify({
           email: fpEmail.trim() || undefined,
-          nic: fpNic.trim() || undefined
+          nic: fpNic.trim() || undefined,
+          language
         })
       })
       const data = await res.json()
-      if (!res.ok) {
+      if (!res.ok && !data.fallbackToEmail) {
         throw new Error(data.error || t.alerts.genericError)
       }
+      const smsFailed = data.smsDelivered === false || Boolean(data.fallbackToEmail)
+      setFpSmsFailed(smsFailed)
       setMessage({
-        type: "success",
-        text: data.message || `New verification code dispatched to ${data.maskedEmail || fpMaskedEmail || fpEmail.trim()}`
+        type: smsFailed ? "warning" : "success",
+        text: data.message || (smsFailed
+          ? `SMS delivery unavailable. New code sent directly to your registered email (${data.maskedEmail || fpMaskedEmail || fpEmail.trim()}).`
+          : `New verification code dispatched to ${data.maskedEmail || fpMaskedEmail || fpEmail.trim()}`)
       })
     } catch (err: any) {
       setMessage({ type: "error", text: err.message })
@@ -479,8 +502,19 @@ export default function AuthPage() {
 
               {message && (
                 <div className="px-5 sm:px-7 pt-2">
-                  <Alert variant={message.type === "error" ? "destructive" : "default"} className={`rounded-xl text-xs py-2.5 ${message.type === "success" ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-200" : "bg-red-950/80 border-red-500/50 text-red-200"}`}>
-                    <AlertTitle className="text-xs font-bold">{message.type === "error" ? t.alerts.errorTitle : t.alerts.successTitle}</AlertTitle>
+                  <Alert 
+                    variant={message.type === "error" ? "destructive" : "default"} 
+                    className={`rounded-xl text-xs py-2.5 ${
+                      message.type === "success" 
+                        ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-200" 
+                        : message.type === "warning"
+                        ? "border-amber-400/50 bg-amber-950/70 text-amber-200"
+                        : "bg-red-950/80 border-red-500/50 text-red-200"
+                    }`}
+                  >
+                    <AlertTitle className="text-xs font-bold">
+                      {message.type === "error" ? t.alerts.errorTitle : message.type === "warning" ? "Notice" : t.alerts.successTitle}
+                    </AlertTitle>
                     <AlertDescription className="text-[11px] leading-tight mt-0.5">{message.text}</AlertDescription>
                   </Alert>
                 </div>
@@ -564,19 +598,33 @@ export default function AuthPage() {
                 /* Forgot Password Step 2: OTP & New Password */
                 <form onSubmit={handleResetPasswordSubmit}>
                   <CardContent className="flex flex-col gap-4 p-5 sm:p-7 pt-3">
-                    {(fpMaskedEmail || fpEmail || fpMaskedPhone) && (
-                      <div className="text-xs text-white/80 bg-black/40 p-3 rounded-xl border border-white/10 space-y-1">
-                        <div className="flex items-center gap-1.5 text-yellow-400 font-semibold">
-                          <Mail className="h-3.5 w-3.5 shrink-0" />
-                          <span>{t.forgotPassword.phoneHint}:</span>
-                        </div>
-                        <div className="pl-5 text-white font-mono text-[13px] break-all">
-                          {fpMaskedEmail || fpEmail}
-                          {fpMaskedPhone && (
-                            <span className="text-white/60 font-sans text-xs ml-2">(& SMS: {fpMaskedPhone})</span>
-                          )}
+                    {fpSmsFailed ? (
+                      <div className="text-xs text-amber-200 bg-amber-950/50 p-3.5 rounded-xl border border-amber-500/50 flex items-start gap-2.5 shadow-sm">
+                        <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <div className="font-semibold text-amber-300">
+                            SMS Delivery Notice - Emailed Code Active
+                          </div>
+                          <div className="text-[11px] text-white/90 leading-relaxed">
+                            SMS delivery could not be completed. Your 6-digit verification code has been dispatched directly to your registered email inbox: <strong className="font-mono text-yellow-400">{fpMaskedEmail || fpEmail}</strong>. Please check your inbox and spam folder.
+                          </div>
                         </div>
                       </div>
+                    ) : (
+                      (fpMaskedEmail || fpEmail || fpMaskedPhone) && (
+                        <div className="text-xs text-white/80 bg-black/40 p-3 rounded-xl border border-white/10 space-y-1">
+                          <div className="flex items-center gap-1.5 text-yellow-400 font-semibold">
+                            <Mail className="h-3.5 w-3.5 shrink-0" />
+                            <span>{t.forgotPassword.phoneHint}:</span>
+                          </div>
+                          <div className="pl-5 text-white font-mono text-[13px] break-all">
+                            {fpMaskedEmail || fpEmail}
+                            {fpMaskedPhone && (
+                              <span className="text-white/60 font-sans text-xs ml-2">(& SMS: {fpMaskedPhone})</span>
+                            )}
+                          </div>
+                        </div>
+                      )
                     )}
 
                     <FieldGroup className="space-y-3.5">
@@ -685,6 +733,7 @@ export default function AuthPage() {
               onValueChange={(val) => {
                 setIsLogin(val === "login")
                 setMessage(null)
+                setRegSmsFailed(false)
               }}
             >
               <CardHeader className="p-5 sm:p-7 pb-2 sm:pb-3 text-center sm:text-left">
@@ -716,8 +765,19 @@ export default function AuthPage() {
 
               {message && (
                 <div className="px-5 sm:px-7 pt-1">
-                  <Alert variant={message.type === "error" ? "destructive" : "default"} className={`rounded-xl text-xs py-2.5 ${message.type === "success" ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-200" : "bg-red-950/80 border-red-500/50 text-red-200"}`}>
-                    <AlertTitle className="text-xs font-bold">{message.type === "error" ? t.alerts.errorTitle : t.alerts.successTitle}</AlertTitle>
+                  <Alert 
+                    variant={message.type === "error" ? "destructive" : "default"} 
+                    className={`rounded-xl text-xs py-2.5 ${
+                      message.type === "success" 
+                        ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-200" 
+                        : message.type === "warning"
+                        ? "border-amber-400/50 bg-amber-950/70 text-amber-200"
+                        : "bg-red-950/80 border-red-500/50 text-red-200"
+                    }`}
+                  >
+                    <AlertTitle className="text-xs font-bold">
+                      {message.type === "error" ? t.alerts.errorTitle : message.type === "warning" ? "Notice" : t.alerts.successTitle}
+                    </AlertTitle>
                     <AlertDescription className="text-[11px] leading-tight mt-0.5">{message.text}</AlertDescription>
                   </Alert>
                 </div>
@@ -1037,6 +1097,31 @@ export default function AuthPage() {
                           {t.steps.step3Desc}: <strong className="text-yellow-400 font-mono">{mobileNumber}</strong> & <strong className="text-yellow-400 font-mono">{regEmail}</strong>
                         </p>
                       </div>
+
+                      {regSmsFailed ? (
+                        <div className="text-xs text-amber-200 bg-amber-950/50 p-3.5 rounded-xl border border-amber-500/50 flex items-start gap-2.5 shadow-sm">
+                          <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                          <div className="space-y-1">
+                            <div className="font-semibold text-amber-300">
+                              SMS Delivery Notice - Emailed Code Active
+                            </div>
+                            <div className="text-[11px] text-white/90 leading-relaxed">
+                              SMS delivery could not be completed to <span className="font-mono text-amber-300">{mobileNumber}</span>. Your 6-digit verification code has been dispatched directly to your email inbox: <strong className="font-mono text-yellow-400">{regEmail}</strong>. Please check your inbox and spam folder.
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-white/80 bg-black/40 p-3 rounded-xl border border-white/10 space-y-1">
+                          <div className="flex items-center gap-1.5 text-yellow-400 font-semibold">
+                            <Mail className="h-3.5 w-3.5 shrink-0" />
+                            <span>Verification Code Sent:</span>
+                          </div>
+                          <div className="pl-5 text-white font-mono text-[13px] break-all">
+                            {regEmail}
+                            <span className="text-white/60 font-sans text-xs ml-2">(& SMS: {mobileNumber})</span>
+                          </div>
+                        </div>
+                      )}
 
                       <FieldGroup className="space-y-2">
                         <Field>
