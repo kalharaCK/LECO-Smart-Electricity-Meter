@@ -43,7 +43,20 @@ const initSocket = (server) => {
     }
   });
 
+  io.engine.on('connection_error', (err) => {
+    console.warn('[Socket Engine Warning]: Non-fatal connection error:', err.message);
+  });
+
   io.on('connection', (socket) => {
+    socket.on('error', (err) => {
+      console.warn(`[Socket ${socket.id} Warning]:`, err.message);
+    });
+
+    if (!socket.data || !socket.data.user) {
+      socket.disconnect(true);
+      return;
+    }
+
     const { id: userId, role } = socket.data.user;
     const isStaff = role === 'staff' || role === 'admin';
     socket.join(`user_${userId}`);
@@ -53,21 +66,25 @@ const initSocket = (server) => {
     }
 
     socket.on('join_meter', async (meterId) => {
-      const id = Number(meterId);
-      if (!Number.isSafeInteger(id) || id <= 0) return;
       try {
+        const id = Number(meterId);
+        if (!Number.isSafeInteger(id) || id <= 0) return;
         const accessQuery = meterRoomAccessQuery(role, id, userId);
         if (!accessQuery) return;
         const result = await pool.query(...accessQuery);
         if (result.rows.length) socket.join(`meter_${id}`);
       } catch (error) {
-        console.error('[Socket] Failed to authorize meter room:', error.message);
+        console.warn('[Socket] Non-fatal meter room auth error:', error.message);
       }
     });
 
     socket.on('leave_meter', (meterId) => {
-      const id = Number(meterId);
-      if (Number.isSafeInteger(id) && id > 0) socket.leave(`meter_${id}`);
+      try {
+        const id = Number(meterId);
+        if (Number.isSafeInteger(id) && id > 0) socket.leave(`meter_${id}`);
+      } catch (error) {
+        console.warn('[Socket] Non-fatal leave_meter error:', error.message);
+      }
     });
   });
 

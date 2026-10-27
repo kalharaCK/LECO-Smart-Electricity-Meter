@@ -296,4 +296,77 @@ const closePool = async () => {
   }
 };
 
-module.exports = { pool, connectDb, initDb, getPoolStats, closePool };
+const TRANSIENT_ERROR_CODES = new Set([
+  '08001',
+  '08004',
+  '08006',
+  '57P01',
+  '57P02',
+  '57P03',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'ECONNRESET',
+  'EPIPE'
+]);
+
+function isTransientDbError(err) {
+  if (!err) return false;
+  if (err.code && TRANSIENT_ERROR_CODES.has(err.code)) return true;
+  const msg = String(err.message || '').toLowerCase();
+  return (
+    msg.includes('connection terminated') ||
+    msg.includes('client was closed') ||
+    msg.includes('timeout') ||
+    msg.includes('econnrefused') ||
+    msg.includes('socket hang up') ||
+    msg.includes('server closed the connection')
+  );
+}
+
+/**
+ * Executes a PostgreSQL query with transparent retry on transient network/wake-up errors
+ */
+const resilientQuery = async (text, params = [], options = {}) => {
+  const maxRetries = options.maxRetries ?? 2;
+  const initialDelay = options.initialDelayMs ?? 200;
+  let attempt = 0;
+
+  while (true) {
+    try {
+      return await pool.query(text, params);
+    } catch (err) {
+      attempt++;
+      if (attempt <= maxRetries && isTransientDbError(err)) {
+        const delay = initialDelay * Math.pow(2, attempt - 1);
+        console.warn(`[Database Resilience]: Transient error (${err.code || err.message}). Retrying attempt ${attempt}/${maxRetries} in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        throw err;
+      }
+    }
+  }
+};
+
+/**
+ * Executes non-critical query safely, returning a fallback instead of throwing
+ */
+const safeQuery = async (text, params = [], fallback = { rows: [], rowCount: 0 }) => {
+  try {
+    return await pool.query(text, params);
+  } catch (err) {
+    console.warn('[Database SafeQuery Warning]: Non-critical query failed safely:', err.message);
+    return fallback;
+  }
+};
+
+module.exports = {
+  pool,
+  connectDb,
+  initDb,
+  getPoolStats,
+  closePool,
+  resilientQuery,
+  safeQuery,
+  isTransientDbError
+};
+

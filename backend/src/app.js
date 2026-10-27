@@ -21,8 +21,19 @@ const { requireAuth } = require('./middlewares/authMiddleware');
 const { handlePayhereNotify, initPayhereCheckout, completePayhereCheckout } = require('./controllers/payhereController');
 const { getPaymentHistory } = require('./controllers/meterController');
 const { pool } = require('./config/db');
+const { setupProcessImmunity, shutdownGuardMiddleware } = require('./utils/immunitySupervisor');
+const { malformedUriGuard, prototypePollutionGuard } = require('./middlewares/malformedRequestGuard');
+const { createTimeoutMiddleware } = require('./middlewares/timeoutMiddleware');
+
+// Initialize runtime process crash immunity
+setupProcessImmunity();
 
 const app = express();
+
+// 0. Process immunity guards: rejection during graceful shutdown, malformed URIs, and hanging request timeout
+app.use(shutdownGuardMiddleware);
+app.use(malformedUriGuard);
+app.use(createTimeoutMiddleware(30000));
 
 // 1. Strip X-Powered-By to prevent framework fingerprinting
 app.disable('x-powered-by');
@@ -73,7 +84,9 @@ app.use(cors({
     if (!origin || corsOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error('Origin is not allowed by CORS'));
+    const corsErr = new Error('Origin is not allowed by CORS');
+    corsErr.status = 403;
+    return callback(corsErr);
   },
   credentials: true
 }));
@@ -83,6 +96,7 @@ app.use(cookieParser());
 app.use(createTrustedOriginGuard(corsOrigins));
 app.use(express.json({ limit: '200kb' }));
 app.use(express.urlencoded({ extended: true, limit: '200kb' }));
+app.use(prototypePollutionGuard);
 
 // 5. Input Sanitization against XSS & script injection
 app.use(sanitizeInputs);
