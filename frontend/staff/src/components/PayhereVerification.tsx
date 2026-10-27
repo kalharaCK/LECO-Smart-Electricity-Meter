@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import { useState, useMemo } from "react"
 import { 
   CreditCard, 
@@ -47,7 +48,7 @@ export default function PayhereVerification({
     try {
       setDownloadingReceipt(true)
       const targetId = tx.transaction_id || tx.order_id || tx.id
-      const res = await fetch(`http://localhost:3000/api/payments/${targetId}/receipt-pdf`, {
+      const res = await fetch(`${API_BASE_URL}/api/payments/${targetId}/receipt-pdf`, {
         headers: getAuthHeaders(),
         credentials: "include"
       })
@@ -109,7 +110,7 @@ export default function PayhereVerification({
     setActionMessage(null)
 
     try {
-      const res = await fetch(`http://localhost:3000/api/staff/payments/${selectedTx.id}/verify-payhere`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff/payments/${selectedTx.id}/verify-payhere`, {
         method: "POST",
         headers: getAuthHeaders({ "Content-Type": "application/json" }),
         credentials: "include",

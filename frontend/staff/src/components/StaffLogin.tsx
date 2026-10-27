@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import React, { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -31,7 +32,7 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
     setErrorMsg(null)
 
     try {
-      const res = await fetch("http://localhost:3000/api/auth/staff-login", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/staff-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

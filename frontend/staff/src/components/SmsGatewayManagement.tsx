@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import { useState, useMemo, useEffect } from "react"
 import { 
   Send, 
@@ -120,7 +121,7 @@ export default function SmsGatewayManagement({
     setRefreshing(true)
     try {
       // 1. Balance
-      const balRes = await fetch("http://localhost:3000/api/staff/sms/balance", {
+      const balRes = await fetch(`${API_BASE_URL}/api/staff/sms/balance`, {
         headers: getAuthHeaders(),
         credentials: "include"
       })
@@ -132,7 +133,7 @@ export default function SmsGatewayManagement({
       }
 
       // 2. Logs
-      const logsRes = await fetch("http://localhost:3000/api/staff/sms/logs?limit=100", {
+      const logsRes = await fetch(`${API_BASE_URL}/api/staff/sms/logs?limit=100`, {
         headers: getAuthHeaders(),
         credentials: "include"
       })
@@ -170,7 +171,7 @@ export default function SmsGatewayManagement({
     setDispatchAlert(null)
 
     try {
-      const res = await fetch("http://localhost:3000/api/staff/sms/send", {
+      const res = await fetch(`${API_BASE_URL}/api/staff/sms/send`, {
         method: "POST",
         headers: getAuthHeaders({ "Content-Type": "application/json" }),
         credentials: "include",
@@ -207,7 +208,7 @@ export default function SmsGatewayManagement({
     setBroadcasting(true)
     setBroadcastResult(null)
     try {
-      const res = await fetch("http://localhost:3000/api/staff/sms/broadcast-low-balance", {
+      const res = await fetch(`${API_BASE_URL}/api/staff/sms/broadcast-low-balance`, {
         method: "POST",
         headers: getAuthHeaders({ "Content-Type": "application/json" }),
         credentials: "include",

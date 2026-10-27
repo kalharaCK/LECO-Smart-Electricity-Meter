@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import { useState, useEffect, useCallback } from "react"
 import {
   Cpu,
@@ -35,7 +36,7 @@ export function App() {
   // Restore the session from the HTTP-only cookie.
   useEffect(() => {
     localStorage.removeItem("staff_token")
-    fetch("http://localhost:3000/api/auth/me", { credentials: "include" })
+    fetch(`${API_BASE_URL}/api/auth/me`, { credentials: "include" })
       .then(async (res) => res.ok ? res.json() : null)
       .then((data) => {
         if (data?.user && ["staff", "admin"].includes(data.user.role?.toLowerCase())) {
@@ -50,7 +51,7 @@ export function App() {
   const fetchMeters = useCallback(async () => {
     setLoadingMeters(true)
     try {
-      const res = await fetch("http://localhost:3000/api/meters/all", {
+      const res = await fetch(`${API_BASE_URL}/api/meters/all`, {
         headers: getAuthHeaders(),
         credentials: "include"
       })
@@ -71,7 +72,7 @@ export function App() {
   const fetchComplaints = useCallback(async () => {
     setLoadingComplaints(true)
     try {
-      const res = await fetch("http://localhost:3000/api/complaints/all", {
+      const res = await fetch(`${API_BASE_URL}/api/complaints/all`, {
         headers: getAuthHeaders(),
         credentials: "include"
       })
@@ -92,7 +93,7 @@ export function App() {
   const fetchPayhereTransactions = useCallback(async () => {
     setLoadingPayhere(true)
     try {
-      const res = await fetch("http://localhost:3000/api/staff/payments/payhere-transactions", {
+      const res = await fetch(`${API_BASE_URL}/api/staff/payments/payhere-transactions`, {
         headers: getAuthHeaders(),
         credentials: "include"
       })
@@ -176,7 +177,7 @@ export function App() {
   }, [user, fetchMeters])
 
   const handleLogout = async () => {
-    await fetch("http://localhost:3000/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => undefined)
+    await fetch(`${API_BASE_URL}/api/auth/logout`, { method: "POST", credentials: "include" }).catch(() => undefined)
     localStorage.removeItem("staff_user")
     setUser(null)
   }

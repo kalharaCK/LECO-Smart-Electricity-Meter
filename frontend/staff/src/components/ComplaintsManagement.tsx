@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -120,7 +121,7 @@ export default function ComplaintsManagement({
   const handleUpdateStatus = async (complaintId: number, newStatus: StaffComplaint["status"], customNotes?: string) => {
     setUpdating(true)
     try {
-      const res = await fetch(`http://localhost:3000/api/complaints/${complaintId}/status`, {
+      const res = await fetch(`${API_BASE_URL}/api/complaints/${complaintId}/status`, {
         method: "PATCH",
         headers: getAuthHeaders({ "Content-Type": "application/json" }),
         credentials: "include",

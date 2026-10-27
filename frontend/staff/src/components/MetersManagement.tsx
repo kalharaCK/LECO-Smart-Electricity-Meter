@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -80,11 +81,11 @@ export default function MetersManagement({
     let isMounted = true
     setLoadingMl(true)
     Promise.allSettled([
-      fetch(`http://localhost:3000/api/prediction/ml/status/${activeMeterDetail.id}`, {
+      fetch(`${API_BASE_URL}/api/prediction/ml/status/${activeMeterDetail.id}`, {
         headers: getAuthHeaders(),
         credentials: "include"
       }).then((r) => (r.ok ? r.json() : null)),
-      fetch(`http://localhost:3000/api/prediction/ml/prepaid/${activeMeterDetail.id}`, {
+      fetch(`${API_BASE_URL}/api/prediction/ml/prepaid/${activeMeterDetail.id}`, {
         headers: getAuthHeaders(),
         credentials: "include"
       }).then((r) => (r.ok ? r.json() : null))
@@ -110,7 +111,7 @@ export default function MetersManagement({
   const handleDownloadStatementPdf = async (meter: StaffMeter) => {
     try {
       setDownloadingStatement(true)
-      const res = await fetch(`http://localhost:3000/api/meters/${meter.id}/statement-pdf`, {
+      const res = await fetch(`${API_BASE_URL}/api/meters/${meter.id}/statement-pdf`, {
         headers: getAuthHeaders(),
         credentials: "include"
       })
@@ -181,7 +182,7 @@ export default function MetersManagement({
     const newTargetStatus = relayModalMeter.status === "Connected" ? "Disconnected" : "Connected"
 
     try {
-      const res = await fetch(`http://localhost:3000/api/meters/${relayModalMeter.id}/toggle-relay`, {
+      const res = await fetch(`${API_BASE_URL}/api/meters/${relayModalMeter.id}/toggle-relay`, {
         method: "POST",
         headers: getAuthHeaders({ "Content-Type": "application/json" }),
         credentials: "include",
@@ -217,7 +218,7 @@ export default function MetersManagement({
     setActionLoading(true)
 
     try {
-      const res = await fetch(`http://localhost:3000/api/meters/${topupModalMeter.id}/staff-topup`, {
+      const res = await fetch(`${API_BASE_URL}/api/meters/${topupModalMeter.id}/staff-topup`, {
         method: "POST",
         headers: getAuthHeaders({ "Content-Type": "application/json" }),
         credentials: "include",
