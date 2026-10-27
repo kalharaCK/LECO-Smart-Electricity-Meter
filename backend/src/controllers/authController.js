@@ -361,9 +361,8 @@ const resetPasswordWithOtp = async (req, res) => {
       return res.status(400).json({ success: false, error: 'NIC, verification code, and new password are required' });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ success: false, error: 'New password must be at least 6 characters long' });
-    }
+    const passwordError = validateNewPassword(newPassword);
+    if (passwordError) return res.status(400).json({ success: false, error: passwordError });
 
     const cleanNic = nic.trim().toUpperCase();
     const cleanOtp = otp.trim();
