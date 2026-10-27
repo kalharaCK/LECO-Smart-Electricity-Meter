@@ -134,11 +134,14 @@ const initDb = async () => {
         id SERIAL PRIMARY KEY,
         purpose VARCHAR(50) NOT NULL,
         identifier VARCHAR(100) NOT NULL,
-        otp_code VARCHAR(10) NOT NULL,
+        otp_code VARCHAR(10),
+        otp_hash VARCHAR(64),
         expires_at TIMESTAMP NOT NULL,
         verified BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE verification_otps ALTER COLUMN otp_code DROP NOT NULL;
+      ALTER TABLE verification_otps ADD COLUMN IF NOT EXISTS otp_hash VARCHAR(64);
       CREATE INDEX IF NOT EXISTS idx_verification_otps_lookup ON verification_otps(identifier, purpose, verified);
 
       -- SMS Gateway Logs & Delivery Audit
