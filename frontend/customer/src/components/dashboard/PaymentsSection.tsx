@@ -424,11 +424,11 @@ export default function PaymentsSection({ onSuccess, onNavigateOverview, onNavig
                     </div>
                   </div>
 
-                  {[
+                  {(import.meta.env.DEV ? [
                     { value: "card", icon: <CreditCard className="h-5 w-5 text-yellow-400 shrink-0" />, label: t.payments.methodCard },
                     { value: "wallet", icon: <Smartphone className="h-5 w-5 text-yellow-400 shrink-0" />, label: t.payments.methodWallet },
                     { value: "bank", icon: <span className="font-serif font-bold text-base px-1 text-yellow-400 shrink-0">B</span>, label: t.payments.methodBank },
-                  ].map(({ value, icon, label }) => (
+                  ] : []).map(({ value, icon, label }) => (
                     <div
                       key={value}
                       onClick={() => setPaymentMethod(value)}
