@@ -35,6 +35,21 @@ const updateEmailConfig = async (req, res) => {
       smtpPort
     });
 
+    const { logStaffActivity } = require('../services/activityLogService');
+    await logStaffActivity({
+      staffId: req.user?.id || null,
+      staffEmail: req.user?.email || 'staff@leco.lk',
+      actionType: 'UPDATE_EMAIL_CREDENTIALS',
+      targetEntity: `SMTP Sender (${senderEmail.trim()})`,
+      details: {
+        senderEmail: senderEmail.trim(),
+        smtpHost: smtpHost || 'smtp.gmail.com',
+        hasAppPassword: Boolean(appPassword)
+      },
+      ipAddress: req.ip || '127.0.0.1',
+      status: 'success'
+    });
+
     return res.json({
       success: true,
       message: 'Email gateway credentials updated successfully.',

@@ -19,12 +19,14 @@ import {
   Sparkles,
   Zap,
   MessageSquareWarning,
-  SunMedium
+  SunMedium,
+  Lock
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import StaffPasswordConfirmModal from "./StaffPasswordConfirmModal"
 
 interface SystemSettingsManagementProps {
   getAuthHeaders: (extra?: Record<string, string>) => Record<string, string>
@@ -44,6 +46,7 @@ interface SettingItem {
 export default function SystemSettingsManagement({ getAuthHeaders }: SystemSettingsManagementProps) {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
   const [alert, setAlert] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   // API Key & Gateway Form States
@@ -109,6 +112,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
       }
     } catch (err: any) {
       console.error("Error fetching system settings:", err)
+      setAlert({ type: "error", text: "Failed to load system settings from backend." })
     } finally {
       setLoading(false)
     }
@@ -118,9 +122,14 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
     fetchSettings()
   }, [fetchSettings])
 
-  // Save all settings
-  const handleSave = async (e: React.FormEvent) => {
+  // Triggers password confirmation modal
+  const handleSavePrompt = (e: React.FormEvent) => {
     e.preventDefault()
+    setIsPasswordModalOpen(true)
+  }
+
+  // Executes saving once password has been authenticated
+  const executeSaveSettings = async () => {
     setSaving(true)
     setAlert(null)
 
@@ -139,7 +148,6 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
       maintenance_banner: maintenanceBanner.trim()
     }
 
-    // Only send secret keys if user actually changed them and they don't contain mask dots
     if (groqKey && !groqKey.includes("••••")) {
       payload.GROQ_API_KEY = groqKey.trim()
     }
@@ -176,7 +184,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-300">
       {/* Top Banner Alert */}
       {alert && (
         <div
@@ -196,9 +204,9 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
       )}
 
       {/* Global Status Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         {/* Groq AI Status */}
-        <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+        <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-white/50 uppercase tracking-wider">Groq LLM Engine</p>
@@ -223,7 +231,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
         </Card>
 
         {/* SMS Gateway Status */}
-        <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+        <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-white/50 uppercase tracking-wider">SMS Gateway</p>
@@ -248,7 +256,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
         </Card>
 
         {/* PayHere Status */}
-        <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+        <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-white/50 uppercase tracking-wider">PayHere Gateway</p>
@@ -275,7 +283,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
         </Card>
 
         {/* Maintenance Flag */}
-        <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+        <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-white/50 uppercase tracking-wider">Maintenance Mode</p>
@@ -291,16 +299,16 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
                 )}
               </div>
             </div>
-            <div className={`p-3 rounded-2xl ${maintenanceMode ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+            <div className={`p-3 rounded-2xl ${maintenanceMode ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"}`}>
               <AlertTriangle className="h-6 w-6" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
+      <form onSubmit={handleSavePrompt} className="space-y-6">
         {/* Section 1: API Keys & Payment Credentials */}
-        <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+        <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
           <CardContent className="p-6">
             <div className="flex items-center justify-between pb-4 border-b border-white/5 mb-6">
               <div>
@@ -321,7 +329,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
                 disabled={loading}
                 className="h-8 text-xs border-white/10 hover:bg-white/5 cursor-pointer text-white/70"
               >
-                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
             </div>
@@ -344,7 +352,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
                     value={groqKey}
                     onChange={(e) => setGroqKey(e.target.value)}
                     placeholder="e.g. gsk_..."
-                    className="bg-[#0b0f17] border-white/10 pr-10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
+                    className="bg-[#141416] border-white/10 pr-10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
                   />
                   <button
                     type="button"
@@ -370,7 +378,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
                   value={groqModel}
                   onChange={(e) => setGroqModel(e.target.value)}
                   placeholder="llama-3.3-70b-versatile"
-                  className="bg-[#0b0f17] border-white/10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
+                  className="bg-[#141416] border-white/10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
                 />
                 <p className="text-[11px] text-white/40">
                   Recommended: <code className="text-yellow-400/80">llama-3.3-70b-versatile</code> or <code className="text-yellow-400/80">qwen/qwen3.8-27b</code>.
@@ -394,7 +402,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
                     value={smsToken}
                     onChange={(e) => setSmsToken(e.target.value)}
                     placeholder="e.g. 5818|VtZe..."
-                    className="bg-[#0b0f17] border-white/10 pr-10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
+                    className="bg-[#141416] border-white/10 pr-10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
                   />
                   <button
                     type="button"
@@ -420,7 +428,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
                   value={smsSenderId}
                   onChange={(e) => setSmsSenderId(e.target.value)}
                   placeholder="TextLKDemo"
-                  className="bg-[#0b0f17] border-white/10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
+                  className="bg-[#141416] border-white/10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
                 />
                 <p className="text-[11px] text-white/40">
                   Approved operator mask shown on customer handsets.
@@ -441,7 +449,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
                   value={payhereMerchantId}
                   onChange={(e) => setPayhereMerchantId(e.target.value)}
                   placeholder="e.g. 1236689"
-                  className="bg-[#0b0f17] border-white/10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
+                  className="bg-[#141416] border-white/10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
                 />
               </div>
 
@@ -457,7 +465,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
                     value={payhereMerchantSecret}
                     onChange={(e) => setPayhereMerchantSecret(e.target.value)}
                     placeholder="Enter PayHere merchant secret"
-                    className="bg-[#0b0f17] border-white/10 pr-10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
+                    className="bg-[#141416] border-white/10 pr-10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
                   />
                   <button
                     type="button"
@@ -471,7 +479,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
 
               {/* PayHere Sandbox Toggle */}
               <div className="md:col-span-2 pt-2">
-                <div className="flex items-center justify-between p-4 rounded-xl bg-[#0b0f17] border border-white/10">
+                <div className="flex items-center justify-between p-4 rounded-xl bg-[#141416] border border-white/10">
                   <div>
                     <p className="text-xs font-bold text-white">PayHere Sandbox Environment</p>
                     <p className="text-[11px] text-white/50">
@@ -496,7 +504,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
         </Card>
 
         {/* Section 2: Customer Dashboard Feature Control Switches */}
-        <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+        <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
           <CardContent className="p-6">
             <div className="pb-4 border-b border-white/5 mb-6">
               <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -510,7 +518,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Feature 1: AI Chatbot */}
-              <div className="p-4 rounded-xl bg-[#0b0f17] border border-white/10 flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold text-white flex items-center gap-1.5">
                     <Sparkles className="h-3.5 w-3.5 text-yellow-400" />
@@ -532,7 +540,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
               </div>
 
               {/* Feature 2: Online Recharge */}
-              <div className="p-4 rounded-xl bg-[#0b0f17] border border-white/10 flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold text-white flex items-center gap-1.5">
                     <CreditCard className="h-3.5 w-3.5 text-purple-400" />
@@ -554,7 +562,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
               </div>
 
               {/* Feature 3: ML Predictions */}
-              <div className="p-4 rounded-xl bg-[#0b0f17] border border-white/10 flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold text-white flex items-center gap-1.5">
                     <Cpu className="h-3.5 w-3.5 text-blue-400" />
@@ -576,7 +584,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
               </div>
 
               {/* Feature 4: Lifeline Mode */}
-              <div className="p-4 rounded-xl bg-[#0b0f17] border border-white/10 flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold text-white flex items-center gap-1.5">
                     <Zap className="h-3.5 w-3.5 text-amber-400" />
@@ -598,7 +606,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
               </div>
 
               {/* Feature 5: Complaints Portal */}
-              <div className="p-4 rounded-xl bg-[#0b0f17] border border-white/10 flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold text-white flex items-center gap-1.5">
                     <MessageSquareWarning className="h-3.5 w-3.5 text-red-400" />
@@ -620,7 +628,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
               </div>
 
               {/* Feature 6: Solar Net Metering */}
-              <div className="p-4 rounded-xl bg-[#0b0f17] border border-white/10 flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold text-white flex items-center gap-1.5">
                     <SunMedium className="h-3.5 w-3.5 text-amber-300" />
@@ -676,7 +684,7 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
                   value={maintenanceBanner}
                   onChange={(e) => setMaintenanceBanner(e.target.value)}
                   placeholder="e.g. Scheduled AMI grid maintenance tonight from 01:00 AM to 03:00 AM."
-                  className="bg-[#0b0f17] border-white/10 text-xs h-10 text-white placeholder:text-white/20 focus-visible:ring-yellow-400/30"
+                  className="bg-[#141416] border-white/10 text-xs h-10 text-white placeholder:text-white/20 focus-visible:ring-yellow-400/30"
                 />
               </div>
             </div>
@@ -684,31 +692,42 @@ export default function SystemSettingsManagement({ getAuthHeaders }: SystemSetti
         </Card>
 
         {/* Form Submit Bar */}
-        <div className="flex items-center justify-between p-4 rounded-2xl bg-[#0f1422] border border-white/5 shadow-xl">
+        <div className="flex items-center justify-between p-4 rounded-2xl bg-[#0f0f11] border border-white/5 shadow-xl">
           <div className="text-xs text-white/50 flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            <span>Settings are securely saved to the database and take effect immediately.</span>
+            <span>Settings require staff password authentication and take effect immediately across all clients.</span>
           </div>
 
           <Button
             type="submit"
             disabled={saving}
-            className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-xs h-10 px-8 rounded-xl cursor-pointer shadow-lg shadow-yellow-400/20"
+            className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-xs h-10 px-8 rounded-xl cursor-pointer shadow-lg shadow-yellow-400/20 flex items-center gap-1.5"
           >
             {saving ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Saving Changes...
               </>
             ) : (
               <>
-                <ShieldCheck className="h-4 w-4 mr-1.5" />
+                <Lock className="h-4 w-4" />
                 Save All System Settings
               </>
             )}
           </Button>
         </div>
       </form>
+
+      {/* Staff Password Confirmation Modal */}
+      <StaffPasswordConfirmModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        onSuccess={executeSaveSettings}
+        title="Authorize System Settings Update"
+        description="You are modifying system-level API credentials and customer feature switches. Please confirm your staff account password to authorize."
+        confirmButtonText="Authorize & Save Changes"
+        getAuthHeaders={getAuthHeaders}
+      />
     </div>
   )
 }

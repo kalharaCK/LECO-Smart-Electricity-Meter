@@ -21,9 +21,11 @@ import {
   ChevronRight,
   Activity,
   Layers,
-  Download
+  Download,
+  Lock
 } from "lucide-react"
 import type { StaffMeter } from "../types"
+import StaffPasswordConfirmModal from "./StaffPasswordConfirmModal"
 
 interface MetersManagementProps {
   meters: StaffMeter[]
@@ -175,8 +177,18 @@ export default function MetersManagement({
       return a.id - b.id
     })
 
-  // Execute Relay Toggle
-  const handleToggleRelay = async () => {
+  // State for Sensitive Action Password Authorization Modal
+  const [passwordModalConfig, setPasswordModalConfig] = useState<{
+    isOpen: boolean
+    title: string
+    description: string
+    confirmButtonText: string
+    isDestructive?: boolean
+    onConfirm: () => Promise<void> | void
+  } | null>(null)
+
+  // Execute Relay Toggle after password verification
+  const executeToggleRelay = async () => {
     if (!relayModalMeter) return
     setActionLoading(true)
     const newTargetStatus = relayModalMeter.status === "Connected" ? "Disconnected" : "Connected"
@@ -212,8 +224,22 @@ export default function MetersManagement({
     }
   }
 
-  // Execute Staff Top-up
-  const handleStaffTopup = async () => {
+  // Prompt Password Authorization for Relay Toggle
+  const promptToggleRelay = () => {
+    if (!relayModalMeter) return
+    const isDisconnect = relayModalMeter.status === "Connected"
+    setPasswordModalConfig({
+      isOpen: true,
+      title: isDisconnect ? "Authorize Remote Relay Disconnection" : "Authorize Remote Relay Reconnection",
+      description: `You are about to remotely ${isDisconnect ? "DISCONNECT and CUT OFF" : "RESTORE"} electricity for meter ${relayModalMeter.meter_number} (${relayModalMeter.customer_email}). Please confirm with your staff password.`,
+      confirmButtonText: isDisconnect ? "Authorize Disconnection" : "Authorize Reconnection",
+      isDestructive: isDisconnect,
+      onConfirm: executeToggleRelay
+    })
+  }
+
+  // Execute Staff Top-up after password verification
+  const executeStaffTopup = async () => {
     if (!topupModalMeter) return
     setActionLoading(true)
 
@@ -250,6 +276,19 @@ export default function MetersManagement({
     } finally {
       setActionLoading(false)
     }
+  }
+
+  // Prompt Password Authorization for Staff Top-up
+  const promptStaffTopup = () => {
+    if (!topupModalMeter) return
+    setPasswordModalConfig({
+      isOpen: true,
+      title: "Authorize Manual Credit Adjustment",
+      description: `You are applying manual credit relief of Rs. ${topupAmount.toFixed(2)} to meter ${topupModalMeter.meter_number}. Please confirm with your staff password.`,
+      confirmButtonText: "Authorize & Apply Credit",
+      isDestructive: false,
+      onConfirm: executeStaffTopup
+    })
   }
 
   const handleExportCsv = () => {
@@ -1052,7 +1091,7 @@ export default function MetersManagement({
               </Button>
               <Button
                 disabled={actionLoading}
-                onClick={handleToggleRelay}
+                onClick={promptToggleRelay}
                 className={`text-xs h-9 px-4 rounded-xl font-bold flex items-center gap-2 cursor-pointer ${
                   relayModalMeter.status === "Connected"
                     ? "bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/20"
@@ -1066,7 +1105,7 @@ export default function MetersManagement({
                   </>
                 ) : (
                   <>
-                    <Power className="h-4 w-4" />
+                    <Lock className="h-3.5 w-3.5" />
                     Confirm {relayModalMeter.status === "Connected" ? "Disconnection" : "Reconnection"}
                   </>
                 )}
@@ -1145,7 +1184,7 @@ export default function MetersManagement({
               </Button>
               <Button
                 disabled={actionLoading}
-                onClick={handleStaffTopup}
+                onClick={promptStaffTopup}
                 className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-xs h-9 px-4 rounded-xl shadow-lg shadow-yellow-400/20 flex items-center gap-2 cursor-pointer"
               >
                 {actionLoading ? (
@@ -1155,7 +1194,7 @@ export default function MetersManagement({
                   </>
                 ) : (
                   <>
-                    <CreditCard className="h-4 w-4" />
+                    <Lock className="h-3.5 w-3.5" />
                     Apply Rs. {topupAmount} Credit
                   </>
                 )}
@@ -1163,6 +1202,20 @@ export default function MetersManagement({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Staff Password Confirmation Modal for Sensitive Relay & Topup Operations */}
+      {passwordModalConfig && (
+        <StaffPasswordConfirmModal
+          isOpen={passwordModalConfig.isOpen}
+          onClose={() => setPasswordModalConfig(null)}
+          onSuccess={passwordModalConfig.onConfirm}
+          title={passwordModalConfig.title}
+          description={passwordModalConfig.description}
+          confirmButtonText={passwordModalConfig.confirmButtonText}
+          isDestructive={passwordModalConfig.isDestructive}
+          getAuthHeaders={getAuthHeaders}
+        />
       )}
     </div>
   )

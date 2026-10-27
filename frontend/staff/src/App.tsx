@@ -2,27 +2,33 @@ import { API_BASE_URL } from "@/lib/api"
 import { useState, useEffect, useCallback } from "react"
 import {
   Cpu,
+  Users,
   MessageSquareWarning,
   LogOut,
   CreditCard,
   Send,
   Mail,
+  FileText,
   Sliders
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import StaffLogin from "./components/StaffLogin"
 import MetersManagement from "./components/MetersManagement"
+import CustomerMembersManagement from "./components/CustomerMembersManagement"
 import ComplaintsManagement from "./components/ComplaintsManagement"
 import PayhereVerification from "./components/PayhereVerification"
 import SmsGatewayManagement from "./components/SmsGatewayManagement"
 import EmailGatewayManagement from "./components/EmailGatewayManagement"
+import ActivityLogsManagement from "./components/ActivityLogsManagement"
 import SystemSettingsManagement from "./components/SystemSettingsManagement"
 import { getSocket } from "./lib/socket"
 import type { StaffMeter, StaffComplaint, StaffUser, PayhereTransaction } from "./types"
 
 export function App() {
   const [user, setUser] = useState<StaffUser | null>(null)
-  const [activeTab, setActiveTab] = useState<"meters" | "complaints" | "payhere" | "sms" | "email" | "settings">("meters")
+  const [activeTab, setActiveTab] = useState<
+    "meters" | "customers" | "complaints" | "payhere" | "sms" | "email" | "activity" | "settings"
+  >("meters")
 
   // Data states
   const [meters, setMeters] = useState<StaffMeter[]>([])
@@ -37,11 +43,11 @@ export function App() {
 
   const getAuthHeaders = useCallback((extra: Record<string, string> = {}) => ({ ...extra }), [])
 
-  // Restore the session from the HTTP-only cookie.
+  // Restore session from HTTP-only cookie
   useEffect(() => {
     localStorage.removeItem("staff_token")
     fetch(`${API_BASE_URL}/api/auth/me`, { credentials: "include" })
-      .then(async (res) => res.ok ? res.json() : null)
+      .then(async (res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.user && ["staff", "admin"].includes(data.user.role?.toLowerCase())) {
           setUser(data.user)
@@ -76,7 +82,7 @@ export function App() {
   const fetchComplaints = useCallback(async () => {
     setLoadingComplaints(true)
     try {
-      const res = await fetch(`${API_BASE_URL}/api/complaints/all`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff/complaints`, {
         headers: getAuthHeaders(),
         credentials: "include"
       })
@@ -114,14 +120,13 @@ export function App() {
     }
   }, [getAuthHeaders])
 
-  // When user is authenticated, fetch initial data and maintain continuous REST polling
+  // When user is authenticated, fetch initial data and maintain background synchronization
   useEffect(() => {
     if (user) {
       fetchMeters()
       fetchComplaints()
       fetchPayhereTransactions()
 
-      // High-reliability REST API background synchronization (10-second polling cadence)
       const interval = setInterval(() => {
         fetchMeters()
         fetchComplaints()
@@ -138,7 +143,6 @@ export function App() {
 
     const socket = getSocket()
 
-    // Listen to real-time complaint updates from customers or other staff
     const handleComplaintUpdate = (updated: StaffComplaint) => {
       setComplaints((prev) => {
         const exists = prev.some((c) => c.id === updated.id)
@@ -149,7 +153,6 @@ export function App() {
       })
     }
 
-    // Listen to real-time meter telemetry updates
     const handleMeterUpdate = (payload: any) => {
       if (payload && payload.meterId) {
         setMeters((prev) =>
@@ -159,44 +162,58 @@ export function App() {
                   ...m,
                   balance: payload.balance ?? m.balance,
                   status: payload.status ?? m.status,
-                  emergency_credit_active: payload.emergency_credit_active ?? m.emergency_credit_active,
-                  today_kwh: payload.today !== undefined ? parseFloat(String(payload.today)) : m.today_kwh
+                  emergency_credit_active: payload.emergency_credit_active ?? m.emergency_credit_active
                 }
               : m
           )
         )
-      } else {
-        // Fallback re-fetch
-        fetchMeters()
       }
     }
 
-    socket.on("complaint_update", handleComplaintUpdate)
+    const handleNewPayment = () => {
+      fetchMeters()
+      fetchPayhereTransactions()
+    }
+
+    socket.on("complaint_updated", handleComplaintUpdate)
+    socket.on("new_complaint", handleComplaintUpdate)
     socket.on("meter_update", handleMeterUpdate)
+    socket.on("payment_success", handleNewPayment)
 
     return () => {
-      socket.off("complaint_update", handleComplaintUpdate)
+      socket.off("complaint_updated", handleComplaintUpdate)
+      socket.off("new_complaint", handleComplaintUpdate)
       socket.off("meter_update", handleMeterUpdate)
+      socket.off("payment_success", handleNewPayment)
     }
-  }, [user, fetchMeters])
+  }, [user, fetchMeters, fetchPayhereTransactions])
 
+  // Logout handler
   const handleLogout = async () => {
-    await fetch(`${API_BASE_URL}/api/auth/logout`, { method: "POST", credentials: "include" }).catch(() => undefined)
+    try {
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include"
+      })
+    } catch (e) {
+      console.error(e)
+    }
+    localStorage.removeItem("staff_token")
     localStorage.removeItem("staff_user")
     setUser(null)
   }
 
-  // Cross-tab jump from Meter to Complaints
+  // Jump from Meter row to Complaints with filter pre-filled
   const handleSelectComplaintTabWithMeter = (meterNumber: string) => {
     setComplaintMeterFilter(meterNumber)
     setActiveTab("complaints")
   }
 
-  // If unauthenticated, show high-tech Staff Login screen
   if (!user) {
     return (
       <StaffLogin
         onLoginSuccess={(loggedInUser) => {
+          localStorage.setItem("staff_user", JSON.stringify(loggedInUser))
           setUser(loggedInUser)
         }}
       />
@@ -213,12 +230,12 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white font-sans flex flex-col selection:bg-[#992511]/30 selection:text-white">
-      {/* Top Operations Header */}
-      <header className="sticky top-0 z-40 bg-[#09090b]/80 backdrop-blur-md border-b border-white/5 px-4 lg:px-8 py-3.5">
+      {/* Top Brand Header */}
+      <header className="sticky top-0 z-40 bg-[#09090b]/90 backdrop-blur-md border-b border-white/5 px-4 lg:px-8 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          {/* Logo & Terminal Identity */}
+          {/* Logo & Identity */}
           <div className="flex items-center gap-3">
-            <img src="/leco-logo.png" alt="LECO Self Care" className="h-10 w-auto object-contain shrink-0" />
+            <img src="/leco-logo.png" alt="LECO Self Care" className="h-9 w-auto object-contain shrink-0" />
 
             <div>
               <div className="flex items-center gap-2">
@@ -230,19 +247,17 @@ export function App() {
                 </span>
               </div>
               <p className="text-[11px] text-white/50 hidden sm:block">
-                LECO Self Care Smart Grid Operations & Complaint Dispatch
+                LECO Smart Grid AMI Operations & Field Support Command
               </p>
             </div>
           </div>
 
-          {/* Right Header Status & Profile Controls */}
+          {/* Right Status & Profile Controls */}
           <div className="flex items-center gap-3">
-            {/* Live REST API Synchronization Badge */}
+            {/* Live REST Sync Badge */}
             <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-white/5 text-xs">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-white/70 text-[11px] font-mono">
-                REST Grid Synced
-              </span>
+              <span className="text-white/70 text-[11px] font-mono">REST Grid Synced</span>
             </div>
 
             {/* Staff Profile Badge */}
@@ -251,9 +266,7 @@ export function App() {
                 {user.email.charAt(0).toUpperCase()}
               </div>
               <div className="text-left hidden md:block">
-                <span className="font-semibold text-white block text-xs leading-none">
-                  {user.email}
-                </span>
+                <span className="font-semibold text-white block text-xs leading-none">{user.email}</span>
                 <span className="text-[10px] text-yellow-400 font-bold uppercase tracking-wider block mt-0.5">
                   LECO Operations Staff
                 </span>
@@ -274,51 +287,34 @@ export function App() {
         </div>
       </header>
 
-      {/* Hero Subheader & Tab Switcher */}
-      <div className="bg-[#0f0f11] border-b border-white/5 px-4 lg:px-8 py-5">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              {activeTab === "meters"
-                ? "Smart Meters Fleet Command"
-                : activeTab === "complaints"
-                ? "Customer Complaints & Engineering Triage"
-                : activeTab === "payhere"
-                ? "PayHere Payment Gateway Ledger & Verification"
-                : activeTab === "sms"
-                ? "Text.lk SMS Gateway & Trilingual Alerts Center"
-                : activeTab === "email"
-                ? "Nodemailer Email Gateway & SMTP Dispatcher"
-                : "System Settings & Dynamic Feature Controls"}
-            </h1>
-            <p className="text-xs text-white/60 mt-1 max-w-xl">
-              {activeTab === "meters"
-                ? "Full telemetry monitoring, live balance tracking, remote relay cutoff & instant credit relief."
-                : activeTab === "complaints"
-                ? "Triage customer complaints, dispatch field technicians, update progress stages, and push live resolution notices."
-                : activeTab === "payhere"
-                ? "Verify online checkout tokens, inspect MD5 digital signatures, review PayHere webhook callbacks, and conduct manual reconciliations."
-                : activeTab === "sms"
-                ? "Live SMS balance tracking, instant transactional SMS dispatch (English, Sinhala, Tamil), automated low-balance fleet broadcasts, and full transmission audit ledger."
-                : activeTab === "email"
-                ? "Manage Gmail sender email and 16-character App Passwords, dispatch dual-channel OTPs, execute real-time SMTP diagnostic tests, and inspect transmission logs."
-                : "Manage API keys (Groq AI, Text.lk SMS, PayHere), live model switching, and toggle customer portal features in real time."}
-            </p>
-          </div>
-
-          {/* Executive Tab Switcher */}
-          <div className="flex flex-wrap items-center gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5 self-start md:self-auto">
+      {/* Straight Top Navigation Strip */}
+      <nav className="sticky top-[57px] z-30 bg-[#0c0c0e]/95 backdrop-blur-md border-b border-white/10 px-4 lg:px-8 py-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 overflow-x-auto scrollbar-none py-0.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab("meters")}
-              className={`px-4 lg:px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === "meters"
                   ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
                   : "text-white/60 hover:text-white hover:bg-white/5"
               }`}
             >
               <Cpu className="h-4 w-4" />
-              Smart Meters Fleet ({meters.length})
+              Meters Fleet ({meters.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("customers")}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                activeTab === "customers"
+                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
+                  : "text-white/60 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <Users className="h-4 w-4" />
+              Customer Members
             </button>
 
             <button
@@ -327,14 +323,14 @@ export function App() {
                 setComplaintMeterFilter("")
                 setActiveTab("complaints")
               }}
-              className={`px-4 lg:px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === "complaints"
                   ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
                   : "text-white/60 hover:text-white hover:bg-white/5"
               }`}
             >
               <MessageSquareWarning className="h-4 w-4" />
-              Complaints Queue
+              Complaints
               {openComplaintsCount > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-red-500 text-white animate-pulse">
                   {openComplaintsCount}
@@ -345,7 +341,7 @@ export function App() {
             <button
               type="button"
               onClick={() => setActiveTab("payhere")}
-              className={`px-4 lg:px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === "payhere"
                   ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
                   : "text-white/60 hover:text-white hover:bg-white/5"
@@ -363,7 +359,7 @@ export function App() {
             <button
               type="button"
               onClick={() => setActiveTab("sms")}
-              className={`px-4 lg:px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === "sms"
                   ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
                   : "text-white/60 hover:text-white hover:bg-white/5"
@@ -376,7 +372,7 @@ export function App() {
             <button
               type="button"
               onClick={() => setActiveTab("email")}
-              className={`px-4 lg:px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === "email"
                   ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
                   : "text-white/60 hover:text-white hover:bg-white/5"
@@ -388,8 +384,21 @@ export function App() {
 
             <button
               type="button"
+              onClick={() => setActiveTab("activity")}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                activeTab === "activity"
+                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
+                  : "text-white/60 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <FileText className="h-4 w-4" />
+              Audit Logs
+            </button>
+
+            <button
+              type="button"
               onClick={() => setActiveTab("settings")}
-              className={`px-4 lg:px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === "settings"
                   ? "bg-yellow-400 text-black shadow-lg shadow-yellow-400/20"
                   : "text-white/60 hover:text-white hover:bg-white/5"
@@ -398,6 +407,57 @@ export function App() {
               <Sliders className="h-4 w-4" />
               System Settings
             </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Subheader */}
+      <div className="bg-[#0f0f11] border-b border-white/5 px-4 lg:px-8 py-5">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              {activeTab === "meters"
+                ? "Smart Meters Fleet Command"
+                : activeTab === "customers"
+                ? "Customer Members Directory"
+                : activeTab === "complaints"
+                ? "Customer Complaints & Engineering Triage"
+                : activeTab === "payhere"
+                ? "PayHere Payment Gateway Ledger & Verification"
+                : activeTab === "sms"
+                ? "Text.lk SMS Gateway & Trilingual Alerts Center"
+                : activeTab === "email"
+                ? "Nodemailer Email Gateway & SMTP Dispatcher"
+                : activeTab === "activity"
+                ? "Traceable Staff Operations Audit Trail"
+                : "System Settings & Dynamic Feature Controls"}
+            </h1>
+            <p className="text-xs text-white/60 mt-1 max-w-2xl">
+              {activeTab === "meters"
+                ? "Full telemetry monitoring, live balance tracking, remote relay cutoff & instant credit relief."
+                : activeTab === "customers"
+                ? "Register customer accounts, manage member credentials, link smart electricity meters, and track balances."
+                : activeTab === "complaints"
+                ? "Triage customer complaints, dispatch field technicians, update progress stages, and push live resolution notices."
+                : activeTab === "payhere"
+                ? "Verify online checkout tokens, inspect MD5 digital signatures, review PayHere webhook callbacks, and conduct manual reconciliations."
+                : activeTab === "sms"
+                ? "Live SMS balance tracking, instant transactional SMS dispatch (English, Sinhala, Tamil), automated low-balance fleet broadcasts, and full transmission audit ledger."
+                : activeTab === "email"
+                ? "Manage Gmail sender email and 16-character App Passwords, dispatch dual-channel OTPs, execute real-time SMTP diagnostic tests, and inspect transmission logs."
+                : activeTab === "activity"
+                ? "Immutable audit trail logging every administrative command, relay override, topup, credential edit, and security challenge."
+                : "Manage API keys (Groq AI, Text.lk SMS, PayHere), live model switching, and toggle customer portal features in real time."}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 self-start md:self-auto">
+            <span className="px-3 py-1.5 rounded-xl bg-[#141416] border border-white/5 text-[11px] font-mono text-white/70">
+              Fleet Total: <strong className="text-white">{meters.length}</strong>
+            </span>
+            <span className="px-3 py-1.5 rounded-xl bg-[#141416] border border-white/5 text-[11px] font-mono text-white/70">
+              Open Tickets: <strong className={openComplaintsCount > 0 ? "text-red-400" : "text-emerald-400"}>{openComplaintsCount}</strong>
+            </span>
           </div>
         </div>
       </div>
@@ -412,6 +472,8 @@ export function App() {
             onSelectComplaintTabWithMeter={handleSelectComplaintTabWithMeter}
             getAuthHeaders={getAuthHeaders}
           />
+        ) : activeTab === "customers" ? (
+          <CustomerMembersManagement getAuthHeaders={getAuthHeaders} />
         ) : activeTab === "complaints" ? (
           <ComplaintsManagement
             complaints={complaints}
@@ -434,6 +496,10 @@ export function App() {
           />
         ) : activeTab === "email" ? (
           <EmailGatewayManagement
+            getAuthHeaders={getAuthHeaders}
+          />
+        ) : activeTab === "activity" ? (
+          <ActivityLogsManagement
             getAuthHeaders={getAuthHeaders}
           />
         ) : (

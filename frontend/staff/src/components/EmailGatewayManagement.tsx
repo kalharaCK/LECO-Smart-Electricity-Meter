@@ -14,13 +14,15 @@ import {
   ShieldCheck,
   HelpCircle,
   Clock,
-  Search
+  Search,
+  Lock
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import type { EmailConfig, EmailLog } from "../types"
+import StaffPasswordConfirmModal from "./StaffPasswordConfirmModal"
 
 interface EmailGatewayManagementProps {
   getAuthHeaders: (extra?: Record<string, string>) => Record<string, string>
@@ -31,6 +33,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
   const [config, setConfig] = useState<EmailConfig | null>(null)
   const [loadingConfig, setLoadingConfig] = useState(false)
   const [savingConfig, setSavingConfig] = useState(false)
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
   const [configAlert, setConfigAlert] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   // Form state
@@ -69,7 +72,8 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
         }
       }
     } catch (err: any) {
-      console.error("Error fetching email configuration:", err)
+      console.error("Error fetching email config:", err)
+      setConfigAlert({ type: "error", text: "Failed to fetch email gateway configuration." })
     } finally {
       setLoadingConfig(false)
     }
@@ -79,7 +83,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
   const fetchLogs = useCallback(async () => {
     setLoadingLogs(true)
     try {
-      const res = await fetch(`${API_BASE_URL}/api/staff/email/logs?limit=100`, {
+      const res = await fetch(`${API_BASE_URL}/api/staff/email/logs`, {
         headers: getAuthHeaders(),
         credentials: "include"
       })
@@ -101,8 +105,8 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
     fetchLogs()
   }, [fetchConfig, fetchLogs])
 
-  // Save updated email settings
-  const handleSaveConfig = async (e: React.FormEvent) => {
+  // Prompt password authorization
+  const handleSaveConfigPrompt = (e: React.FormEvent) => {
     e.preventDefault()
     setConfigAlert(null)
 
@@ -116,6 +120,11 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
       return
     }
 
+    setIsPasswordModalOpen(true)
+  }
+
+  // Save credentials after password verification
+  const executeSaveConfig = async () => {
     setSavingConfig(true)
     try {
       const res = await fetch(`${API_BASE_URL}/api/staff/email/config`, {
@@ -166,13 +175,14 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
 
       const data = await res.json()
       if (!res.ok) {
-        throw new Error(data.error || "Failed to dispatch test verification email.")
+        throw new Error(data.error || "Failed to dispatch test email.")
       }
 
       setTestAlert({
         type: "success",
-        text: `Diagnostic test email dispatched successfully to ${testEmail} (Ref: ${data.messageId || 'SENT'})`
+        text: `Diagnostic test email delivered successfully to ${testEmail} (Message ID: ${data.messageId || 'OK'})`
       })
+      setTestEmail("")
       fetchLogs()
     } catch (err: any) {
       setTestAlert({ type: "error", text: err.message })
@@ -181,25 +191,22 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
     }
   }
 
-  // Filter logs
+  // Filtered email logs
   const filteredLogs = logs.filter((log) => {
     const matchesSearch =
-      searchQuery === "" ||
+      !searchQuery ||
       log.recipient.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.purpose.toLowerCase().includes(searchQuery.toLowerCase())
-
+      log.subject.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesPurpose = purposeFilter === "all" || log.purpose === purposeFilter
-
     return matchesSearch && matchesPurpose
   })
 
   return (
-    <div className="space-y-6">
-      {/* Overview Status Cards */}
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Connection Status */}
-        <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+        <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-white/50 uppercase tracking-wider">Gateway Status</p>
@@ -224,7 +231,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
         </Card>
 
         {/* Sender Email */}
-        <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+        <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
           <CardContent className="p-5 flex items-center justify-between">
             <div className="overflow-hidden">
               <p className="text-xs font-semibold text-white/50 uppercase tracking-wider">Sender Email</p>
@@ -239,7 +246,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
         </Card>
 
         {/* Credential Source */}
-        <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+        <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-white/50 uppercase tracking-wider">Config Source</p>
@@ -254,7 +261,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
         </Card>
 
         {/* Total Emails Dispatched */}
-        <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+        <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-white/50 uppercase tracking-wider">Emails Dispatched</p>
@@ -270,7 +277,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Configuration Form (7 cols) */}
         <div className="lg:col-span-7 space-y-6">
-          <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+          <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
             <CardContent className="p-6">
               <div className="flex items-center justify-between pb-4 border-b border-white/5 mb-6">
                 <div>
@@ -311,7 +318,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
                 </div>
               )}
 
-              <form onSubmit={handleSaveConfig} className="space-y-4">
+              <form onSubmit={handleSaveConfigPrompt} className="space-y-4">
                 {/* Sender Email */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-white/70 flex items-center justify-between">
@@ -326,7 +333,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
                       placeholder="e.g. yourname@gmail.com or leco.smartcare@gmail.com"
                       value={senderEmail}
                       onChange={(e) => setSenderEmail(e.target.value)}
-                      className="bg-[#0b0f17] border-white/10 pl-9 text-xs h-10 text-white placeholder:text-white/20 focus-visible:ring-yellow-400/30"
+                      className="bg-[#141416] border-white/10 pl-9 text-xs h-10 text-white placeholder:text-white/20 focus-visible:ring-yellow-400/30"
                     />
                   </div>
                 </div>
@@ -348,7 +355,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
                       placeholder={config?.isConfigured ? "Leave blank to keep existing password, or enter new" : "e.g. abcd efgh ijkl mnop"}
                       value={appPassword}
                       onChange={(e) => setAppPassword(e.target.value)}
-                      className="bg-[#0b0f17] border-white/10 pl-9 pr-10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
+                      className="bg-[#141416] border-white/10 pl-9 pr-10 text-xs h-10 text-white font-mono placeholder:text-white/20 focus-visible:ring-yellow-400/30"
                     />
                     <button
                       type="button"
@@ -372,7 +379,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
                       value={smtpHost}
                       onChange={(e) => setSmtpHost(e.target.value)}
                       placeholder="smtp.gmail.com"
-                      className="bg-[#0b0f17] border-white/10 text-xs h-10 text-white placeholder:text-white/20 focus-visible:ring-yellow-400/30"
+                      className="bg-[#141416] border-white/10 text-xs h-10 text-white placeholder:text-white/20 focus-visible:ring-yellow-400/30"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -382,7 +389,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
                       value={smtpPort}
                       onChange={(e) => setSmtpPort(e.target.value)}
                       placeholder="465"
-                      className="bg-[#0b0f17] border-white/10 text-xs h-10 text-white placeholder:text-white/20 focus-visible:ring-yellow-400/30"
+                      className="bg-[#141416] border-white/10 text-xs h-10 text-white placeholder:text-white/20 focus-visible:ring-yellow-400/30"
                     />
                   </div>
                 </div>
@@ -391,16 +398,16 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
                   <Button
                     type="submit"
                     disabled={savingConfig}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-xs h-10 px-6 rounded-xl cursor-pointer shadow-lg shadow-yellow-400/10"
+                    className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-xs h-10 px-6 rounded-xl cursor-pointer shadow-lg shadow-yellow-400/10 flex items-center gap-1.5"
                   >
                     {savingConfig ? (
                       <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                         Saving Configuration...
                       </>
                     ) : (
                       <>
-                        <ShieldCheck className="h-4 w-4 mr-1.5" />
+                        <Lock className="h-4 w-4" />
                         Save Email Configuration
                       </>
                     )}
@@ -411,7 +418,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
           </Card>
 
           {/* Diagnostic Test Email Dispatcher */}
-          <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+          <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
             <CardContent className="p-6">
               <div className="flex items-center justify-between pb-3 border-b border-white/5 mb-4">
                 <div>
@@ -451,22 +458,22 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
                     placeholder="Enter your personal or test email address"
                     value={testEmail}
                     onChange={(e) => setTestEmail(e.target.value)}
-                    className="bg-[#0b0f17] border-white/10 pl-9 text-xs h-10 text-white placeholder:text-white/20 focus-visible:ring-yellow-400/30"
+                    className="bg-[#141416] border-white/10 pl-9 text-xs h-10 text-white placeholder:text-white/20 focus-visible:ring-yellow-400/30"
                   />
                 </div>
                 <Button
                   type="submit"
                   disabled={sendingTest || !config?.isConfigured}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-10 px-5 rounded-xl cursor-pointer disabled:opacity-50"
+                  className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-xs h-10 px-5 rounded-xl cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {sendingTest ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       Testing SMTP...
                     </>
                   ) : (
                     <>
-                      <Send className="h-4 w-4 mr-1.5" />
+                      <Send className="h-4 w-4" />
                       Send Test Email
                     </>
                   )}
@@ -478,7 +485,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
 
         {/* Right Column: Google App Password Instructions (5 cols) */}
         <div className="lg:col-span-5 space-y-6">
-          <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+          <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
             <CardContent className="p-6">
               <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-3">
                 <HelpCircle className="h-4 w-4 text-amber-400" />
@@ -499,53 +506,35 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
                   Search for or click on <strong>App Passwords</strong> (under "How you sign in to Google").
                 </li>
                 <li className="pl-1">
-                  Name the application <strong className="text-white">"LECO Smart Meter"</strong> and click <strong>Create</strong>.
+                  Create a new app name (e.g. <span className="text-yellow-400 font-mono">LECO Smart Meter</span>) and click <strong>Create</strong>.
                 </li>
                 <li className="pl-1">
-                  Copy the generated 16-character password and paste it into the form on the left.
+                  Copy the generated 16-letter code and paste it into the field on the left.
                 </li>
               </ol>
 
-              <div className="mt-5 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300/90 leading-relaxed">
-                <strong>Security Standard:</strong> The App Password gives limited SMTP sending permissions and does not expose your main account password. All OTP codes sent via email expire in 10 minutes.
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Stats Summary */}
-          <Card className="bg-[#0f1422] border-white/5 shadow-xl">
-            <CardContent className="p-6 space-y-3">
-              <h4 className="text-xs font-bold text-white/80 uppercase tracking-wider">Dual Verification Architecture</h4>
-              <div className="space-y-2 text-xs text-white/60 leading-relaxed">
-                <div className="flex items-center gap-2 text-emerald-400">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                  <span>Dual Channel: OTP is sent simultaneously to SMS and Email.</span>
-                </div>
-                <div className="flex items-center gap-2 text-emerald-400">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                  <span>Single OTP Code: The user can check either SMS or Email.</span>
-                </div>
-                <div className="flex items-center gap-2 text-emerald-400">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                  <span>Zero-Emoji Compliance: Standard corporate HTML layouts only.</span>
-                </div>
+              <div className="mt-5 p-3.5 rounded-xl bg-yellow-400/5 border border-yellow-400/15 text-xs text-yellow-300/80 leading-relaxed flex items-start gap-2.5">
+                <ShieldCheck className="h-4 w-4 text-yellow-400 shrink-0 mt-0.5" />
+                <span>
+                  Passwords saved through this portal are securely stored and encrypted in PostgreSQL, overriding .env fallback defaults dynamically.
+                </span>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Email Delivery Audit Ledger */}
-      <Card className="bg-[#0f1422] border-white/5 shadow-xl">
+      {/* Email Transmission Audit Logs */}
+      <Card className="bg-[#0f0f11] border-white/5 shadow-xl rounded-2xl">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/5 mb-5">
             <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Clock className="h-4 w-4 text-purple-400" />
-                Email Delivery Audit Ledger
+                Email Transmission Audit Ledger
               </h3>
               <p className="text-xs text-white/50 mt-0.5">
-                Real-time log of customer registration OTPs, password reset codes, and email verifications.
+                Traceable log of all OTPs, verification emails, and alert messages dispatched to customers.
               </p>
             </div>
 
@@ -558,7 +547,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
                   placeholder="Search recipient or subject..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-[#0b0f17] border-white/10 pl-8 text-xs h-9 w-48 sm:w-64 text-white placeholder:text-white/20"
+                  className="bg-[#141416] border-white/10 pl-8 text-xs h-9 w-48 sm:w-64 text-white placeholder:text-white/20"
                 />
               </div>
 
@@ -566,7 +555,7 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
               <select
                 value={purposeFilter}
                 onChange={(e) => setPurposeFilter(e.target.value)}
-                className="bg-[#0b0f17] border border-white/10 text-white/80 text-xs h-9 px-3 rounded-lg cursor-pointer"
+                className="bg-[#141416] border border-white/10 text-white/80 text-xs h-9 px-3 rounded-lg cursor-pointer"
               >
                 <option value="all">All Purposes</option>
                 <option value="registration">Registration OTP</option>
@@ -663,6 +652,17 @@ export default function EmailGatewayManagement({ getAuthHeaders }: EmailGatewayM
           </div>
         </CardContent>
       </Card>
+
+      {/* Staff Password Confirmation Modal */}
+      <StaffPasswordConfirmModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        onSuccess={executeSaveConfig}
+        title="Authorize SMTP Gateway Credentials Update"
+        description={`You are updating the automated system email credentials for sender ${senderEmail}. Please enter your staff login password to authorize.`}
+        confirmButtonText="Authorize & Save Credentials"
+        getAuthHeaders={getAuthHeaders}
+      />
     </div>
   )
 }

@@ -28,8 +28,21 @@ const updateStaffSettings = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Valid settings object is required.' });
     }
 
-    const staffEmail = req.user?.email || 'staff';
+    const staffEmail = req.user?.email || 'staff@leco.lk';
     const result = await systemSettingsService.updateSettings(settings, staffEmail);
+
+    const { logStaffActivity } = require('../services/activityLogService');
+    await logStaffActivity({
+      staffId: req.user?.id || null,
+      staffEmail,
+      actionType: 'UPDATE_SYSTEM_SETTINGS',
+      targetEntity: 'API Keys & Feature Flags',
+      details: {
+        updatedKeys: result.updatedKeys
+      },
+      ipAddress: req.ip || '127.0.0.1',
+      status: 'success'
+    });
 
     return res.json({
       success: true,

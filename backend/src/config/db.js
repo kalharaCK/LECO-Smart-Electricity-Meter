@@ -211,6 +211,10 @@ const initDb = async () => {
     const systemSettingsService = require('../services/systemSettingsService');
     await systemSettingsService.initializeSystemSettings();
 
+    // Initialize traceable staff activity logs ledger
+    const activityLogService = require('../services/activityLogService');
+    await activityLogService.initializeActivityLogsTable();
+
     const bcrypt = require('bcryptjs');
 
     // Security migrations run in every environment; only demo data is development-only.

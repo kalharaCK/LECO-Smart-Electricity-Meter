@@ -14,6 +14,9 @@ const {
   verifyStaffPayhereTransaction
 } = require('../controllers/payhereController');
 const { downloadPaymentReceiptPdf, downloadMeterStatementPdf } = require('../controllers/pdfController');
+const { getAllCustomersForStaff, createCustomerForStaff } = require('../controllers/staffCustomerController');
+const { getStaffActivityLogs, logStaffActivity } = require('../services/activityLogService');
+const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
 
 const router = express.Router();
@@ -26,6 +29,64 @@ router.get('/payments/:id/receipt-pdf', downloadPaymentReceiptPdf);
 router.get('/payments/receipt-pdf', downloadPaymentReceiptPdf);
 router.get('/meters/:id/statement-pdf', downloadMeterStatementPdf);
 router.get('/meters/statement-pdf', downloadMeterStatementPdf);
+
+/**
+ * POST /api/staff/verify-password
+ * Verifies staff password before allowing sensitive administrative operations
+ */
+router.post('/verify-password', async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ success: false, message: 'Password is required for security authorization.' });
+    }
+
+    const userRes = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Staff user profile not found.' });
+    }
+
+    const isValid = await bcrypt.compare(password, userRes.rows[0].password);
+    if (!isValid) {
+      await logStaffActivity({
+        staffId: req.user.id,
+        staffEmail: req.user.email,
+        actionType: 'PASSWORD_VERIFY_FAILED',
+        targetEntity: 'Security Barrier',
+        details: { message: 'Incorrect staff password provided during sensitive operation authorization' },
+        ipAddress: req.ip || '127.0.0.1',
+        status: 'failed'
+      });
+      return res.status(401).json({ success: false, message: 'Incorrect password. Authorization denied.' });
+    }
+
+    return res.json({ success: true, message: 'Security authorization confirmed.' });
+  } catch (err) {
+    console.error('[Staff Password Verify] Error:', err);
+    return res.status(500).json({ success: false, message: 'Internal authorization error.' });
+  }
+});
+
+/**
+ * GET /api/staff/activity-logs
+ * Retrieves historical audit logs of staff operations
+ */
+router.get('/activity-logs', async (req, res) => {
+  try {
+    const { limit, actionType, search } = req.query;
+    const logs = await getStaffActivityLogs({ limit, actionType, search });
+    return res.json({ success: true, logs });
+  } catch (err) {
+    console.error('[Staff Activity Logs] Error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to retrieve staff activity logs.' });
+  }
+});
+
+/**
+ * Customer Members Management
+ */
+router.get('/customers', getAllCustomersForStaff);
+router.post('/customers', createCustomerForStaff);
 
 /**
  * GET /api/staff/me

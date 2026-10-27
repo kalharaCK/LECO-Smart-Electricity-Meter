@@ -6,6 +6,7 @@ const { sanitizeString } = require('../middlewares/sanitizer');
 const { emitMeterUpdate, emitNotification } = require('../services/socketService');
 const smsService = require('../services/smsService');
 const mlClient = require('../services/mlClient');
+const { logStaffActivity } = require('../services/activityLogService');
 
 /**
  * Broadcasts latest meter telemetry, balance, and prediction over WebSocket
@@ -1247,6 +1248,24 @@ const toggleMeterRelay = async (req, res) => {
       console.error('[Relay SMS Phone Fetch Error]:', smsErr.message);
     }
 
+    // Log traceable staff action
+    await logStaffActivity({
+      staffId: req.user?.id || null,
+      staffEmail: req.user?.email || 'staff@leco.lk',
+      actionType: newStatus === 'Connected' ? 'RELAY_CONNECT' : 'RELAY_CUTOFF',
+      targetEntity: `Meter #${meter.meter_number}`,
+      details: {
+        meterId,
+        meterNumber: meter.meter_number,
+        accountNumber: meter.account_number,
+        previousStatus: meter.status,
+        newStatus,
+        reason: reason || 'Manual grid control'
+      },
+      ipAddress: req.ip || '127.0.0.1',
+      status: 'success'
+    });
+
     return res.json({
       success: true,
       message: `Meter relay successfully changed to ${newStatus}.`,
@@ -1331,6 +1350,24 @@ const staffTopupMeter = async (req, res) => {
     } catch (smsErr) {
       console.error('[Staff Topup SMS Phone Fetch Error]:', smsErr.message);
     }
+
+    // Log traceable staff action
+    await logStaffActivity({
+      staffId: req.user?.id || null,
+      staffEmail: req.user?.email || 'staff@leco.lk',
+      actionType: 'STAFF_MANUAL_TOPUP',
+      targetEntity: `Meter #${meter.meter_number}`,
+      details: {
+        meterId,
+        meterNumber: meter.meter_number,
+        amount: numAmount,
+        previousBalance: prevBalance,
+        newBalance,
+        reason: reason || 'Manual relief adjustment'
+      },
+      ipAddress: req.ip || '127.0.0.1',
+      status: 'success'
+    });
 
     return res.json({
       success: true,
