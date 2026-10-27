@@ -29,6 +29,7 @@ import { useDashboardI18n } from "@/lib/dashboardI18n"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import TariffSlabCard from "./TariffSlabCard"
+import PeakHoursAdvisoryWidget from "./PeakHoursAdvisoryWidget"
 
 interface UserSettingsState {
   phone_number?: string
@@ -766,13 +767,16 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
         </Card>
       </div>
 
-      {/* PUCSL Domestic Tariff Slab & Tier Progression Tracker */}
-      <TariffSlabCard 
-        currentMonthlyKwh={Number(consumption?.prediction?.billingCycleConsumptionKwh ?? (Number(meter.daily_average || 4.2) * 18))} 
-        tariffType={meter.tariff_type} 
-      />
+      {/* 4. Tariff Slab & Peak Hours Time-of-Use Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <TariffSlabCard 
+          currentMonthlyKwh={Number(consumption?.prediction?.billingCycleConsumptionKwh ?? (Number(meter.daily_average || 4.2) * 18))} 
+          tariffType={meter.tariff_type} 
+        />
+        <PeakHoursAdvisoryWidget />
+      </div>
 
-      {/* 4. Lower Tier: 7-Day Chart & Analytics Summary (Left 2/3) + Recent Activity (Right 1/3) */}
+      {/* 5. Lower Tier: 7-Day Chart & Analytics Summary (Left 2/3) + Recent Activity (Right 1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column (2/3 width): 7-Day Consumption Profile & Specs */}
         <div className="lg:col-span-2 space-y-4">
