@@ -169,7 +169,11 @@ const addMeter = async (req, res) => {
 
     // Step 2 Security: Cryptographic PIN Verification & Hashing
     // Check if meter was already provisioned/manufactured in the database
-    const existingMeterResult = await pool.query('SELECT * FROM meters WHERE meter_number = $1', [meterNumber]);
+    const existingMeterResult = await pool.query(
+      `SELECT id, user_id, meter_number, account_number, pin, name
+       FROM meters WHERE meter_number = $1`,
+      [meterNumber]
+    );
 
     if (existingMeterResult.rows.length > 0) {
       const existingMeter = existingMeterResult.rows[0];
