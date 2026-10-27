@@ -762,7 +762,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
       {/* 3. Core 4-Card Hero Grid: Estimated Supply Days & Daily Estimation Prominently Featured */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI Card 1: Available Balance */}
-        <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
+        <Card className="glass-card bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -810,7 +810,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
         </Card>
 
         {/* KPI Card 2: Estimated Supply Horizon */}
-        <Card className="bg-gradient-to-b from-[#18181c] to-[#141416] border border-yellow-400/40 shadow-xl shadow-yellow-400/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
+        <Card className="glass-card bg-gradient-to-b from-[#18181c] to-[#141416] border border-yellow-400/40 shadow-xl shadow-yellow-400/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -857,7 +857,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
         </Card>
 
         {/* KPI Card 3: Daily Cost Estimation */}
-        <Card className="bg-gradient-to-b from-[#18181c] to-[#141416] border border-sky-400/40 shadow-xl shadow-sky-400/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
+        <Card className="glass-card bg-gradient-to-b from-[#18181c] to-[#141416] border border-sky-400/40 shadow-xl shadow-sky-400/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-32 h-32 bg-sky-400/10 rounded-full blur-3xl pointer-events-none" />
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -907,7 +907,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
         </Card>
 
         {/* KPI Card 4: Grid Usage & Live Active Load */}
-        <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
+        <Card className="glass-card bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/5 rounded-full blur-3xl pointer-events-none" />
           <div>
             <div className="flex items-center justify-between mb-2">

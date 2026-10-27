@@ -158,3 +158,28 @@
     }
   }
 }
+
+/* ==== Premium Glassmorphism Design ==== */
+.glass-card {
+  background: var(--glass-bg, rgba(255, 255, 255, 0.12));
+  backdrop-filter: blur(12px) saturate(180%);
+  border-radius: 1rem;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.3));
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
+}
+:root {
+  --glass-bg: rgba(255,255,255,0.12);
+  --glass-border: rgba(255,255,255,0.3);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --glass-bg: rgba(0,0,0,0.4);
+    --glass-border: rgba(255,255,255,0.2);
+  }
+}
