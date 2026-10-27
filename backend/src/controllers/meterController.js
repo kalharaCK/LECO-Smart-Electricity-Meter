@@ -437,8 +437,11 @@ const rechargeMeter = async (req, res) => {
     const userId = req.user.id;
     const idempotencyKey = req.headers['idempotency-key'] || req.headers['x-idempotency-key'] || req.body.idempotencyKey;
 
-    if (!amount || isNaN(amount) || parseFloat(amount) < 100) {
-      return res.status(400).json({ message: 'Minimum recharge amount is Rs. 100' });
+    const amountText = typeof amount === 'number' ? String(amount) : amount;
+    const rechargeAmount = Number(amountText);
+    if (typeof amountText !== 'string' || !/^\d+(?:\.\d{1,2})?$/.test(amountText) ||
+        !Number.isFinite(rechargeAmount) || rechargeAmount < 100 || rechargeAmount > 100000) {
+      return res.status(400).json({ message: 'Recharge amount must be between Rs. 100 and Rs. 100,000 with at most two decimal places.' });
     }
 
     // Step 1: Idempotency Check - prevent double-charges from network lag or multiple clicks
@@ -485,7 +488,6 @@ const rechargeMeter = async (req, res) => {
       }
 
       const prevBalance = parseFloat(meterCheck.rows[0].balance);
-      const rechargeAmount = parseFloat(amount);
       const newBalance = prevBalance + rechargeAmount;
       const method = paymentMethod || 'card';
 
