@@ -196,11 +196,15 @@ const addMeter = async (req, res) => {
       const linkResult = await pool.query(
         `UPDATE meters 
          SET user_id = $1, name = $2 
-         WHERE id = $3 
+         WHERE id = $3 AND user_id IS NULL
          RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, 
                    emergency_credit_limit, emergency_credit_active, emergency_credit_activated_at, created_at`,
         [userId, meterName, existingMeter.id]
       );
+
+      if (linkResult.rows.length === 0) {
+        return res.status(409).json({ message: 'This meter has already been linked to an account.' });
+      }
 
       return res.status(200).json({ message: 'Meter linked successfully', meter: linkResult.rows[0] });
     }
