@@ -26,7 +26,7 @@ async def get_model_status(meter_id: int):
         return ensemble.get_status()
     except Exception as e:
         logger.error(f"Error fetching model status for meter {meter_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unable to retrieve model data.")
 
 
 @router.get("/drift/{meter_id}", response_model=List[Dict[str, Any]])
@@ -61,7 +61,7 @@ async def get_drift_events(meter_id: int, limit: int = 20):
             ]
     except Exception as e:
         logger.error(f"Error fetching drift events for meter {meter_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unable to retrieve model data.")
 
 
 @router.post("/evaluate/{meter_id}", response_model=Dict[str, Any])
@@ -132,4 +132,5 @@ async def trigger_meter_evaluation(meter_id: int):
         }
     except Exception as e:
         logger.error(f"Error evaluating meter {meter_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unable to retrieve model data.")
+

@@ -64,7 +64,7 @@ async def get_hourly_forecast(meter_id: int):
         return forecast_24h
     except Exception as e:
         logger.error(f"Error generating hourly forecast for meter {meter_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unable to generate forecast.")
 
 
 @router.get("/prepaid/{meter_id}", response_model=Dict[str, Any])
@@ -121,7 +121,7 @@ async def get_prepaid_lifetime(
         return result
     except Exception as e:
         logger.error(f"Error simulating prepaid lifetime for meter {meter_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unable to generate forecast.")
 
 
 @router.get("/postpaid/{meter_id}", response_model=Dict[str, Any])
@@ -178,7 +178,7 @@ async def get_postpaid_forecast(meter_id: int):
         return bill_forecast
     except Exception as e:
         logger.error(f"Error forecasting postpaid bill for meter {meter_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unable to generate forecast.")
 
 
 @router.get("/demand/{meter_id}", response_model=Dict[str, Any])
@@ -228,4 +228,5 @@ async def get_recharge_demand(meter_id: int):
         return demand_res
     except Exception as e:
         logger.error(f"Error predicting demand for meter {meter_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unable to generate forecast.")
+

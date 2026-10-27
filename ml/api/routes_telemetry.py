@@ -39,7 +39,7 @@ async def ingest_reading(payload: RawTelemetryInput):
         logger.error(f"Error in ingest_reading: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process telemetry reading: {str(e)}"
+            detail="Failed to process telemetry reading."
         )
 
 
@@ -70,3 +70,4 @@ async def ingest_batch(batch: List[RawTelemetryInput]):
         "duplicates": duplicates,
         "meter_resets": resets
     }
+
