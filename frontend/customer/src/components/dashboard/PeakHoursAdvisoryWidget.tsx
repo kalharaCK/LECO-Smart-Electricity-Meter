@@ -1,17 +1,12 @@
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { 
   Clock, 
   Flame, 
   Moon, 
   Sun, 
-  Sparkles, 
-  CheckCircle2, 
-  AlertCircle, 
-  ArrowRight,
-  Info
+  Sparkles
 } from "lucide-react"
 
 export type TimeOfUseZone = "PEAK" | "DAY" | "OFF_PEAK"

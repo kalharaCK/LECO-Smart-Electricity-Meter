@@ -8,8 +8,6 @@ import {
   AlertTriangle, 
   Info, 
   CheckCircle2, 
-  ArrowUpRight,
-  HelpCircle,
   X
 } from "lucide-react"
 
