@@ -25,6 +25,8 @@ logger = logging.getLogger("LECO_ML.main")
 async def lifespan(app: FastAPI):
     """Application lifecycle management."""
     logger.info("Starting LECO Adaptive ML Service...")
+    if settings.ENVIRONMENT == "production" and not settings.ML_SERVICE_TOKEN:
+        raise RuntimeError("ML_SERVICE_TOKEN must be configured in production.")
     # Initialize DB tables and indexes if not present
     try:
         await init_ml_tables()

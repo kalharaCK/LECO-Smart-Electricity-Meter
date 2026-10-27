@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     ENVIRONMENT: str = Field(default="development", validation_alias="NODE_ENV")
     DEBUG: bool = True
+    ML_SERVICE_TOKEN: str | None = None
     PORT: int = Field(default=8000, validation_alias="ML_SERVICE_PORT")
     HOST: str = "0.0.0.0"
 

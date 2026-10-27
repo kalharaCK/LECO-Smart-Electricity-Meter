@@ -4,14 +4,15 @@ Receives raw meter readings every 30-45s, validates, computes delta,
 and triggers real-time aggregation and model evaluation.
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Dict, Any
 import logging
 from ..preprocessing.validator import RawTelemetryInput, ValidatedReading
 from ..service import orchestrator
+from ..security import require_ml_service_token
 
 logger = logging.getLogger("LECO_ML.api.telemetry")
-router = APIRouter(prefix="/api/ml/telemetry", tags=["Telemetry Ingestion"])
+router = APIRouter(prefix="/api/ml/telemetry", tags=["Telemetry Ingestion"], dependencies=[Depends(require_ml_service_token)])
 
 
 @router.post("/ingest", response_model=Dict[str, Any], status_code=status.HTTP_200_OK)

@@ -4,14 +4,15 @@ Exposes online ensemble weights, ADWIN drift detection status,
 prequential error metrics (MAE, RMSE, MAPE), and evaluation controls.
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any, List
 import logging
 from ..service import orchestrator
+from ..security import require_ml_service_token
 from ..database import get_connection
 
 logger = logging.getLogger("LECO_ML.api.models")
-router = APIRouter(prefix="/api/ml/models", tags=["Model Diagnostics & Governance"])
+router = APIRouter(prefix="/api/ml/models", tags=["Model Diagnostics & Governance"], dependencies=[Depends(require_ml_service_token)])
 
 
 @router.get("/status/{meter_id}", response_model=Dict[str, Any])

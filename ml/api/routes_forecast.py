@@ -4,15 +4,16 @@ Provides endpoints for next 24-hour hourly trajectory, prepaid depletion lifetim
 postpaid bill forecasting, and next-month demand recommendations.
 """
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 import logging
 from ..service import orchestrator
+from ..security import require_ml_service_token
 from ..database import get_connection
 
 logger = logging.getLogger("LECO_ML.api.forecast")
-router = APIRouter(prefix="/api/ml/forecast", tags=["Forecasting Engines"])
+router = APIRouter(prefix="/api/ml/forecast", tags=["Forecasting Engines"], dependencies=[Depends(require_ml_service_token)])
 
 
 @router.get("/hourly/{meter_id}", response_model=Dict[str, Any])
