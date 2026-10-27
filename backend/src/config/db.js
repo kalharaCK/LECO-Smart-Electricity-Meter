@@ -1,16 +1,18 @@
 const { Pool } = require('pg');
 
 const connectionString = process.env.DATABASE_URL;
+const disableDatabaseTls = process.env.DATABASE_SSL === 'false';
 
 if (!connectionString) {
   throw new Error('DATABASE_URL must be configured before starting the backend.');
 }
+if (process.env.NODE_ENV === 'production' && disableDatabaseTls) {
+  throw new Error('DATABASE_SSL=false is not allowed in production.');
+}
 
 const pool = new Pool({
   connectionString,
-  ssl: {
-    rejectUnauthorized: false
-  },
+  ssl: disableDatabaseTls ? false : { rejectUnauthorized: true },
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 30000,
