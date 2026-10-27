@@ -14,6 +14,7 @@ router.use(requireAuth);
 
 router.get('/', getUserSettings);
 router.patch('/', updateUserSettings);
+router.post('/password', changePassword);
 router.patch('/password', changePassword);
 router.patch('/meter-pin', updateMeterPin);
 router.patch('/meter-name', updateMeterAlias);

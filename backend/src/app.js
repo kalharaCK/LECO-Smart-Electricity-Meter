@@ -10,15 +10,32 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const metricsRoutes = require('./routes/metricsRoutes');
+const predictionModule = require('./modules/prediction');
+const chatbotModule = require('./modules/chatbot');
 const { sanitizeInputs } = require('./middlewares/sanitizer');
 const { errorHandler } = require('./middlewares/errorHandler');
 const { createTrustedOriginGuard } = require('./middlewares/csrfProtection');
 const { createHealthResponse } = require('./services/healthStatus');
 const { requireAuth } = require('./middlewares/authMiddleware');
 const { handlePayhereNotify, initPayhereCheckout, completePayhereCheckout } = require('./controllers/payhereController');
+const { getPaymentHistory } = require('./controllers/meterController');
+const { downloadPaymentReceiptPdf, downloadMeterStatementPdf } = require('./controllers/pdfController');
 const { pool } = require('./config/db');
+const { setupProcessImmunity, shutdownGuardMiddleware } = require('./utils/immunitySupervisor');
+const { malformedUriGuard, prototypePollutionGuard } = require('./middlewares/malformedRequestGuard');
+const { createTimeoutMiddleware } = require('./middlewares/timeoutMiddleware');
+const { createIdempotencyMiddleware } = require('./utils/idempotency');
+
+// Initialize runtime process crash immunity
+setupProcessImmunity();
 
 const app = express();
+
+// 0. Process immunity guards: rejection during graceful shutdown, malformed URIs, and hanging request timeout
+app.use(shutdownGuardMiddleware);
+app.use(malformedUriGuard);
+app.use(createTimeoutMiddleware(30000));
 
 // 1. Strip X-Powered-By to prevent framework fingerprinting
 app.disable('x-powered-by');
@@ -52,6 +69,7 @@ app.use(
     },
     noSniff: true,
     hidePoweredBy: true,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   })
 );
 
@@ -68,7 +86,9 @@ app.use(cors({
     if (!origin || corsOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error('Origin is not allowed by CORS'));
+    const corsErr = new Error('Origin is not allowed by CORS');
+    corsErr.status = 403;
+    return callback(corsErr);
   },
   credentials: true
 }));
@@ -78,9 +98,13 @@ app.use(cookieParser());
 app.use(createTrustedOriginGuard(corsOrigins));
 app.use(express.json({ limit: '200kb' }));
 app.use(express.urlencoded({ extended: true, limit: '200kb' }));
+app.use(prototypePollutionGuard);
 
 // 5. Input Sanitization against XSS & script injection
 app.use(sanitizeInputs);
+
+// 5b. Idempotency & Retry Deduplication Guard
+app.use(createIdempotencyMiddleware());
 
 // 6. Primary REST API Routes
 // Authentication
@@ -97,13 +121,22 @@ app.use('/api/customer', customerRoutes);
 app.use('/api/meters', meterRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/chat', chatRoutes);
+app.use('/api/chat', chatbotModule.router);
+app.use('/api/prediction', predictionModule.router);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/metrics', metricsRoutes);
 
 // PayHere Payment Gateway Handlers & Server-to-Server IPN Webhook
 app.post('/api/payments/payhere-notify', handlePayhereNotify);
 app.post('/api/payments/payhere-init', requireAuth, initPayhereCheckout);
 app.post('/api/payments/payhere-complete', requireAuth, completePayhereCheckout);
+app.get('/api/payments/history', requireAuth, getPaymentHistory);
+
+// 6b. Official PDF Receipts & Consumption Statements
+app.get('/api/payments/:id/receipt-pdf', requireAuth, downloadPaymentReceiptPdf);
+app.get('/api/payments/receipt-pdf', requireAuth, downloadPaymentReceiptPdf);
+app.get('/api/meters/:id/statement-pdf', requireAuth, downloadMeterStatementPdf);
+app.get('/api/meters/statement-pdf', requireAuth, downloadMeterStatementPdf);
 
 // 7. REST Health & Diagnostics Check
 app.get('/api/health', async (req, res) => {

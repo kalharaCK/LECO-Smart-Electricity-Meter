@@ -14,15 +14,15 @@ export const getSocket = (): Socket => {
     });
 
     socket.on('connect', () => {
-      console.log('⚡ Staff portal connected to LECO Grid WebSocket:', socket?.id);
+      console.log('[Socket] Staff portal connected to LECO Grid WebSocket:', socket?.id);
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('⚡ Staff portal disconnected from WebSocket:', reason);
+      console.log('[Socket] Staff portal disconnected from WebSocket:', reason);
     });
 
     socket.on('connect_error', (error) => {
-      console.warn('⚡ Staff portal WebSocket connection error:', error.message);
+      console.warn('[Socket] Staff portal WebSocket connection error:', error.message);
     });
   }
   return socket;

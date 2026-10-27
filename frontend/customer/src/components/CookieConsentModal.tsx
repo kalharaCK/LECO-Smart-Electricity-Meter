@@ -152,7 +152,7 @@ export function CookieConsentModal({ onConsentChange }: CookieConsentProps) {
     <aside
       role="dialog"
       aria-labelledby="cookie-settings-title"
-      className="fixed bottom-4 left-4 right-4 sm:left-6 sm:right-auto sm:bottom-6 z-50 sm:max-w-[420px] w-auto bg-white text-[#111827] rounded-2xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)] border border-gray-100 animate-in fade-in slide-in-from-bottom-4 duration-300 font-sans"
+      className="fixed bottom-4 left-4 right-4 mx-auto max-w-sm sm:left-auto sm:right-6 sm:bottom-6 sm:mx-0 sm:w-[420px] sm:max-w-[420px] z-50 bg-[#141416]/95 backdrop-blur-2xl text-white rounded-3xl p-5 sm:p-6 shadow-[0_20px_60px_rgba(0,0,0,0.85)] border border-white/15 animate-in fade-in slide-in-from-bottom-4 duration-300 font-sans"
     >
       {/* MAIN VIEW: Minimal Cookies Settings Card */}
       {view === "banner" && (
@@ -161,39 +161,37 @@ export function CookieConsentModal({ onConsentChange }: CookieConsentProps) {
           <div className="flex items-center justify-between mb-3.5">
             <h3
               id="cookie-settings-title"
-              className="font-bold text-lg text-[#111827] tracking-tight"
+              className="font-bold text-base sm:text-lg text-white tracking-tight"
             >
               {t.title}
             </h3>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               {/* Minimal inline language selector */}
-              <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-400">
+              <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/50 bg-white/5 border border-white/10 px-1.5 py-1 rounded-xl">
                 <button
                   type="button"
                   onClick={() => handleLanguageChange("en")}
-                  className={`transition-colors cursor-pointer px-1 py-0.5 rounded ${
-                    lang === "en" ? "text-gray-950 font-bold" : "hover:text-gray-700"
+                  className={`transition-colors cursor-pointer px-1.5 py-0.5 rounded-lg text-[10px] font-bold ${
+                    lang === "en" ? "bg-yellow-400 text-black shadow-sm" : "text-white/60 hover:text-white"
                   }`}
                 >
                   EN
                 </button>
-                <span className="text-gray-300">|</span>
                 <button
                   type="button"
                   onClick={() => handleLanguageChange("si")}
-                  className={`transition-colors cursor-pointer px-1 py-0.5 rounded ${
-                    lang === "si" ? "text-gray-950 font-bold" : "hover:text-gray-700"
+                  className={`transition-colors cursor-pointer px-1.5 py-0.5 rounded-lg text-[10px] font-bold ${
+                    lang === "si" ? "bg-yellow-400 text-black shadow-sm" : "text-white/60 hover:text-white"
                   }`}
                 >
                   සිං
                 </button>
-                <span className="text-gray-300">|</span>
                 <button
                   type="button"
                   onClick={() => handleLanguageChange("ta")}
-                  className={`transition-colors cursor-pointer px-1 py-0.5 rounded ${
-                    lang === "ta" ? "text-gray-950 font-bold" : "hover:text-gray-700"
+                  className={`transition-colors cursor-pointer px-1.5 py-0.5 rounded-lg text-[10px] font-bold ${
+                    lang === "ta" ? "bg-yellow-400 text-black shadow-sm" : "text-white/60 hover:text-white"
                   }`}
                 >
                   தம
@@ -204,21 +202,21 @@ export function CookieConsentModal({ onConsentChange }: CookieConsentProps) {
               <button
                 type="button"
                 onClick={() => handleConsent("essential")}
-                className="text-gray-400 hover:text-gray-800 p-1 rounded-lg transition-colors cursor-pointer"
+                className="text-white/40 hover:text-white hover:bg-white/10 p-1.5 rounded-xl transition-colors cursor-pointer"
                 aria-label="Close"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           </div>
 
           {/* Description */}
-          <p className="text-[#4b5563] text-xs sm:text-[13px] leading-relaxed mb-6">
+          <p className="text-zinc-300 text-xs sm:text-[13px] leading-relaxed mb-5">
             {t.descPrefix}
             <button
               type="button"
               onClick={() => setView("policy")}
-              className="text-[#111827] font-semibold underline underline-offset-2 hover:text-black cursor-pointer"
+              className="text-yellow-400 font-semibold underline underline-offset-2 hover:text-yellow-300 cursor-pointer transition-colors"
             >
               {t.cookiePolicy}
             </button>
@@ -226,18 +224,18 @@ export function CookieConsentModal({ onConsentChange }: CookieConsentProps) {
           </p>
 
           {/* Action Buttons: Accept & Preferences */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <button
               type="button"
               onClick={() => handleConsent("accepted")}
-              className="w-full bg-[#181a20] hover:bg-[#23262f] text-white font-bold text-sm h-11 rounded-xl transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer flex items-center justify-center shadow-sm"
+              className="w-full bg-yellow-400 hover:bg-yellow-300 active:scale-[0.98] text-black font-extrabold text-xs sm:text-sm h-10 sm:h-11 rounded-xl transition-all cursor-pointer flex items-center justify-center shadow-md shadow-yellow-500/10"
             >
               {t.accept}
             </button>
             <button
               type="button"
               onClick={() => setView("preferences")}
-              className="w-full bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#181a20] font-bold text-sm h-11 rounded-xl transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer flex items-center justify-center"
+              className="w-full bg-white/10 hover:bg-white/15 active:scale-[0.98] text-white border border-white/15 font-bold text-xs sm:text-sm h-10 sm:h-11 rounded-xl transition-all cursor-pointer flex items-center justify-center"
             >
               {t.preferences}
             </button>
@@ -248,17 +246,17 @@ export function CookieConsentModal({ onConsentChange }: CookieConsentProps) {
       {/* PREFERENCES VIEW: Minimal category management */}
       {view === "preferences" && (
         <div className="animate-in fade-in duration-200">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setView("banner")}
-                className="text-gray-400 hover:text-gray-800 p-1 -ml-1 rounded-lg transition-colors cursor-pointer"
+                className="text-white/50 hover:text-white p-1 -ml-1 rounded-lg transition-colors cursor-pointer"
                 aria-label="Back"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
-              <h4 className="font-bold text-base text-[#111827]">
+              <h4 className="font-bold text-base text-white">
                 {t.prefsTitle}
               </h4>
             </div>
@@ -266,51 +264,51 @@ export function CookieConsentModal({ onConsentChange }: CookieConsentProps) {
             <button
               type="button"
               onClick={() => handleConsent("essential")}
-              className="text-gray-400 hover:text-gray-800 p-1 rounded-lg transition-colors cursor-pointer"
+              className="text-white/40 hover:text-white hover:bg-white/10 p-1.5 rounded-xl transition-colors cursor-pointer"
               aria-label="Close"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
 
           <div className="space-y-3 mb-5 max-h-[260px] overflow-y-auto pr-1">
             {/* Category 1: Strictly Necessary */}
-            <div className="p-3 rounded-xl bg-gray-50 border border-gray-100">
+            <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10">
               <div className="flex items-center justify-between mb-1">
-                <span className="font-bold text-xs text-[#111827]">
+                <span className="font-semibold text-xs sm:text-[13px] text-white">
                   {t.essentialTitle}
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Check className="h-2.5 w-2.5 stroke-[3]" /> {t.essentialStatus}
+                <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-300 bg-yellow-400/15 border border-yellow-400/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Check className="h-2.5 w-2.5 stroke-[3] text-yellow-400" /> {t.essentialStatus}
                 </span>
               </div>
-              <p className="text-[11px] text-gray-500 leading-normal">
+              <p className="text-[11px] text-zinc-400 leading-normal">
                 {t.essentialDesc}
               </p>
             </div>
 
             {/* Category 2: Telemetry Cache */}
-            <div className="p-3 rounded-xl bg-gray-50 border border-gray-100">
+            <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10">
               <div className="flex items-center justify-between mb-1">
-                <span className="font-bold text-xs text-[#111827]">
+                <span className="font-semibold text-xs sm:text-[13px] text-white">
                   {t.telemetryTitle}
                 </span>
                 <button
                   type="button"
                   onClick={() => setTelemetryEnabled(!telemetryEnabled)}
                   className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors cursor-pointer ${
-                    telemetryEnabled ? "bg-[#181a20]" : "bg-gray-300"
+                    telemetryEnabled ? "bg-yellow-400" : "bg-white/20"
                   }`}
                   aria-label="Toggle telemetry cache"
                 >
                   <div
-                    className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${
-                      telemetryEnabled ? "translate-x-4" : "translate-x-0"
+                    className={`w-4 h-4 rounded-full shadow-sm transform transition-transform ${
+                      telemetryEnabled ? "translate-x-4 bg-black" : "translate-x-0 bg-white"
                     }`}
                   />
                 </button>
               </div>
-              <p className="text-[11px] text-gray-500 leading-normal">
+              <p className="text-[11px] text-zinc-400 leading-normal">
                 {t.telemetryDesc}
               </p>
             </div>
@@ -320,14 +318,14 @@ export function CookieConsentModal({ onConsentChange }: CookieConsentProps) {
             <button
               type="button"
               onClick={() => setView("banner")}
-              className="w-full bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#181a20] font-bold text-xs h-10 rounded-xl transition-colors cursor-pointer"
+              className="w-full bg-white/10 hover:bg-white/15 active:scale-[0.98] text-white border border-white/15 font-bold text-xs h-10 rounded-xl transition-all cursor-pointer"
             >
               {t.backBtn}
             </button>
             <button
               type="button"
               onClick={() => handleConsent("custom")}
-              className="w-full bg-[#181a20] hover:bg-[#23262f] text-white font-bold text-xs h-10 rounded-xl transition-colors cursor-pointer"
+              className="w-full bg-yellow-400 hover:bg-yellow-300 active:scale-[0.98] text-black font-extrabold text-xs h-10 rounded-xl transition-all cursor-pointer shadow-md"
             >
               {t.savePreferences}
             </button>
@@ -338,17 +336,17 @@ export function CookieConsentModal({ onConsentChange }: CookieConsentProps) {
       {/* POLICY VIEW: Compact Policy text */}
       {view === "policy" && (
         <div className="animate-in fade-in duration-200">
-          <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-gray-100">
+          <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-white/10">
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setView("banner")}
-                className="text-gray-400 hover:text-gray-800 p-1 -ml-1 rounded-lg transition-colors cursor-pointer"
+                className="text-white/50 hover:text-white p-1 -ml-1 rounded-lg transition-colors cursor-pointer"
                 aria-label="Back"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
-              <h4 className="font-bold text-base text-[#111827]">
+              <h4 className="font-bold text-base text-white">
                 {t.policyTitle}
               </h4>
             </div>
@@ -356,14 +354,14 @@ export function CookieConsentModal({ onConsentChange }: CookieConsentProps) {
             <button
               type="button"
               onClick={() => handleConsent("essential")}
-              className="text-gray-400 hover:text-gray-800 p-1 rounded-lg transition-colors cursor-pointer"
+              className="text-white/40 hover:text-white hover:bg-white/10 p-1.5 rounded-xl transition-colors cursor-pointer"
               aria-label="Close"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="space-y-2.5 text-xs text-gray-600 leading-relaxed mb-5 max-h-[240px] overflow-y-auto pr-1">
+          <div className="space-y-2.5 text-xs text-zinc-300 leading-relaxed mb-5 max-h-[240px] overflow-y-auto pr-1">
             <p>{t.policyP1}</p>
             <p>{t.policyP2}</p>
           </div>
@@ -371,7 +369,7 @@ export function CookieConsentModal({ onConsentChange }: CookieConsentProps) {
           <button
             type="button"
             onClick={() => setView("banner")}
-            className="w-full bg-[#181a20] hover:bg-[#23262f] text-white font-bold text-xs h-10 rounded-xl transition-colors cursor-pointer"
+            className="w-full bg-white/10 hover:bg-white/15 text-white border border-white/15 font-bold text-xs h-10 rounded-xl transition-colors cursor-pointer"
           >
             {t.backBtn}
           </button>

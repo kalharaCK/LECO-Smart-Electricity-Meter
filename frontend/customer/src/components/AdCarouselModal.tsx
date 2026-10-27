@@ -197,7 +197,7 @@ export function AdCarouselModal({
               aria-label={`Go to slide ${idx + 1}`}
               className={`transition-all rounded-full cursor-pointer h-1.5 ${
                 currentIndex === idx
-                  ? "w-5 bg-white/90"
+                  ? "w-5 bg-yellow-400 shadow-sm shadow-yellow-400/50"
                   : "w-1.5 bg-white/25 hover:bg-white/50"
               }`}
             />

@@ -13,12 +13,19 @@ const {
   getStaffPayhereTransactions,
   verifyStaffPayhereTransaction
 } = require('../controllers/payhereController');
+const { downloadPaymentReceiptPdf, downloadMeterStatementPdf } = require('../controllers/pdfController');
 const { pool } = require('../config/db');
 
 const router = express.Router();
 
 // Strict Security Barrier: All staff endpoints require valid LECO Staff authorization
 router.use(requireStaff);
+
+// PDF Receipts & Audit Statements for Staff
+router.get('/payments/:id/receipt-pdf', downloadPaymentReceiptPdf);
+router.get('/payments/receipt-pdf', downloadPaymentReceiptPdf);
+router.get('/meters/:id/statement-pdf', downloadMeterStatementPdf);
+router.get('/meters/statement-pdf', downloadMeterStatementPdf);
 
 /**
  * GET /api/staff/me
@@ -103,5 +110,24 @@ router.patch('/complaints/:id/status', updateComplaintStatus);
  */
 router.get('/payments/payhere-transactions', getStaffPayhereTransactions);
 router.post('/payments/:id/verify-payhere', verifyStaffPayhereTransaction);
+
+/**
+ * Text.lk Programmable SMS Gateway & Alerts Dispatch
+ */
+const {
+  getSmsBalance,
+  getSmsProfile,
+  getSmsLogs,
+  sendStaffSms,
+  broadcastLowBalanceAlerts,
+  getTemplates
+} = require('../controllers/smsController');
+
+router.get('/sms/balance', getSmsBalance);
+router.get('/sms/profile', getSmsProfile);
+router.get('/sms/logs', getSmsLogs);
+router.get('/sms/templates', getTemplates);
+router.post('/sms/send', sendStaffSms);
+router.post('/sms/broadcast-low-balance', broadcastLowBalanceAlerts);
 
 module.exports = router;

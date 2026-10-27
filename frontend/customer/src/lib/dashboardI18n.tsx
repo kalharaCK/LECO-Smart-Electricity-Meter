@@ -105,6 +105,13 @@ export interface DashboardTranslations {
     expand: string
     usage: string
     clear: string
+    budgetSectionTitle: string
+    monthlyBudgetTitle: string
+    dailyBudgetTitle: string
+    lowBalanceNotificationTitle: string
+    adjustBudgetBtn: string
+    spentOf: string
+    remainingOf: string
   }
   addMeter: {
     title: string
@@ -256,6 +263,7 @@ export interface DashboardTranslations {
     roleLabel: string
     customerRole: string
     energyPreferences: string
+    monthlyBudget: string
     lowBalanceThreshold: string
     dailyBudget: string
     autoEmergencyCredit: string
@@ -392,6 +400,13 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       expand: "Expand",
       usage: "Usage",
       clear: "Clear",
+      budgetSectionTitle: "Monthly Budget & Alert Settings",
+      monthlyBudgetTitle: "Monthly Electricity Budget",
+      dailyBudgetTitle: "Daily Target Usage",
+      lowBalanceNotificationTitle: "Prepaid Low Balance Alert",
+      adjustBudgetBtn: "Adjust Budget & Alerts",
+      spentOf: "spent of",
+      remainingOf: "remaining",
     },
     addMeter: {
       title: "Add Existing Smart Meter",
@@ -543,6 +558,7 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       roleLabel: "Account Type",
       customerRole: "Prepaid Customer",
       energyPreferences: "Smart Energy Preferences",
+      monthlyBudget: "Target Monthly Budget (Rs.)",
       lowBalanceThreshold: "Low Balance Warning Limit (Rs.)",
       dailyBudget: "Target Daily Budget (kWh)",
       autoEmergencyCredit: "Automatic Emergency Credit Activation",
@@ -678,6 +694,13 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       expand: "විහිදුවන්න",
       usage: "පරිභෝජනය",
       clear: "ඉවත් කරන්න",
+      budgetSectionTitle: "මාසික අයවැය සහ අනතුරු ඇඟවීමේ සැකසුම්",
+      monthlyBudgetTitle: "මාසික විදුලි වියදම් ඉලක්කය",
+      dailyBudgetTitle: "දෛනික ඉලක්කගත ඒකක ප්‍රමාණය",
+      lowBalanceNotificationTitle: "අඩු ශේෂ අනතුරු ඇඟවීම",
+      adjustBudgetBtn: "අයවැය සහ දැනුම්දීම් සකසන්න",
+      spentOf: "වැයවූ මුදල (මුළු ඉලක්කයෙන්)",
+      remainingOf: "ඉතිරි මුදල",
     },
     addMeter: {
       title: "නව ස්මාර්ට් මීටරයක් එක් කරන්න",
@@ -829,6 +852,7 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       roleLabel: "ගිණුම් වර්ගය",
       customerRole: "පෙරගෙවුම් පාරිභෝගික",
       energyPreferences: "ස්මාර්ට් පරිභෝජන සැකසුම්",
+      monthlyBudget: "ඉලක්කගත මාසික අයවැය (රු.)",
       lowBalanceThreshold: "අඩු ශේෂ අනතුරු ඇඟවීමේ සීමාව (රු.)",
       dailyBudget: "දෛනික ඉලක්කගත ඒකක ප්‍රමාණය (kWh)",
       autoEmergencyCredit: "හදිසි ණය ස්වයංක්‍රීයව සක්‍රීය කිරීම",
@@ -964,6 +988,13 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       expand: "விரிவாக்கவும்",
       usage: "பயன்பாடு",
       clear: "அழிக்கவும்",
+      budgetSectionTitle: "மாதாந்திர வரவுசெலவு & எச்சரிக்கை அமைப்புகள்",
+      monthlyBudgetTitle: "மாதாந்திர மின்சார வரவுசெலவு",
+      dailyBudgetTitle: "இலக்கு தினசரி பயன்பாடு",
+      lowBalanceNotificationTitle: "குறைந்த நிலுவை எச்சரிக்கை",
+      adjustBudgetBtn: "வரவுசெலவு & எச்சரிக்கைகளை மாற்றுக",
+      spentOf: "செலவிடப்பட்டது (மொத்தத்தில்)",
+      remainingOf: "மீதமுள்ளது",
     },
     addMeter: {
       title: "புதிய ஸ்மார்ட் மீட்டரைச் சேர்க்கவும்",
@@ -1115,6 +1146,7 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       roleLabel: "கணக்கு வகை",
       customerRole: "முன்பண வாடிக்கையாளர்",
       energyPreferences: "ஸ்மார்ட் ஆற்றல் விருப்பத்தேர்வுகள்",
+      monthlyBudget: "இலக்கு மாதாந்திர வரவுசெலவு (ரூ.)",
       lowBalanceThreshold: "குறைந்த நிலுவை எச்சரிக்கை வரம்பு (ரூ.)",
       dailyBudget: "இலக்கு தினசரி பயன்பாடு (kWh)",
       autoEmergencyCredit: "தானியங்கி அவசர கடன் செயல்படுத்தல்",

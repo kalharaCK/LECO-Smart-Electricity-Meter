@@ -43,7 +43,20 @@ const initSocket = (server) => {
     }
   });
 
+  io.engine.on('connection_error', (err) => {
+    console.warn('[Socket Engine Warning]: Non-fatal connection error:', err.message);
+  });
+
   io.on('connection', (socket) => {
+    socket.on('error', (err) => {
+      console.warn(`[Socket ${socket.id} Warning]:`, err.message);
+    });
+
+    if (!socket.data || !socket.data.user) {
+      socket.disconnect(true);
+      return;
+    }
+
     const { id: userId, role } = socket.data.user;
     const isStaff = role === 'staff' || role === 'admin';
     socket.join(`user_${userId}`);
@@ -53,21 +66,25 @@ const initSocket = (server) => {
     }
 
     socket.on('join_meter', async (meterId) => {
-      const id = Number(meterId);
-      if (!Number.isSafeInteger(id) || id <= 0) return;
       try {
+        const id = Number(meterId);
+        if (!Number.isSafeInteger(id) || id <= 0) return;
         const accessQuery = meterRoomAccessQuery(role, id, userId);
         if (!accessQuery) return;
         const result = await pool.query(...accessQuery);
         if (result.rows.length) socket.join(`meter_${id}`);
       } catch (error) {
-        console.error('[Socket] Failed to authorize meter room:', error.message);
+        console.warn('[Socket] Non-fatal meter room auth error:', error.message);
       }
     });
 
     socket.on('leave_meter', (meterId) => {
-      const id = Number(meterId);
-      if (Number.isSafeInteger(id) && id > 0) socket.leave(`meter_${id}`);
+      try {
+        const id = Number(meterId);
+        if (Number.isSafeInteger(id) && id > 0) socket.leave(`meter_${id}`);
+      } catch (error) {
+        console.warn('[Socket] Non-fatal leave_meter error:', error.message);
+      }
     });
   });
 
@@ -78,39 +95,60 @@ const getIo = () => io;
 
 /**
  * Broadcast real-time meter telemetry & balance update to listening room
+ * Fully decoupled and asynchronous - will never block or throw in REST context.
  * @param {number|string} meterId 
  * @param {object} payload 
  */
 const emitMeterUpdate = (meterId, payload) => {
-  if (io && meterId) {
-    io.to(`meter_${meterId}`).emit('meter_update', payload);
-    io.to('all_meters').emit('meter_update', { meterId, ...payload });
-  }
+  setImmediate(() => {
+    try {
+      if (io && meterId) {
+        io.to(`meter_${meterId}`).emit('meter_update', payload);
+        io.to('all_meters').emit('meter_update', { meterId, ...payload });
+      }
+    } catch (err) {
+      console.warn('[SocketService] Non-critical socket emitMeterUpdate error:', err.message);
+    }
+  });
 };
 
 /**
  * Broadcast real-time notification to user's room
+ * Fully decoupled and asynchronous - will never block or throw in REST context.
  * @param {number|string} userId 
  * @param {object} notification 
  */
 const emitNotification = (userId, notification) => {
-  if (io && userId) {
-    io.to(`user_${userId}`).emit('notification', notification);
-  }
+  setImmediate(() => {
+    try {
+      if (io && userId) {
+        io.to(`user_${userId}`).emit('notification', notification);
+      }
+    } catch (err) {
+      console.warn('[SocketService] Non-critical socket emitNotification error:', err.message);
+    }
+  });
 };
 
 /**
  * Broadcast real-time complaint status update to user's room and staff
+ * Fully decoupled and asynchronous - will never block or throw in REST context.
  * @param {number|string} userId 
  * @param {object} complaint 
  */
 const emitComplaintUpdate = (userId, complaint) => {
-  if (io) {
-    if (userId) {
-      io.to(`user_${userId}`).emit('complaint_update', complaint);
+  setImmediate(() => {
+    try {
+      if (io) {
+        if (userId) {
+          io.to(`user_${userId}`).emit('complaint_update', complaint);
+        }
+        io.to('staff_room').emit('complaint_update', complaint);
+      }
+    } catch (err) {
+      console.warn('[SocketService] Non-critical socket emitComplaintUpdate error:', err.message);
     }
-    io.to('staff_room').emit('complaint_update', complaint);
-  }
+  });
 };
 
 module.exports = {

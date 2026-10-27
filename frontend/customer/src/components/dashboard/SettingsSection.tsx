@@ -46,6 +46,7 @@ export interface UserSettings {
   phone_number: string
   low_balance_threshold: number
   daily_kwh_budget: number
+  monthly_budget_lkr?: number
   auto_emergency_credit: boolean
   night_curfew_enabled: boolean
   email_notifications: boolean
@@ -70,9 +71,10 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
   const [user, setUser] = useState<UserProfile | null>(null)
 
   // Settings State
-  const [phoneNumber, setPhoneNumber] = useState("+94 77 123 4567")
+  const [phoneNumber, setPhoneNumber] = useState("")
   const [lowBalanceThreshold, setLowBalanceThreshold] = useState<number>(300)
   const [dailyKwhBudget, setDailyKwhBudget] = useState<number>(12)
+  const [monthlyBudgetLkr, setMonthlyBudgetLkr] = useState<number>(3000)
   const [autoEmergencyCredit, setAutoEmergencyCredit] = useState(true)
   const [nightCurfewEnabled, setNightCurfewEnabled] = useState(true)
   const [emailNotifications, setEmailNotifications] = useState(true)
@@ -111,9 +113,10 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
       if (res.ok) {
         const data = await res.json()
         if (data.settings) {
-          setPhoneNumber(data.settings.phone_number || "+94 77 123 4567")
+          setPhoneNumber(data.settings.phone_number || "")
           setLowBalanceThreshold(data.settings.low_balance_threshold ?? 300)
           setDailyKwhBudget(data.settings.daily_kwh_budget ?? 12)
+          setMonthlyBudgetLkr(data.settings.monthly_budget_lkr ? Number(data.settings.monthly_budget_lkr) : 3000)
           setAutoEmergencyCredit(data.settings.auto_emergency_credit ?? true)
           setNightCurfewEnabled(data.settings.night_curfew_enabled ?? true)
           setEmailNotifications(data.settings.email_notifications ?? true)
@@ -152,6 +155,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
           phone_number: phoneNumber,
           low_balance_threshold: lowBalanceThreshold,
           daily_kwh_budget: dailyKwhBudget,
+          monthly_budget_lkr: monthlyBudgetLkr,
           auto_emergency_credit: autoEmergencyCredit,
           night_curfew_enabled: nightCurfewEnabled,
           email_notifications: emailNotifications,
@@ -333,7 +337,46 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-6">
+                  {/* Monthly Budget (LKR) */}
                   <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="monthly-budget-input" className="text-xs font-semibold text-white uppercase tracking-wider">
+                        {t.settings.monthlyBudget}
+                      </Label>
+                      <span className="text-sm font-bold text-yellow-400">Rs. {monthlyBudgetLkr.toLocaleString()}</span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3">
+                      <Input
+                        id="monthly-budget-input"
+                        type="number"
+                        min="500"
+                        max="100000"
+                        step="500"
+                        value={monthlyBudgetLkr}
+                        onChange={(e) => setMonthlyBudgetLkr(parseFloat(e.target.value) || 0)}
+                        className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl w-full sm:w-36"
+                      />
+                      <div className="grid grid-cols-5 sm:flex gap-1.5 sm:gap-2">
+                        {[2000, 3000, 5000, 8000, 10000].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setMonthlyBudgetLkr(preset)}
+                            className={`px-2 py-1.5 rounded-lg text-xs font-semibold border transition-all text-center cursor-pointer ${
+                              monthlyBudgetLkr === preset
+                                ? "bg-yellow-400 text-black border-yellow-400 shadow-md shadow-yellow-400/20"
+                                : "bg-black/30 border-white/10 text-white/70 hover:bg-black/50 hover:text-white"
+                            }`}
+                          >
+                            Rs. {preset >= 1000 ? `${preset / 1000}k` : preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/10 pt-5 space-y-3">
                     <div className="flex justify-between items-center">
                       <Label htmlFor="low-balance-input" className="text-xs font-semibold text-white uppercase tracking-wider">
                         {t.settings.lowBalanceThreshold}
@@ -479,7 +522,7 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                       id="alert-phone-input"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+94 77 123 4567"
+                      placeholder="e.g. 0771234567"
                       className="bg-black/30 border-white/15 text-white text-xs h-10 rounded-xl"
                     />
                   </div>

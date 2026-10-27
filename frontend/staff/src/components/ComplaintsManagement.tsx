@@ -18,7 +18,8 @@ import {
   Loader2,
   Send,
   Check,
-  RefreshCw
+  RefreshCw,
+  Download
 } from "lucide-react"
 import type { StaffComplaint } from "../types"
 
@@ -143,6 +144,29 @@ export default function ComplaintsManagement({
     } finally {
       setUpdating(false)
     }
+  }
+
+  const handleExportCsv = () => {
+    if (filteredComplaints.length === 0) return
+    const headers = ["Ticket Number", "Customer Email", "Meter Number", "Subject", "Priority", "Status", "Created At", "Resolution Notes"]
+    const rows = filteredComplaints.map(c => [
+      c.ticket_number,
+      c.customer_email || "N/A",
+      c.meter_number || "N/A",
+      c.subject,
+      c.priority,
+      c.status,
+      new Date(c.created_at).toLocaleString("en-US"),
+      c.resolution_notes || ""
+    ])
+    const csv = [headers.join(","), ...rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))].join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `LECO_Complaints_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -275,6 +299,16 @@ export default function ComplaintsManagement({
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-yellow-400" : ""}`} />
             Refresh
+          </Button>
+
+          <Button
+            onClick={handleExportCsv}
+            variant="outline"
+            disabled={filteredComplaints.length === 0}
+            className="bg-black/40 border-white/5 hover:bg-white/10 text-white h-9 px-3 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <Download className="h-3.5 w-3.5 text-yellow-400" />
+            Export CSV
           </Button>
         </div>
       </div>

@@ -1,20 +1,18 @@
 require('dotenv').config();
 const http = require('http');
 const app = require('./app');
-const { connectDb } = require('./config/db');
+const { connectDb, closePool } = require('./config/db');
 const { initSocket } = require('./services/socketService');
+const { setupProcessImmunity, registerGracefulShutdown } = require('./utils/immunitySupervisor');
+
+// Process-level Crash Immunity: Intercepts unhandled rejections, uncaught exceptions, and warnings
+setupProcessImmunity();
 
 const port = process.env.PORT || 3000;
 const server = http.createServer(app);
 
-// Process-level safety: Prevent uncaught crashes from killing the entire server
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('[Unhandled Rejection at Promise]:', reason);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('[Uncaught Exception]:', err);
-});
+// Register graceful zero-downtime shutdown on SIGTERM / SIGINT
+registerGracefulShutdown(server, { closeDbPool: closePool });
 
 const startServer = async () => {
   try {
@@ -28,12 +26,13 @@ const startServer = async () => {
 
     server.listen(port, () => {
       console.log('====================================================');
-      console.log(`⚡ LECO Smart AMI Enterprise REST Server Ready`);
+      console.log('⚡ LECO Self Care Enterprise REST Server Ready');
       console.log(`📡 Port: ${port}`);
-      console.log(`🔒 Security: JWT Bearer + Strict Customer/Staff RBAC`);
+      console.log('🔒 Security: JWT Bearer + Strict Customer/Staff RBAC');
       console.log(`🌐 Customer API: http://localhost:${port}/api/customer`);
       console.log(`🛠️  Staff API:    http://localhost:${port}/api/staff`);
       console.log(`🩺 Health:       http://localhost:${port}/api/health`);
+      console.log('🛡️  Immunity:     Process & DB Crash Protection Active');
       console.log('====================================================');
     });
   } catch (err) {

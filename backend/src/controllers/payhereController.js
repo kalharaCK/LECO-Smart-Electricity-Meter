@@ -5,6 +5,7 @@ const {
   verifyNotificationSignature 
 } = require('../services/payhereService');
 const { emitMeterUpdate, emitNotification } = require('../services/socketService');
+const smsService = require('../services/smsService');
 
 /**
  * 1. Initialize PayHere Checkout Session

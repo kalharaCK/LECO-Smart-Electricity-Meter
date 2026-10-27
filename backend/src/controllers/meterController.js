@@ -4,6 +4,8 @@ const { getWalletLifetimePrediction } = require('../services/predictionEngine');
 const { calculateDomesticBill } = require('../services/tariffEngine');
 const { sanitizeString } = require('../middlewares/sanitizer');
 const { emitMeterUpdate, emitNotification } = require('../services/socketService');
+const smsService = require('../services/smsService');
+const mlClient = require('../services/mlClient');
 
 /**
  * Broadcasts latest meter telemetry, balance, and prediction over WebSocket
@@ -65,6 +67,25 @@ async function broadcastMeterState(meterId) {
       emergencyCreditActive: meter.emergency_credit_active
     });
 
+    try {
+      const mlPrepaid = await mlClient.getPrepaidLifetime(meterId, balance);
+      if (mlPrepaid) {
+        prediction.ml = {
+          isAvailable: true,
+          coldStartStage: mlPrepaid.cold_start_stage,
+          expectedRemainingHours: mlPrepaid.expected_remaining_hours,
+          expectedRemainingDays: mlPrepaid.expected_remaining_days,
+          predictedExhaustionTime: mlPrepaid.predicted_exhaustion_time,
+          conservativeWarningTime: mlPrepaid.conservative_warning_time,
+          trajectories: mlPrepaid.trajectories,
+          confidenceScore: mlPrepaid.confidence_score,
+          modelWeights: mlPrepaid.model_weights
+        };
+      }
+    } catch (_) {
+      // Graceful fallback
+    }
+
     const chartResult = await pool.query(
       `SELECT 
          to_char(reading_date, 'Mon DD') as date,
@@ -76,6 +97,16 @@ async function broadcastMeterState(meterId) {
        ORDER BY reading_date ASC`,
       [meterId]
     );
+
+    // Query latest real telemetry reading for live power and solar export
+    const latestLogRes = await pool.query(
+      `SELECT consumption, energy_export FROM consumption_logs 
+       WHERE meter_id = $1 
+       ORDER BY reading_date DESC, reading_hour DESC LIMIT 1`,
+      [meterId]
+    );
+    const livePower = latestLogRes.rows.length > 0 ? parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2) : '0.00';
+    const liveExport = latestLogRes.rows.length > 0 ? parseFloat(latestLogRes.rows[0].energy_export || 0).toFixed(2) : '0.00';
 
     const payload = {
       meterId: Number(meterId),
@@ -89,8 +120,8 @@ async function broadcastMeterState(meterId) {
       exportYesterday: parseFloat(yesterdayResult.rows[0]?.total_export || 0).toFixed(1),
       thisWeek: parseFloat(weekResult.rows[0]?.total_import || 0).toFixed(1),
       exportThisWeek: parseFloat(weekResult.rows[0]?.total_export || 0).toFixed(1),
-      currentPower: (Math.random() * 1.5 + 0.5).toFixed(2),
-      currentExport: (new Date().getHours() >= 8 && new Date().getHours() <= 17) ? (Math.random() * 2.0).toFixed(2) : '0.00',
+      currentPower: livePower,
+      currentExport: liveExport,
       chartData: chartResult.rows.map(r => ({
         date: r.date,
         import: parseFloat(r.import || 0),
@@ -190,54 +221,15 @@ const addMeter = async (req, res) => {
 
     const newMeter = result.rows[0];
 
-    // Seed mock consumption data for the past 30 days
-    const client = await pool.connect();
+    // Send legitimate initial connection notification
     try {
-      await client.query('BEGIN');
-      const today = new Date();
-      const rows = [];
-      for (let i = 0; i < 30; i++) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
-        
-        // 24 hours of data - realistic Sri Lankan domestic household (avg ~4.5 kWh/day)
-        for (let h = 0; h < 24; h++) {
-          const baseHour = (h >= 23 || h < 6) ? 0.08 : (h >= 18 && h <= 22) ? 0.28 : 0.18;
-          const consumption = Math.max(0.02, baseHour + (Math.random() * 0.1 - 0.05)).toFixed(2);
-          let energyExport = '0.00';
-          if (h >= 9 && h <= 16) {
-            energyExport = (Math.random() * 0.25 + 0.10).toFixed(2);
-          }
-          rows.push({ dateStr, h, consumption, energyExport });
-        }
-      }
-
-      // Ultra-fast single-roundtrip batch insert via PostgreSQL UNNEST
-      await client.query(
-        `INSERT INTO consumption_logs (meter_id, reading_date, reading_hour, consumption, energy_export)
-         SELECT $1, unnest($2::date[]), unnest($3::int[]), unnest($4::numeric[]), unnest($5::numeric[])`,
-        [
-          newMeter.id,
-          rows.map(r => r.dateStr),
-          rows.map(r => r.h),
-          rows.map(r => r.consumption),
-          rows.map(r => r.energyExport)
-        ]
+      await pool.query(
+        `INSERT INTO notifications (user_id, meter_id, type, title, message) 
+         VALUES ($1, $2, 'success', 'Meter Connected', $3)`,
+        [userId, newMeter.id, `Smart meter ${meterNumber} has been successfully connected to your account.`]
       );
-      await client.query('COMMIT');
-
-      // Seed mock notifications
-      await client.query('BEGIN');
-      await client.query(`INSERT INTO notifications (user_id, meter_id, type, title, message) VALUES ($1, $2, $3, $4, $5)`, [userId, newMeter.id, 'success', 'Meter Connected', `Smart meter ${meterNumber} has been successfully connected to your account.`]);
-      await client.query(`INSERT INTO notifications (user_id, meter_id, type, title, message) VALUES ($1, $2, $3, $4, $5)`, [userId, newMeter.id, 'alert', 'Low Balance Warning', `Your balance is below Rs. 2,000. Consider recharging soon.`]);
-      await client.query(`INSERT INTO notifications (user_id, meter_id, type, title, message) VALUES ($1, $2, $3, $4, $5)`, [userId, newMeter.id, 'info', 'High Export Detected', `You had a peak solar export of 1.8 kW yesterday.`]);
-      await client.query('COMMIT');
-    } catch (e) {
-      await client.query('ROLLBACK');
-      console.error('Failed to seed data:', e);
-    } finally {
-      client.release();
+    } catch (notifErr) {
+      console.warn('[AddMeter Notification Warning]:', notifErr.message);
     }
 
     res.status(201).json({ message: 'Meter added successfully', meter: newMeter });
@@ -304,9 +296,15 @@ const getMeterConsumption = async (req, res) => {
       [meterId]
     );
 
-    // Get current power (just use the latest hour reading or mock based on time)
-    const currentPower = (Math.random() * 1.5 + 0.5).toFixed(2); // Mock current kW draw
-    const currentExport = (new Date().getHours() >= 8 && new Date().getHours() <= 17) ? (Math.random() * 2.0).toFixed(2) : '0.00';
+    // Query latest real telemetry reading for live power and solar export
+    const latestLogRes = await pool.query(
+      `SELECT consumption, energy_export FROM consumption_logs 
+       WHERE meter_id = $1 
+       ORDER BY reading_date DESC, reading_hour DESC LIMIT 1`,
+      [meterId]
+    );
+    const currentPower = latestLogRes.rows.length > 0 ? parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2) : '0.00';
+    const currentExport = latestLogRes.rows.length > 0 ? parseFloat(latestLogRes.rows[0].energy_export || 0).toFixed(2) : '0.00';
 
     // Fetch daily history for LECO wallet lifetime prediction (Net consumption: Import - Export)
     const historyResult = await pool.query(
@@ -347,6 +345,25 @@ const getMeterConsumption = async (req, res) => {
       emergencyCreditLimit,
       emergencyCreditActive
     });
+
+    try {
+      const mlPrepaid = await mlClient.getPrepaidLifetime(meterId, balance);
+      if (mlPrepaid) {
+        prediction.ml = {
+          isAvailable: true,
+          coldStartStage: mlPrepaid.cold_start_stage,
+          expectedRemainingHours: mlPrepaid.expected_remaining_hours,
+          expectedRemainingDays: mlPrepaid.expected_remaining_days,
+          predictedExhaustionTime: mlPrepaid.predicted_exhaustion_time,
+          conservativeWarningTime: mlPrepaid.conservative_warning_time,
+          trajectories: mlPrepaid.trajectories,
+          confidenceScore: mlPrepaid.confidence_score,
+          modelWeights: mlPrepaid.model_weights
+        };
+      }
+    } catch (_) {
+      // Graceful fallback
+    }
 
     res.json({
       today: parseFloat(todayResult.rows[0].total_import || 0).toFixed(1),
@@ -531,6 +548,33 @@ const rechargeMeter = async (req, res) => {
 
       // Real-time WebSocket Broadcast
       broadcastMeterState(meterId).catch(e => console.error('WS broadcast error:', e));
+
+      // Dispatch Payment Confirmation SMS via Text.lk
+      try {
+        const userMobQuery = await client.query(
+          `SELECT COALESCE(u.mobile_number, s.phone_number) as phone 
+           FROM users u 
+           LEFT JOIN user_settings s ON u.id = s.user_id 
+           WHERE u.id = $1`,
+          [userId]
+        );
+        const customerPhone = userMobQuery.rows[0]?.phone;
+        if (customerPhone) {
+          smsService.sendEventSms({
+            recipient: customerPhone,
+            eventType: 'payment',
+            language: 'en',
+            data: {
+              amount: rechargeAmount.toFixed(2),
+              account_no: meterCheck.rows[0].account_number || meterCheck.rows[0].meter_number,
+              ref: txnId,
+              balance: newBalance.toFixed(2)
+            }
+          }).catch(err => console.error('[Recharge SMS error]:', err.message));
+        }
+      } catch (smsErr) {
+        console.error('[Recharge SMS Phone Fetch Error]:', smsErr.message);
+      }
 
       res.status(200).json({
         message: debtRecovered > 0 
@@ -799,6 +843,20 @@ const simulateConsumption = async (req, res) => {
       }
     }
 
+    // Feed incoming telemetry asynchronously to Python ML Engine (non-blocking)
+    mlClient.ingestTelemetry({
+      meterId: Number(meterId),
+      timestamp: new Date().toISOString(),
+      cumulativeKwh: currentMonthKwh,
+      prepaidBalance: prevBalance,
+      connectionType: 'prepaid',
+      tariffId: 'DOMESTIC_D1',
+      billingCycleDay: new Date().getDate(),
+      voltage: 230.0,
+      currentAmps: (kwh * 1000) / 230.0,
+      powerFactor: 0.96
+    }).catch(e => console.warn('[ML Telemetry Ingest Warning]:', e.message));
+
     // Real-time WebSocket Broadcast (instantly notifies frontend without full page reload)
     const livePayload = await broadcastMeterState(meterId);
 
@@ -1049,7 +1107,7 @@ const getAllMetersForStaff = async (req, res) => {
         u.email AS customer_email,
         u.role AS customer_role,
         u.created_at AS customer_since,
-        COALESCE(us.phone_number, '+94 77 123 4567') AS phone_number,
+        COALESCE(u.mobile_number, us.phone_number, '') AS phone_number,
         COALESCE(us.tariff_type, 'Domestic D-1 (PUCSL Block Tariff)') AS tariff_type,
         COALESCE(us.low_balance_threshold, 300.00) AS low_balance_threshold,
         COALESCE(us.daily_kwh_budget, 12.00) AS daily_kwh_budget,
@@ -1133,6 +1191,31 @@ const toggleMeterRelay = async (req, res) => {
     // Broadcast to real-time WebSockets
     broadcastMeterState(meterId).catch(console.error);
 
+    // Dispatch Relay Status SMS via Text.lk
+    try {
+      const userMobQuery = await pool.query(
+        `SELECT COALESCE(u.mobile_number, s.phone_number) as phone 
+         FROM users u 
+         LEFT JOIN user_settings s ON u.id = s.user_id 
+         WHERE u.id = $1`,
+        [meter.user_id]
+      );
+      const customerPhone = userMobQuery.rows[0]?.phone;
+      if (customerPhone) {
+        smsService.sendEventSms({
+          recipient: customerPhone,
+          eventType: 'relay_command',
+          language: 'en',
+          data: {
+            account_no: meter.account_number || meter.meter_number,
+            status: newStatus === 'Connected' ? 'Connected (Active)' : 'Disconnected (Cutoff)'
+          }
+        }).catch(err => console.error('[Relay SMS error]:', err.message));
+      }
+    } catch (smsErr) {
+      console.error('[Relay SMS Phone Fetch Error]:', smsErr.message);
+    }
+
     return res.json({
       success: true,
       message: `Meter relay successfully changed to ${newStatus}.`,
@@ -1190,6 +1273,33 @@ const staffTopupMeter = async (req, res) => {
     );
 
     broadcastMeterState(meterId).catch(console.error);
+
+    // Dispatch Staff Adjustment SMS via Text.lk
+    try {
+      const userMobQuery = await pool.query(
+        `SELECT COALESCE(u.mobile_number, s.phone_number) as phone 
+         FROM users u 
+         LEFT JOIN user_settings s ON u.id = s.user_id 
+         WHERE u.id = $1`,
+        [meter.user_id]
+      );
+      const customerPhone = userMobQuery.rows[0]?.phone;
+      if (customerPhone) {
+        smsService.sendEventSms({
+          recipient: customerPhone,
+          eventType: 'payment',
+          language: 'en',
+          data: {
+            amount: numAmount.toFixed(2),
+            account_no: meter.account_number || meter.meter_number,
+            ref: txId,
+            balance: newBalance.toFixed(2)
+          }
+        }).catch(err => console.error('[Staff Topup SMS error]:', err.message));
+      }
+    } catch (smsErr) {
+      console.error('[Staff Topup SMS Phone Fetch Error]:', smsErr.message);
+    }
 
     return res.json({
       success: true,
