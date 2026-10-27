@@ -568,35 +568,30 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
 
           {/* Primary Action Buttons & View Mode Switch */}
           <div className="flex items-center gap-2.5 shrink-0 self-start lg:self-auto flex-wrap sm:flex-nowrap">
-            {/* Standard Segmented View Mode Switcher */}
-            <div className="inline-flex p-1 rounded-xl bg-white/[0.06] border border-white/10 h-10 items-center shrink-0">
-              <button
-                type="button"
-                onClick={() => handleToggleViewMode("simplified")}
-                className={`flex items-center gap-2 h-8 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === "simplified"
-                    ? "bg-yellow-400 text-black shadow-xs"
-                    : "text-white/60 hover:text-white hover:bg-white/5"
-                }`}
-                title={t.overview.simplifiedViewDesc}
-              >
-                <Eye className="h-3.5 w-3.5" />
-                <span>{t.overview.simplifiedView}</span>
-              </button>
-              <button
+            {/* Standard Single View Mode Toggle Button */}
+            {viewMode === "simplified" ? (
+              <Button
                 type="button"
                 onClick={() => handleToggleViewMode("detailed")}
-                className={`flex items-center gap-2 h-8 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === "detailed"
-                    ? "bg-yellow-400 text-black shadow-xs"
-                    : "text-white/60 hover:text-white hover:bg-white/5"
-                }`}
-                title="Detailed engineering view with diagnostics & specs"
+                variant="outline"
+                className="bg-white/5 hover:bg-white/10 text-white hover:text-white border-white/15 hover:border-yellow-400/40 text-xs font-bold h-10 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-all shadow-xs"
+                title={t.overview.switchToDetailed}
               >
-                <Sliders className="h-3.5 w-3.5" />
+                <Sliders className="h-4 w-4 text-yellow-400" />
                 <span>{t.overview.detailedView}</span>
-              </button>
-            </div>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={() => handleToggleViewMode("simplified")}
+                variant="outline"
+                className="bg-yellow-400/10 hover:bg-yellow-400/20 text-yellow-300 hover:text-yellow-200 border-yellow-400/30 text-xs font-bold h-10 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-all shadow-xs"
+                title={t.overview.switchToSimplified}
+              >
+                <Eye className="h-4 w-4 text-yellow-400" />
+                <span>{t.overview.simplifiedView}</span>
+              </Button>
+            )}
 
             {viewMode === "detailed" && (
               <>
