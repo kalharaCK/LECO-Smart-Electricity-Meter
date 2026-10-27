@@ -164,8 +164,8 @@ const sendRegisterOtp = async (req, res) => {
 const registerWithProfile = async (req, res) => {
   try {
     const { full_name, address, nic, mobile_number, email, password, otp } = req.body;
-    if (!email || !password || !mobile_number) {
-      return res.status(400).json({ success: false, error: 'Email, mobile number, and password are required' });
+    if (!email || !password || !mobile_number || typeof otp !== 'string' || !/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ success: false, error: 'Email, mobile number, password, and a six-digit verification code are required' });
     }
 
     const cleanEmail = email.trim().toLowerCase();
@@ -188,22 +188,18 @@ const registerWithProfile = async (req, res) => {
       }
     }
 
-    // Verify OTP for mobile
-    if (otp) {
-      const otpCheck = await pool.query(
-        `SELECT id FROM verification_otps 
-         WHERE identifier = $1 AND purpose = 'registration' AND otp_code = $2 AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
-         ORDER BY id DESC LIMIT 1`,
-        [cleanMobile, otp.trim()]
-      );
+    const otpCheck = await pool.query(
+      `SELECT id FROM verification_otps 
+       WHERE identifier = $1 AND purpose = 'registration' AND otp_code = $2 AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
+       ORDER BY id DESC LIMIT 1`,
+      [cleanMobile, otp]
+    );
 
-      if (otpCheck.rows.length === 0) {
-        return res.status(400).json({ success: false, error: 'Invalid or expired SMS verification code. Please check and try again.' });
-      }
-
-      // Mark OTP as verified
-      await pool.query(`UPDATE verification_otps SET verified = TRUE WHERE id = $1`, [otpCheck.rows[0].id]);
+    if (otpCheck.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired SMS verification code. Please check and try again.' });
     }
+
+    await pool.query(`UPDATE verification_otps SET verified = TRUE WHERE id = $1`, [otpCheck.rows[0].id]);
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
