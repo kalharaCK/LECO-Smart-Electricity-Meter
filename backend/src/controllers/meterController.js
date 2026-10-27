@@ -443,6 +443,10 @@ const rechargeMeter = async (req, res) => {
         !Number.isFinite(rechargeAmount) || rechargeAmount < 100 || rechargeAmount > 100000) {
       return res.status(400).json({ message: 'Recharge amount must be between Rs. 100 and Rs. 100,000 with at most two decimal places.' });
     }
+    const allowedMethods = new Set(['card', 'wallet', 'bank']);
+    if (paymentMethod !== undefined && !allowedMethods.has(paymentMethod)) {
+      return res.status(400).json({ message: 'Unsupported simulated payment method.' });
+    }
 
     // Step 1: Idempotency Check - prevent double-charges from network lag or multiple clicks
     if (idempotencyKey) {
