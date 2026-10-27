@@ -12,10 +12,6 @@ BASE_DIR = Path(__file__).resolve().parent
 BACKEND_ENV = BASE_DIR.parent / "backend" / ".env"
 ML_ENV = BASE_DIR / ".env"
 
-# Active Neon Database URL from backend/.env
-DEFAULT_NEON_DB_URL = "postgresql://neondb_owner:npg_ANkWi13sFrGy@ep-autumn-paper-b4lli3x5-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require"
-
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=[str(ML_ENV), str(BACKEND_ENV), ".env"],
@@ -33,10 +29,7 @@ class Settings(BaseSettings):
 
     # Neon PostgreSQL Database Connection
     # Uses the same DATABASE_URL as the Node.js backend
-    DATABASE_URL: str = Field(
-        default=DEFAULT_NEON_DB_URL,
-        validation_alias="DATABASE_URL"
-    )
+    DATABASE_URL: str = Field(validation_alias="DATABASE_URL")
     DB_POOL_MIN_SIZE: int = 1
     DB_POOL_MAX_SIZE: int = 10
 
