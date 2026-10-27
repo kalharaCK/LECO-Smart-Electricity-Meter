@@ -203,21 +203,14 @@ const createCustomerForStaff = async (req, res) => {
     try {
       emailService.sendHtmlEmail({
         to: cleanEmail,
-        subject: 'Welcome to LECO Smart Electricity Metering',
+        subject: 'Welcome to LECO Smart Electricity Prepayment',
         purpose: 'account_created',
-        htmlBody: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0f1422; color: #f1f5f9; padding: 24px; border-radius: 8px;">
-            <h2 style="color: #facc15; margin-top: 0;">Welcome to LECO Smart Metering</h2>
-            <p>Dear ${full_name.trim()},</p>
-            <p>Your LECO customer account has been created by Lanka Electricity Company staff.</p>
-            <div style="background: #182235; padding: 16px; border-radius: 6px; margin: 20px 0;">
-              <p style="margin: 4px 0;"><strong>Account Email:</strong> ${cleanEmail}</p>
-              <p style="margin: 4px 0;"><strong>NIC:</strong> ${cleanNic}</p>
-              ${linkedMeter ? `<p style="margin: 4px 0;"><strong>Assigned Meter:</strong> ${linkedMeter.meter_number} (${linkedMeter.account_number})</p>` : ''}
-            </div>
-            <p>You can now sign in to the LECO Customer Dashboard to monitor live consumption, top up credit, and manage tariff alerts.</p>
-          </div>
-        `
+        htmlBody: emailService.buildCustomerWelcomeEmailHtml({
+          fullName: full_name.trim(),
+          email: cleanEmail,
+          nic: cleanNic,
+          meter: linkedMeter
+        })
       }).catch(err => console.warn('[Staff Customer] Welcome Email notice:', err.message));
     } catch (_) {}
 

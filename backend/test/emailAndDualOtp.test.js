@@ -57,3 +57,57 @@ test('resolveSmtpCredentials strips spaces from Gmail app passwords', async () =
     process.env.SMTP_USER = originalUser;
   }
 });
+
+test('getLogoAttachment returns valid CID attachment object for LECO logo', () => {
+  const attachment = emailService.getLogoAttachment();
+  assert.ok(attachment, 'Logo attachment should be resolved');
+  assert.equal(attachment.filename, 'leco-logo.png');
+  assert.equal(attachment.cid, emailService.LOGO_CID);
+  assert.ok(attachment.path.includes('leco-logo.png'));
+});
+
+test('buildOtpEmailHtml includes official LECO logo and professional gold accent bar', () => {
+  const html = emailService.buildOtpEmailHtml({
+    otp: '556677',
+    purpose: 'registration',
+    recipientName: 'Kamal'
+  });
+
+  assert.ok(html.includes(`src="cid:${emailService.LOGO_CID}"`), 'Must include CID reference to logo');
+  assert.ok(html.includes('gold-accent-bar'), 'Must include corporate gold accent stripe');
+  assert.ok(html.includes('LECO Smart Electricity'), 'Must include brand title');
+  assert.ok(html.includes('Lanka Electricity Company (Pvt) Ltd'), 'Must include company name');
+});
+
+test('buildTestDiagnosticEmailHtml renders matching professional layout with logo and zero emojis', () => {
+  const html = emailService.buildTestDiagnosticEmailHtml({
+    creds: { user: 'operations@leco.lk', host: 'smtp.gmail.com', port: 465, source: 'database' },
+    timestamp: '2026-10-28 01:30:00'
+  });
+
+  assert.ok(html.includes(`src="cid:${emailService.LOGO_CID}"`), 'Must include logo in diagnostic email');
+  assert.ok(html.includes('SMTP Connectivity Verified'), 'Must include verified badge');
+  assert.ok(html.includes('operations@leco.lk'), 'Must include sender user');
+
+  const emojiRegex = /[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+  assert.equal(emojiRegex.test(html), false, 'Diagnostic test email must contain zero emojis');
+});
+
+test('buildCustomerWelcomeEmailHtml renders professional customer onboarding email with logo and zero emojis', () => {
+  const html = emailService.buildCustomerWelcomeEmailHtml({
+    fullName: 'Anura Bandara',
+    email: 'anura@example.com',
+    nic: '851234567V',
+    meter: { meter_number: 'LEC-778899', account_number: 'ACC-001122' }
+  });
+
+  assert.ok(html.includes(`src="cid:${emailService.LOGO_CID}"`), 'Must include logo in welcome email');
+  assert.ok(html.includes('Anura Bandara'), 'Must include customer name');
+  assert.ok(html.includes('anura@example.com'), 'Must include customer email');
+  assert.ok(html.includes('851234567V'), 'Must include customer NIC');
+  assert.ok(html.includes('LEC-778899'), 'Must include meter number');
+
+  const emojiRegex = /[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+  assert.equal(emojiRegex.test(html), false, 'Welcome email must contain zero emojis');
+});
+

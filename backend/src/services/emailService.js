@@ -1,4 +1,24 @@
 const nodemailer = require('nodemailer');
+const path = require('path');
+const fs = require('fs');
+
+const LOGO_CID = 'lecologo@leco.lk';
+const LOGO_PATH = path.join(__dirname, '../assets/leco-logo.png');
+
+function getLogoAttachment() {
+  try {
+    if (fs.existsSync(LOGO_PATH)) {
+      return {
+        filename: 'leco-logo.png',
+        path: LOGO_PATH,
+        cid: LOGO_CID
+      };
+    }
+  } catch (err) {
+    console.warn('[EmailService] Logo file lookup notice:', err.message);
+  }
+  return null;
+}
 
 function getPool() {
   if (!process.env.DATABASE_URL) return null;
@@ -119,29 +139,29 @@ async function getTransporter() {
 }
 
 /**
- * Clean, Standard Formatted HTML Email Design (No Emojis)
+ * Professional, Executive Themed HTML Email Design with Logo (Strict Zero Emojis)
  */
-function buildOtpEmailHtml({ otp, purpose, recipientName, expiresMinutes = 10 }) {
+function buildOtpEmailHtml({ otp, purpose, recipientName, expiresMinutes = 10, logoSrc = `cid:${LOGO_CID}` }) {
   const purposeMap = {
     registration: {
       title: 'Account Registration Verification',
       badge: 'Account Registration',
-      description: 'Thank you for registering with LECO Smart Prepayment Portal. Use the verification code below to verify your email and activate your account.'
+      description: 'Thank you for registering with the LECO Smart Prepayment Portal. Use the verification code below to verify your email address and activate your smart meter account.'
     },
     forgot_password: {
       title: 'Password Reset Verification',
       badge: 'Password Reset',
-      description: 'A password reset request was initiated for your LECO Smart Meter account. Use the verification code below to verify your identity and reset your password.'
+      description: 'A password reset request was initiated for your LECO Smart Meter account. Use the verification code below to verify your identity and reset your account password.'
     },
     verify_email: {
       title: 'Email Address Verification',
       badge: 'Email Verification',
-      description: 'Please confirm your email address for official LECO digital bill delivery, monthly statements, and real-time balance alerts.'
+      description: 'Please confirm your email address for official LECO digital bill delivery, monthly consumption statements, and real-time smart meter balance alerts.'
     },
     default: {
       title: 'Security Verification Code',
       badge: 'Security Code',
-      description: 'Your one-time verification code is provided below.'
+      description: 'Your one-time security verification code is provided below to verify your request.'
     }
   };
 
@@ -159,53 +179,78 @@ function buildOtpEmailHtml({ otp, purpose, recipientName, expiresMinutes = 10 })
     body {
       margin: 0;
       padding: 0;
-      background-color: #f1f5f9;
+      background-color: #0b132b;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: #1e293b;
       -webkit-font-smoothing: antialiased;
     }
     .wrapper {
       width: 100%;
-      background-color: #f1f5f9;
-      padding: 30px 15px;
+      background-color: #0b132b;
+      padding: 40px 15px;
       box-sizing: border-box;
     }
     .container {
-      max-width: 560px;
+      max-width: 580px;
       margin: 0 auto;
       background: #ffffff;
-      border-radius: 12px;
+      border-radius: 16px;
       overflow: hidden;
-      border: 1px solid #e2e8f0;
-      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+      border: 1px solid #1e293b;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+    .gold-accent-bar {
+      height: 5px;
+      background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%);
+      width: 100%;
     }
     .header {
-      background: linear-gradient(135deg, #0b2545 0%, #134074 100%);
-      padding: 28px 24px;
+      background: linear-gradient(135deg, #071527 0%, #0d2545 60%, #071527 100%);
+      padding: 32px 24px 28px 24px;
       text-align: center;
       color: #ffffff;
     }
+    .logo-container {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 14px auto;
+      background: #ffffff;
+      border-radius: 50%;
+      padding: 3px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+      display: inline-block;
+    }
+    .logo-img {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: block;
+      object-fit: contain;
+    }
     .header-logo-text {
-      font-size: 20px;
+      font-size: 21px;
       font-weight: 800;
-      letter-spacing: 1.5px;
-      color: #f59e0b;
+      letter-spacing: 2px;
+      color: #ffffff;
       margin: 0;
       text-transform: uppercase;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
     }
     .header-subtext {
       font-size: 11px;
-      color: #cbd5e1;
-      margin-top: 4px;
-      letter-spacing: 0.5px;
+      color: #fbbf24;
+      font-weight: 700;
+      margin-top: 6px;
+      letter-spacing: 1.2px;
       text-transform: uppercase;
     }
     .content {
-      padding: 32px 28px;
+      padding: 36px 32px;
+      background: #ffffff;
     }
     .badge {
       display: inline-block;
-      padding: 4px 12px;
+      padding: 5px 14px;
       background-color: #eff6ff;
       color: #1d4ed8;
       border: 1px solid #bfdbfe;
@@ -213,64 +258,70 @@ function buildOtpEmailHtml({ otp, purpose, recipientName, expiresMinutes = 10 })
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 16px;
+      letter-spacing: 0.8px;
+      margin-bottom: 20px;
     }
     .greeting {
-      font-size: 16px;
-      font-weight: 600;
+      font-size: 17px;
+      font-weight: 700;
       color: #0f172a;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
     .description {
       font-size: 14px;
-      line-height: 1.6;
-      color: #475569;
+      line-height: 1.65;
+      color: #334155;
       margin: 0 0 24px 0;
     }
     .otp-card {
-      background: #f8fafc;
-      border: 2px dashed #cbd5e1;
-      border-radius: 10px;
-      padding: 20px;
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      border: 1.5px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 24px 20px;
       text-align: center;
       margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
     }
     .otp-label {
       font-size: 11px;
       font-weight: 700;
       color: #64748b;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 8px;
+      letter-spacing: 1.5px;
+      margin-bottom: 10px;
     }
     .otp-code {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 34px;
+      font-family: 'Courier New', Courier, Consolas, monospace;
+      font-size: 38px;
       font-weight: 800;
-      letter-spacing: 8px;
-      color: #0f2b48;
+      letter-spacing: 10px;
+      color: #0c2340;
+      background-color: #ffffff;
+      padding: 14px 24px 14px 34px;
+      border: 2px dashed #f59e0b;
+      border-radius: 10px;
+      display: inline-block;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
       margin: 4px 0;
-      padding-left: 8px;
     }
     .otp-expiry {
       font-size: 12px;
-      color: #dc2626;
-      font-weight: 600;
-      margin-top: 8px;
+      color: #b91c1c;
+      font-weight: 700;
+      margin-top: 12px;
     }
     .security-notice {
       background-color: #fffbeb;
       border-left: 4px solid #f59e0b;
-      padding: 12px 16px;
-      border-radius: 0 6px 6px 0;
+      padding: 14px 18px;
+      border-radius: 0 8px 8px 0;
       margin-bottom: 24px;
     }
     .security-notice p {
       margin: 0;
       font-size: 12px;
       color: #92400e;
-      line-height: 1.5;
+      line-height: 1.55;
     }
     .help-section {
       border-top: 1px solid #e2e8f0;
@@ -280,25 +331,46 @@ function buildOtpEmailHtml({ otp, purpose, recipientName, expiresMinutes = 10 })
       line-height: 1.6;
     }
     .footer {
-      background: #f8fafc;
-      border-top: 1px solid #e2e8f0;
-      padding: 20px 24px;
+      background: #06111f;
+      border-top: 3px solid #f59e0b;
+      padding: 24px 28px;
       text-align: center;
       font-size: 11px;
       color: #94a3b8;
-      line-height: 1.5;
+      line-height: 1.6;
     }
-    .footer strong {
-      color: #475569;
+    .footer-title {
+      font-weight: 800;
+      color: #f8fafc;
+      font-size: 12px;
+      margin-bottom: 6px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    .footer-hotline {
+      color: #cbd5e1;
+      margin-bottom: 10px;
+    }
+    .footer-hotline strong {
+      color: #fbbf24;
+    }
+    .footer-legal {
+      color: #64748b;
+      font-size: 10px;
+      margin-top: 8px;
     }
   </style>
 </head>
 <body>
   <div class="wrapper">
     <div class="container">
+      <div class="gold-accent-bar"></div>
       <div class="header">
+        <div class="logo-container">
+          <img src="${logoSrc}" alt="LECO Logo" class="logo-img" width="72" height="72" />
+        </div>
         <p class="header-logo-text">LECO Smart Electricity</p>
-        <p class="header-subtext">Lanka Electricity Company (Pvt) Ltd - AMI Prepayment Portal</p>
+        <p class="header-subtext">Lanka Electricity Company (Pvt) Ltd &bull; AMI Prepayment Portal</p>
       </div>
 
       <div class="content">
@@ -309,23 +381,384 @@ function buildOtpEmailHtml({ otp, purpose, recipientName, expiresMinutes = 10 })
         <div class="otp-card">
           <div class="otp-label">One-Time Verification Code</div>
           <div class="otp-code">${otp}</div>
-          <div class="otp-expiry">Expires in ${expiresMinutes} minutes</div>
+          <div class="otp-expiry">Expires in ${expiresMinutes} minutes &bull; Single-use security code</div>
         </div>
 
         <div class="security-notice">
-          <p><strong>Security Warning:</strong> Never share this code with anyone. LECO officers and customer support agents will never ask for your verification code.</p>
+          <p><strong style="color: #78350f;">Security Warning:</strong> Never share this code with anyone. LECO officers, customer care representatives, and field technicians will never ask for your verification code or account password.</p>
         </div>
 
         <div class="help-section">
-          If you did not initiate this request, someone may have entered your email address by mistake. Please disregard this message or contact LECO 24/7 Helpline at <strong>1987</strong> immediately.
+          If you did not initiate this request, someone may have entered your email address by mistake. Please disregard this message or contact LECO 24/7 Helpline at <strong style="color: #0c2340;">1987</strong> immediately.
         </div>
       </div>
 
       <div class="footer">
-        <strong>Lanka Electricity Company (Private) Limited</strong><br>
-        24/7 Breakdown Hotline: 1987 &bull; Customer Care: 1910<br>
-        Head Office: No. 411, Galle Road, Colombo 03, Sri Lanka<br>
-        This is an automated system notification. Please do not reply directly to this email.
+        <div class="footer-title">Lanka Electricity Company (Private) Limited</div>
+        <div class="footer-hotline">
+          24/7 Breakdown Hotline: <strong>1987</strong> &bull; Customer Care: <strong>1910</strong> &bull; Portal: <a href="https://leco.lk" style="color: #38bdf8; text-decoration: none; font-weight: 600;">www.leco.lk</a>
+        </div>
+        <div class="footer-legal">
+          Head Office: No. 411, Galle Road, Colombo 03, Sri Lanka<br>
+          This is an automated system notification from LECO AMI Smart Infrastructure. Please do not reply directly to this email.
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Diagnostic Test Email Template (Staff Portal)
+ */
+function buildTestDiagnosticEmailHtml({ creds, timestamp, logoSrc = `cid:${LOGO_CID}` }) {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LECO Email Gateway - Connectivity Test</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0b132b;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #1e293b;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      background-color: #0b132b;
+      padding: 40px 15px;
+      box-sizing: border-box;
+    }
+    .container {
+      max-width: 580px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #1e293b;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+    .gold-accent-bar {
+      height: 5px;
+      background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%);
+      width: 100%;
+    }
+    .header {
+      background: linear-gradient(135deg, #071527 0%, #0d2545 60%, #071527 100%);
+      padding: 32px 24px 28px 24px;
+      text-align: center;
+      color: #ffffff;
+    }
+    .logo-container {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 14px auto;
+      background: #ffffff;
+      border-radius: 50%;
+      padding: 3px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+      display: inline-block;
+    }
+    .logo-img {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: block;
+      object-fit: contain;
+    }
+    .header-logo-text {
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: #ffffff;
+      margin: 0;
+      text-transform: uppercase;
+    }
+    .header-subtext {
+      font-size: 11px;
+      color: #fbbf24;
+      font-weight: 700;
+      margin-top: 6px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+    .content {
+      padding: 36px 32px;
+      background: #ffffff;
+    }
+    .badge {
+      display: inline-block;
+      padding: 5px 14px;
+      background-color: #f0fdf4;
+      color: #15803d;
+      border: 1px solid #bbf7d0;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 20px;
+    }
+    .table-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin: 20px 0;
+    }
+    .footer {
+      background: #06111f;
+      border-top: 3px solid #f59e0b;
+      padding: 24px 28px;
+      text-align: center;
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="gold-accent-bar"></div>
+      <div class="header">
+        <div class="logo-container">
+          <img src="${logoSrc}" alt="LECO Logo" class="logo-img" width="72" height="72" />
+        </div>
+        <p class="header-logo-text">LECO Smart Electricity</p>
+        <p class="header-subtext">Lanka Electricity Company (Pvt) Ltd &bull; Operations Console</p>
+      </div>
+
+      <div class="content">
+        <span class="badge">SMTP Connectivity Verified</span>
+        <div style="font-size: 17px; font-weight: 700; color: #0f172a; margin-bottom: 10px;">System Diagnostic Verification Email</div>
+        <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 16px 0;">
+          This live diagnostic email was successfully dispatched from the LECO Staff Operations Management Console. Your SMTP email gateway credentials and secure transmission channels are functioning as expected.
+        </p>
+
+        <div class="table-card">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600;">Diagnostic Status</td>
+              <td align="right" style="padding: 8px 0;"><span style="color: #16a34a; background: #dcfce7; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Connected</span></td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #f1f5f9;">Sender Account</td>
+              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #f1f5f9;">${creds.user}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #f1f5f9;">SMTP Host</td>
+              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #f1f5f9;">${creds.host}:${creds.port}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #f1f5f9;">Credential Source</td>
+              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #f1f5f9; text-transform: capitalize;">${creds.source}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #f1f5f9;">Dispatched At</td>
+              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #f1f5f9;">${timestamp}</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div style="font-weight: 800; color: #f8fafc; font-size: 12px; margin-bottom: 6px; letter-spacing: 0.8px; text-transform: uppercase;">Lanka Electricity Company (Private) Limited</div>
+        <div style="color: #cbd5e1; margin-bottom: 8px;">Staff Operations &bull; Central Telemetry Management</div>
+        <div style="color: #64748b; font-size: 10px;">Automated internal diagnostics. Confidential.</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Customer Welcome Email Template with Official LECO Logo
+ */
+function buildCustomerWelcomeEmailHtml({ fullName, email, nic, meter, logoSrc = `cid:${LOGO_CID}` }) {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to LECO Smart Electricity Prepayment</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0b132b;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #1e293b;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      background-color: #0b132b;
+      padding: 40px 15px;
+      box-sizing: border-box;
+    }
+    .container {
+      max-width: 580px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #1e293b;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+    .gold-accent-bar {
+      height: 5px;
+      background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%);
+      width: 100%;
+    }
+    .header {
+      background: linear-gradient(135deg, #071527 0%, #0d2545 60%, #071527 100%);
+      padding: 32px 24px 28px 24px;
+      text-align: center;
+      color: #ffffff;
+    }
+    .logo-container {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 14px auto;
+      background: #ffffff;
+      border-radius: 50%;
+      padding: 3px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+      display: inline-block;
+    }
+    .logo-img {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: block;
+      object-fit: contain;
+    }
+    .header-logo-text {
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: #ffffff;
+      margin: 0;
+      text-transform: uppercase;
+    }
+    .header-subtext {
+      font-size: 11px;
+      color: #fbbf24;
+      font-weight: 700;
+      margin-top: 6px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+    .content {
+      padding: 36px 32px;
+      background: #ffffff;
+    }
+    .badge {
+      display: inline-block;
+      padding: 5px 14px;
+      background-color: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 20px;
+    }
+    .greeting {
+      font-size: 17px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 12px;
+    }
+    .description {
+      font-size: 14px;
+      line-height: 1.65;
+      color: #334155;
+      margin: 0 0 24px 0;
+    }
+    .info-card {
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      border: 1.5px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+    .footer {
+      background: #06111f;
+      border-top: 3px solid #f59e0b;
+      padding: 24px 28px;
+      text-align: center;
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="gold-accent-bar"></div>
+      <div class="header">
+        <div class="logo-container">
+          <img src="${logoSrc}" alt="LECO Logo" class="logo-img" width="72" height="72" />
+        </div>
+        <p class="header-logo-text">LECO Smart Electricity</p>
+        <p class="header-subtext">Lanka Electricity Company (Pvt) Ltd &bull; AMI Prepayment Portal</p>
+      </div>
+
+      <div class="content">
+        <span class="badge">Customer Account Activated</span>
+        <div class="greeting">Dear ${fullName || 'Customer'},</div>
+        <p class="description">
+          Welcome to Lanka Electricity Company Smart Prepayment. Your customer profile has been registered in the LECO AMI Smart Metering Platform. You can now access your dashboard to view real-time energy usage, manage balances, and receive instant tariff alerts.
+        </p>
+
+        <div class="info-card">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600;">Account Email</td>
+              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700;">${email}</td>
+            </tr>
+            ${nic ? `
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #e2e8f0;">National Identity Card</td>
+              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0;">${nic}</td>
+            </tr>` : ''}
+            ${meter ? `
+            <tr>
+              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #e2e8f0;">Assigned Smart Meter</td>
+              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0;">${meter.meter_number} (${meter.account_number})</td>
+            </tr>` : ''}
+          </table>
+        </div>
+
+        <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; font-size: 12px; color: #64748b; line-height: 1.6;">
+          For security, please sign in to the LECO Customer Portal and customize your password and notification preferences. If you have any questions, our 24/7 team is available at <strong style="color: #0c2340;">1987</strong>.
+        </div>
+      </div>
+
+      <div class="footer">
+        <div style="font-weight: 800; color: #f8fafc; font-size: 12px; margin-bottom: 6px; letter-spacing: 0.8px; text-transform: uppercase;">Lanka Electricity Company (Private) Limited</div>
+        <div style="color: #cbd5e1; margin-bottom: 10px;">
+          24/7 Breakdown Hotline: <strong style="color: #fbbf24;">1987</strong> &bull; Customer Care: <strong style="color: #fbbf24;">1910</strong> &bull; Portal: <a href="https://leco.lk" style="color: #38bdf8; text-decoration: none; font-weight: 600;">www.leco.lk</a>
+        </div>
+        <div style="color: #64748b; font-size: 10px; margin-top: 8px;">
+          Head Office: No. 411, Galle Road, Colombo 03, Sri Lanka<br>
+          This is an automated system notification from LECO AMI Smart Infrastructure. Please do not reply directly to this email.
+        </div>
       </div>
     </div>
   </div>
@@ -366,11 +799,14 @@ async function sendOtpEmail({ to, otp, purpose = 'registration', recipientName =
   if (!transporter || !creds.isConfigured) {
     console.warn(`[EmailService] SMTP not configured. OTP for ${cleanTo} logged safely: ${otp}`);
     try {
-      await pool.query(
-        `INSERT INTO email_logs (recipient, subject, purpose, status, error_message)
-         VALUES ($1, $2, $3, 'pending_config', 'SMTP sender credentials not configured in Staff Portal or .env')`,
-        [cleanTo, subject, purpose]
-      );
+      const pool = getPool();
+      if (pool) {
+        await pool.query(
+          `INSERT INTO email_logs (recipient, subject, purpose, status, error_message)
+           VALUES ($1, $2, $3, 'pending_config', 'SMTP sender credentials not configured in Staff Portal or .env')`,
+          [cleanTo, subject, purpose]
+        );
+      }
     } catch (_) {}
 
     return {
@@ -381,6 +817,8 @@ async function sendOtpEmail({ to, otp, purpose = 'registration', recipientName =
   }
 
   const fromAddress = process.env.EMAIL_FROM || `"LECO Smart Electricity" <${creds.user}>`;
+  const logoAtt = getLogoAttachment();
+  const mailAttachments = logoAtt ? [logoAtt] : [];
 
   try {
     const info = await transporter.sendMail({
@@ -388,7 +826,8 @@ async function sendOtpEmail({ to, otp, purpose = 'registration', recipientName =
       to: cleanTo,
       subject,
       text: textContent,
-      html: htmlContent
+      html: htmlContent,
+      attachments: mailAttachments
     });
 
     console.log(`[EmailService] OTP email delivered to ${cleanTo} (MessageId: ${info.messageId})`);
@@ -452,34 +891,11 @@ async function sendTestEmail(targetEmail) {
 
   const subject = 'LECO Smart Care - System Diagnostic Test Email';
   const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Colombo' });
-  const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f8fafc; color: #1e293b; padding: 20px; }
-    .card { max-width: 500px; margin: 0 auto; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-    .hdr { font-size: 18px; font-weight: bold; color: #0b2545; border-bottom: 2px solid #f59e0b; padding-bottom: 12px; margin-bottom: 16px; }
-    .row { font-size: 13px; margin: 8px 0; }
-    .status { color: #16a34a; font-weight: bold; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="hdr">LECO Email Gateway - Connectivity Test</div>
-    <p>This is a live diagnostic verification email dispatched from the LECO Staff Operations Console.</p>
-    <div class="row"><strong>Status:</strong> <span class="status">SMTP Connected Successfully</span></div>
-    <div class="row"><strong>Sender Account:</strong> ${creds.user}</div>
-    <div class="row"><strong>SMTP Host:</strong> ${creds.host}:${creds.port}</div>
-    <div class="row"><strong>Credential Source:</strong> ${creds.source}</div>
-    <div class="row"><strong>Dispatched At:</strong> ${timestamp} (Asia/Colombo)</div>
-    <p style="margin-top: 20px; font-size: 11px; color: #64748b;">Lanka Electricity Company (Pvt) Ltd - Operations Center</p>
-  </div>
-</body>
-</html>
-  `.trim();
+  const htmlContent = buildTestDiagnosticEmailHtml({ creds, timestamp });
 
   const fromAddress = process.env.EMAIL_FROM || `"LECO Smart Electricity" <${creds.user}>`;
+  const logoAtt = getLogoAttachment();
+  const mailAttachments = logoAtt ? [logoAtt] : [];
 
   try {
     const info = await transporter.sendMail({
@@ -487,7 +903,8 @@ async function sendTestEmail(targetEmail) {
       to: cleanTo,
       subject,
       text: `LECO Email Gateway Connectivity Test\n\nStatus: Connected Successfully\nSender: ${creds.user}\nHost: ${creds.host}:${creds.port}\nTimestamp: ${timestamp}`,
-      html: htmlContent
+      html: htmlContent,
+      attachments: mailAttachments
     });
 
     try {
@@ -625,6 +1042,8 @@ async function sendHtmlEmail({ to, subject, htmlBody, html, text, purpose = 'not
 
   const fromAddress = process.env.EMAIL_FROM || `"LECO Smart Electricity" <${creds.user}>`;
   const body = htmlBody || html || '';
+  const logoAtt = getLogoAttachment();
+  const mailAttachments = logoAtt ? [logoAtt] : [];
 
   try {
     const info = await transporter.sendMail({
@@ -632,7 +1051,8 @@ async function sendHtmlEmail({ to, subject, htmlBody, html, text, purpose = 'not
       to: cleanTo,
       subject,
       text: text || '',
-      html: body
+      html: body,
+      attachments: mailAttachments
     });
 
     try {
@@ -750,6 +1170,10 @@ module.exports = {
   resolveSmtpCredentials,
   getTransporter,
   buildOtpEmailHtml,
+  buildTestDiagnosticEmailHtml,
+  buildCustomerWelcomeEmailHtml,
+  getLogoAttachment,
+  LOGO_CID,
   sendOtpEmail,
   sendHtmlEmail,
   sendTestEmail,
