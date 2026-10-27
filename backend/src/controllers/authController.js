@@ -288,9 +288,9 @@ const sendForgotPasswordOtp = async (req, res) => {
     );
 
     await pool.query(
-      `INSERT INTO verification_otps (purpose, identifier, otp_code, expires_at)
+      `INSERT INTO verification_otps (purpose, identifier, otp_hash, expires_at)
        VALUES ('forgot_password', $1, $2, $3)`,
-      [cleanNic, otpCode, expiresAt]
+      [cleanNic, hashOtp(otpCode), expiresAt]
     );
 
     // Dispatch SMS via Text.lk Gateway
@@ -337,9 +337,9 @@ const verifyForgotPasswordOtp = async (req, res) => {
 
     const otpCheck = await pool.query(
       `SELECT id FROM verification_otps 
-       WHERE identifier = $1 AND purpose = 'forgot_password' AND otp_code = $2 AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
+       WHERE identifier = $1 AND purpose = 'forgot_password' AND (otp_hash = $2 OR otp_code = $3) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
        ORDER BY id DESC LIMIT 1`,
-      [cleanNic, cleanOtp]
+      [cleanNic, hashOtp(cleanOtp), cleanOtp]
     );
 
     if (otpCheck.rows.length === 0) {
@@ -373,9 +373,9 @@ const resetPasswordWithOtp = async (req, res) => {
     // Verify OTP
     const otpCheck = await pool.query(
       `SELECT id FROM verification_otps 
-       WHERE identifier = $1 AND purpose = 'forgot_password' AND otp_code = $2 AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
+       WHERE identifier = $1 AND purpose = 'forgot_password' AND (otp_hash = $2 OR otp_code = $3) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
        ORDER BY id DESC LIMIT 1`,
-      [cleanNic, cleanOtp]
+      [cleanNic, hashOtp(cleanOtp), cleanOtp]
     );
 
     if (otpCheck.rows.length === 0) {
@@ -383,7 +383,10 @@ const resetPasswordWithOtp = async (req, res) => {
     }
 
     // Mark OTP as verified
-    await pool.query(`UPDATE verification_otps SET verified = TRUE WHERE id = $1`, [otpCheck.rows[0].id]);
+    await pool.query(
+      'UPDATE verification_otps SET verified = TRUE, otp_hash = NULL, otp_code = NULL WHERE id = $1',
+      [otpCheck.rows[0].id]
+    );
 
     // Update password
     const salt = await bcrypt.genSalt(10);
