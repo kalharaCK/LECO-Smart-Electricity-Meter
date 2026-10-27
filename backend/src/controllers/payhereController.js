@@ -17,11 +17,13 @@ const initPayhereCheckout = async (req, res) => {
     const userId = req.user.id;
     const { meterId, amount } = req.body;
 
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount < 50) {
+    const amountText = typeof amount === 'number' ? String(amount) : amount;
+    const numAmount = Number(amountText);
+    if (typeof amountText !== 'string' || !/^\d+(?:\.\d{1,2})?$/.test(amountText) ||
+        !Number.isFinite(numAmount) || numAmount < 50 || numAmount > 100000) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Minimum payment amount is Rs. 50.00' 
+        message: 'Payment amount must be between Rs. 50 and Rs. 100,000 with at most two decimal places.' 
       });
     }
 
