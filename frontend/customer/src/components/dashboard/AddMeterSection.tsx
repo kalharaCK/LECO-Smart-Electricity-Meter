@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, MapPin, Activity, ShieldCheck, CheckCircle2, Loader2, Zap, Eye, EyeOff } from "lucide-react"
+import { Search, MapPin, Activity, ShieldCheck, CheckCircle2, Loader2, Zap, Eye, EyeOff, AlertTriangle, KeyRound } from "lucide-react"
 import { useDashboardI18n } from "@/lib/dashboardI18n"
 
 export default function AddMeterSection({
@@ -91,6 +91,17 @@ export default function AddMeterSection({
         <CardContent className="p-4 sm:p-6 pt-2 sm:pt-2">
           {step === "search" && (
             <form onSubmit={handleVerify} className="space-y-4 sm:space-y-5">
+              {/* Anti-Theft Protection Notice */}
+              <div className="bg-black/30 border border-white/10 rounded-xl p-3 flex items-start gap-2.5 text-xs text-white/80">
+                <ShieldCheck className="h-4 w-4 text-yellow-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-white block">Anti-Theft Security Protected</span>
+                  <span className="text-white/60">
+                    Each meter is bound to the owner's National Identity Card (NIC). Please enter the Security Passcode issued by LECO branch staff to verify ownership.
+                  </span>
+                </div>
+              </div>
+
               <div className="space-y-1.5">
                 <label htmlFor="meterNumber" className="text-xs sm:text-sm font-medium text-white/90">
                   {t.addMeter.meterNumberLabel}
@@ -118,15 +129,19 @@ export default function AddMeterSection({
                 />
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="pin" className="text-xs sm:text-sm font-medium text-white/90">
-                  {t.addMeter.pinLabel}
-                </label>
+                <div className="flex justify-between items-center">
+                  <label htmlFor="pin" className="text-xs sm:text-sm font-medium text-white/90 flex items-center gap-1.5">
+                    <KeyRound className="h-3.5 w-3.5 text-yellow-400" />
+                    Security Passcode (Issued by LECO)
+                  </label>
+                  <span className="text-[10px] text-white/50">Staff-issued 6-digit code</span>
+                </div>
                 <div className="relative">
                   <Input 
                     id="pin" 
                     type={showPin ? "text" : "password"} 
-                    placeholder={t.addMeter.pinPlaceholder} 
-                    className="bg-black/25 border-white/15 text-white h-11 text-sm focus-visible:ring-yellow-400 pr-10" 
+                    placeholder="Enter 6-digit staff-issued security passcode" 
+                    className="bg-black/25 border-white/15 text-white h-11 text-sm font-mono tracking-wider focus-visible:ring-yellow-400 pr-10" 
                     value={meterData.pin}
                     onChange={e => setMeterData({...meterData, pin: e.target.value})}
                     required 
@@ -233,10 +248,27 @@ export default function AddMeterSection({
           {step === "error" && (
             <div className="text-center py-6 sm:py-8 animate-in zoom-in-95 duration-500">
               <div className="mx-auto w-14 h-14 sm:w-16 sm:h-16 bg-red-500/20 text-red-400 flex items-center justify-center rounded-full mb-4">
-                <ShieldCheck className="h-7 w-7 sm:h-8 sm:w-8" />
+                {errorMessage.includes("Anti-Theft") || errorMessage.includes("NIC") ? (
+                  <ShieldCheck className="h-7 w-7 sm:h-8 sm:w-8 text-amber-400" />
+                ) : (
+                  <AlertTriangle className="h-7 w-7 sm:h-8 sm:w-8 text-red-400" />
+                )}
               </div>
-              <h3 className="text-xl sm:text-2xl font-bold mb-2">{t.addMeter.errorAddingMeter}</h3>
-              <p className="text-white/70 text-xs sm:text-sm mb-6 max-w-sm mx-auto">{errorMessage}</p>
+              <h3 className="text-xl sm:text-2xl font-bold mb-2">
+                {errorMessage.includes("Anti-Theft") || errorMessage.includes("NIC")
+                  ? "Anti-Theft Verification Block"
+                  : t.addMeter.errorAddingMeter}
+              </h3>
+              <p className="text-white/80 text-xs sm:text-sm mb-4 max-w-md mx-auto leading-relaxed">
+                {errorMessage}
+              </p>
+              {(errorMessage.includes("Anti-Theft") || errorMessage.includes("NIC")) && (
+                <div className="bg-black/40 border border-white/10 rounded-xl p-3.5 mb-6 text-left text-xs text-white/70 max-w-md mx-auto space-y-1">
+                  <span className="font-bold text-yellow-300 block">How to resolve:</span>
+                  <p>1. Verify that your logged-in account National Identity Card (NIC) matches the registered meter owner.</p>
+                  <p>2. If you recently moved or changed tenancy, visit your nearest LECO branch with your NIC and premise agreement to transfer registration.</p>
+                </div>
+              )}
               <Button onClick={() => setStep("search")} variant="outline" className="h-11 px-6 bg-transparent border-white/20 text-white hover:bg-white/10 cursor-pointer">
                 {t.addMeter.tryAgain}
               </Button>

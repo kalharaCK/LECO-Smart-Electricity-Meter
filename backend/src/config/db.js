@@ -204,6 +204,17 @@ const initDb = async () => {
       CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read);
       CREATE INDEX IF NOT EXISTS idx_complaints_user_status ON complaints(user_id, status);
       CREATE INDEX IF NOT EXISTS idx_meters_user_id ON meters(user_id);
+
+      -- Meter Anti-Theft Protection: Registered NIC Binding & Staff-Generated Security Passcode
+      ALTER TABLE meters ADD COLUMN IF NOT EXISTS registered_nic VARCHAR(50);
+      ALTER TABLE meters ADD COLUMN IF NOT EXISTS staff_passcode VARCHAR(50);
+      CREATE INDEX IF NOT EXISTS idx_meters_registered_nic ON meters(registered_nic);
+
+      -- Backfill registered_nic for already claimed meters from the owner's profile
+      UPDATE meters m
+      SET registered_nic = u.nic
+      FROM users u
+      WHERE m.user_id = u.id AND m.registered_nic IS NULL AND u.nic IS NOT NULL;
     `);
     console.log('[Database] Tables and indexes verified successfully.');
 

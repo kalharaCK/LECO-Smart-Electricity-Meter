@@ -3,7 +3,9 @@ const { requireStaff } = require('../middlewares/authMiddleware');
 const { 
   getAllMetersForStaff, 
   toggleMeterRelay, 
-  staffTopupMeter 
+  staffTopupMeter,
+  registerMeterForStaff,
+  regenerateMeterPasscodeForStaff
 } = require('../controllers/meterController');
 const { 
   getAllComplaints, 
@@ -14,7 +16,11 @@ const {
   verifyStaffPayhereTransaction
 } = require('../controllers/payhereController');
 const { downloadPaymentReceiptPdf, downloadMeterStatementPdf } = require('../controllers/pdfController');
-const { getAllCustomersForStaff, createCustomerForStaff } = require('../controllers/staffCustomerController');
+const { 
+  getAllCustomersForStaff, 
+  createCustomerForStaff,
+  resetCustomerPasswordForStaff
+} = require('../controllers/staffCustomerController');
 const { getStaffActivityLogs, logStaffActivity } = require('../services/activityLogService');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
@@ -87,6 +93,7 @@ router.get('/activity-logs', async (req, res) => {
  */
 router.get('/customers', getAllCustomersForStaff);
 router.post('/customers', createCustomerForStaff);
+router.post('/customers/:customerId/reset-password', resetCustomerPasswordForStaff);
 
 /**
  * GET /api/staff/me
@@ -154,11 +161,13 @@ router.get('/analytics', async (req, res) => {
 });
 
 /**
- * Meters Management (Grid Control)
+ * Meters Management (Grid Control & Provisioning)
  */
 router.get('/meters', getAllMetersForStaff);
+router.post('/meters/register', registerMeterForStaff);
 router.post('/meters/:meterId/relay', toggleMeterRelay);
 router.post('/meters/:meterId/topup', staffTopupMeter);
+router.post('/meters/:meterId/regenerate-passcode', regenerateMeterPasscodeForStaff);
 
 /**
  * Complaints Management

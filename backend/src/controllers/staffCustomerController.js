@@ -228,7 +228,113 @@ const createCustomerForStaff = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/staff/customers/:customerId/reset-password
+ * Allows authorized staff to reset a customer's account password with staff password verification
+ */
+const resetCustomerPasswordForStaff = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    const { staffPassword, newPassword, reason } = req.body;
+
+    // Validate staff authorization password
+    if (!staffPassword) {
+      return res.status(400).json({ success: false, message: 'Staff password is required for security authorization.' });
+    }
+    if (!newPassword || String(newPassword).length < 8) {
+      return res.status(400).json({ success: false, message: 'New customer password must be at least 8 characters long.' });
+    }
+
+    const staffRes = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+    if (staffRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Staff profile not found.' });
+    }
+    const isStaffAuthValid = await bcrypt.compare(String(staffPassword), staffRes.rows[0].password);
+    if (!isStaffAuthValid) {
+      await logStaffActivity({
+        staffId: req.user?.id || null,
+        staffEmail: req.user?.email || 'staff@leco.lk',
+        actionType: 'STAFF_CUSTOMER_PASSWORD_RESET_FAILED',
+        targetEntity: `Customer #${customerId}`,
+        details: { reason: 'Incorrect staff password authorization' },
+        ipAddress: req.ip || '127.0.0.1',
+        status: 'failed'
+      });
+      return res.status(401).json({ success: false, message: 'Incorrect staff authorization password.' });
+    }
+
+    // Check target customer
+    const customerRes = await pool.query(
+      'SELECT id, email, full_name, mobile_number, nic FROM users WHERE id = $1 AND role = $2',
+      [customerId, 'customer']
+    );
+    if (customerRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Customer account not found.' });
+    }
+    const customer = customerRes.rows[0];
+
+    // Hash new password
+    const hashedNewPassword = await bcrypt.hash(String(newPassword), 10);
+    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedNewPassword, customerId]);
+
+    // Log traceable action
+    await logStaffActivity({
+      staffId: req.user?.id || null,
+      staffEmail: req.user?.email || 'staff@leco.lk',
+      actionType: 'STAFF_CUSTOMER_PASSWORD_RESET',
+      targetEntity: `Customer #${customer.id} (${customer.email})`,
+      details: {
+        customerId: customer.id,
+        customerEmail: customer.email,
+        customerNic: customer.nic,
+        reason: reason || 'Customer requested in-person password reset at LECO branch office'
+      },
+      ipAddress: req.ip || '127.0.0.1',
+      status: 'success'
+    });
+
+    // Optional email / SMS alert to the customer
+    if (customer.email) {
+      try {
+        emailService.sendHtmlEmail({
+          to: customer.email,
+          subject: 'Security Alert: Your LECO Account Password Was Reset',
+          purpose: 'password_reset',
+          htmlBody: emailService.buildCustomerWelcomeEmailHtml({
+            fullName: customer.full_name || 'Valued Customer',
+            email: customer.email,
+            nic: customer.nic,
+            customMessage: 'Your LECO Smart Electricity account password has been reset by an authorized LECO staff officer. If you did not request this, please contact LECO Support immediately.'
+          })
+        }).catch(err => console.warn('[Staff Password Reset Email Notice]:', err.message));
+      } catch (_) {}
+    }
+
+    if (customer.mobile_number) {
+      try {
+        smsService.sendEventSms({
+          recipient: customer.mobile_number,
+          eventType: 'password_reset',
+          language: 'en',
+          data: {
+            name: customer.full_name || 'Customer'
+          }
+        }).catch(err => console.warn('[Staff Password Reset SMS Notice]:', err.message));
+      } catch (_) {}
+    }
+
+    return res.json({
+      success: true,
+      message: `Password for ${customer.email} has been successfully reset.`
+    });
+  } catch (err) {
+    console.error('[Staff Customer Password Reset Error]:', err);
+    return res.status(500).json({ success: false, message: 'Failed to reset customer password.' });
+  }
+};
+
 module.exports = {
   getAllCustomersForStaff,
-  createCustomerForStaff
+  createCustomerForStaff,
+  resetCustomerPasswordForStaff
 };

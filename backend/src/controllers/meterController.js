@@ -174,26 +174,28 @@ const addMeter = async (req, res) => {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // Step 2 Security: Cryptographic PIN Verification & Hashing
-    // Check if meter was already provisioned/manufactured in the database
+    // Retrieve requesting customer profile to verify National Identity Card (NIC)
+    const userRes = await pool.query('SELECT id, nic, email, full_name FROM users WHERE id = $1', [userId]);
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ message: 'User account not found.' });
+    }
+    const currentUser = userRes.rows[0];
+
+    // Check if meter was provisioned/registered in the database
+    const cleanMeterNum = String(meterNumber).trim().toUpperCase();
+    const cleanAccountNum = String(accountNumber).trim().toUpperCase();
+    const cleanPin = String(pin).trim();
+
     const existingMeterResult = await pool.query(
-      `SELECT id, user_id, meter_number, account_number, pin, name
-       FROM meters WHERE meter_number = $1`,
-      [meterNumber]
+      `SELECT id, user_id, meter_number, account_number, pin, staff_passcode, registered_nic, name, balance
+       FROM meters WHERE UPPER(meter_number) = $1`,
+      [cleanMeterNum]
     );
 
     if (existingMeterResult.rows.length > 0) {
       const existingMeter = existingMeterResult.rows[0];
 
-      // Cryptographic comparison: compare user-supplied plaintext PIN with stored bcrypt hash
-      const isPinValid = await bcrypt.compare(String(pin), existingMeter.pin);
-      const isAccountValid = String(accountNumber).trim().toUpperCase() ===
-        String(existingMeter.account_number).trim().toUpperCase();
-      if (!isPinValid || !isAccountValid) {
-        return res.status(401).json({ message: 'Invalid Meter PIN. Verification failed.' });
-      }
-
-      // Check if already claimed by another user
+      // Anti-Theft Security Check 1: Meter Ownership Conflict
       if (existingMeter.user_id && existingMeter.user_id !== userId) {
         return res.status(400).json({ message: 'This meter is already linked to another account' });
       }
@@ -202,15 +204,51 @@ const addMeter = async (req, res) => {
         return res.status(400).json({ message: 'Meter is already linked to your account' });
       }
 
-      // Link unassigned meter to the requesting user (never returning pin)
+      // Anti-Theft Security Check 2: NIC Registration Matching
+      const customerNic = String(currentUser.nic || '').trim().toUpperCase();
+      const registeredNic = String(existingMeter.registered_nic || '').trim().toUpperCase();
+
+      if (registeredNic) {
+        if (!customerNic) {
+          return res.status(403).json({
+            message: 'Your profile does not have an NIC number on file. Please update your profile or contact LECO to verify your identity.'
+          });
+        }
+        if (customerNic !== registeredNic) {
+          return res.status(403).json({
+            message: `Anti-Theft Protection: This meter is registered under NIC (${registeredNic.slice(0, 4)}****). Your account NIC does not match the registered owner NIC. Registration blocked.`
+          });
+        }
+      }
+
+      // Passcode & Account Number Verification
+      const isAccountValid = cleanAccountNum === String(existingMeter.account_number).trim().toUpperCase();
+
+      let isPinValid = false;
+      if (existingMeter.pin) {
+        if (existingMeter.pin.startsWith('$2')) {
+          isPinValid = await bcrypt.compare(cleanPin, existingMeter.pin);
+        } else {
+          isPinValid = cleanPin === String(existingMeter.pin).trim();
+        }
+      }
+      if (!isPinValid && existingMeter.staff_passcode) {
+        isPinValid = cleanPin.toUpperCase() === String(existingMeter.staff_passcode).trim().toUpperCase();
+      }
+
+      if (!isPinValid || !isAccountValid) {
+        return res.status(401).json({ message: 'Invalid Meter Passcode or Account Number. Verification failed.' });
+      }
+
+      // Link unassigned meter to the requesting user
       const meterName = sanitizeString(name || existingMeter.name || 'Home', 100);
       const linkResult = await pool.query(
         `UPDATE meters 
-         SET user_id = $1, name = $2
-         WHERE id = $3 AND user_id IS NULL
-         RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, 
+         SET user_id = $1, name = $2, registered_nic = COALESCE(registered_nic, $3)
+         WHERE id = $4 AND (user_id IS NULL OR user_id = $1)
+         RETURNING id, user_id, meter_number, account_number, registered_nic, balance, status, daily_average, name, 
                    emergency_credit_limit, emergency_credit_active, emergency_credit_activated_at, created_at`,
-        [userId, meterName, existingMeter.id]
+        [userId, meterName, customerNic || null, existingMeter.id]
       );
 
       if (linkResult.rows.length === 0) {
@@ -225,7 +263,6 @@ const addMeter = async (req, res) => {
     });
   } catch (error) {
     console.error('Error adding meter:', error);
-    // Handle unique violation for meter_number if already exists
     if (error.code === '23505') {
       return res.status(400).json({ message: 'Meter is already registered' });
     }
@@ -1134,10 +1171,15 @@ const getAllMetersForStaff = async (req, res) => {
         m.emergency_credit_limit,
         m.emergency_credit_active,
         m.emergency_credit_activated_at,
+        m.registered_nic,
+        m.staff_passcode,
+        (m.user_id IS NOT NULL) AS is_claimed,
         m.created_at,
         u.id AS customer_id,
         u.email AS customer_email,
         u.role AS customer_role,
+        COALESCE(u.nic, m.registered_nic, '') AS customer_nic,
+        COALESCE(u.full_name, 'Unassigned / Ready to Link') AS customer_name,
         u.created_at AS customer_since,
         COALESCE(u.mobile_number, us.phone_number, '') AS phone_number,
         COALESCE(us.tariff_type, 'Domestic D-1 (PUCSL Block Tariff)') AS tariff_type,
@@ -1149,7 +1191,7 @@ const getAllMetersForStaff = async (req, res) => {
         COALESCE(last_pay.last_payment_amount, 0) AS last_payment_amount,
         last_pay.last_payment_date
       FROM meters m
-      JOIN users u ON m.user_id = u.id
+      LEFT JOIN users u ON m.user_id = u.id
       LEFT JOIN user_settings us ON us.user_id = u.id
       LEFT JOIN (
         SELECT meter_id, ROUND(SUM(consumption)::numeric, 2) AS today_consumption
@@ -1381,6 +1423,175 @@ const staffTopupMeter = async (req, res) => {
   }
 };
 
+/**
+ * Staff API: Register / Provision a new physical meter with registered NIC and Passcode
+ * POST /api/staff/meters/register
+ */
+const registerMeterForStaff = async (req, res) => {
+  try {
+    const {
+      meter_number,
+      account_number,
+      registered_nic,
+      passcode,
+      initial_balance = 0,
+      name = 'Home',
+      staff_password
+    } = req.body;
+
+    if (!meter_number || !String(meter_number).trim()) {
+      return res.status(400).json({ success: false, message: 'Meter number is required.' });
+    }
+    if (!account_number || !String(account_number).trim()) {
+      return res.status(400).json({ success: false, message: 'Account number is required.' });
+    }
+    if (!registered_nic || !String(registered_nic).trim()) {
+      return res.status(400).json({ success: false, message: 'Customer National Identity Card (NIC) number is required for meter registration.' });
+    }
+
+    // Optional staff password verification if provided
+    if (staff_password) {
+      const staffRes = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+      if (staffRes.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Staff profile not found.' });
+      }
+      const isValid = await bcrypt.compare(String(staff_password), staffRes.rows[0].password);
+      if (!isValid) {
+        return res.status(401).json({ success: false, message: 'Incorrect staff authorization password.' });
+      }
+    }
+
+    const cleanMeterNumber = String(meter_number).trim().toUpperCase();
+    const cleanAccountNumber = String(account_number).trim().toUpperCase();
+    const cleanNic = String(registered_nic).trim().toUpperCase();
+
+    // Check if meter number already exists
+    const existing = await pool.query('SELECT id FROM meters WHERE UPPER(meter_number) = $1', [cleanMeterNumber]);
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ success: false, message: `Meter ${cleanMeterNumber} is already registered in the system.` });
+    }
+
+    // Generate secure 6-digit passcode if not provided by staff
+    let securePasscode = passcode && String(passcode).trim();
+    if (!securePasscode) {
+      securePasscode = String(Math.floor(100000 + Math.random() * 900000));
+    }
+
+    const hashedPin = await bcrypt.hash(securePasscode, 10);
+    const numBalance = parseFloat(initial_balance) || 0;
+
+    const insertRes = await pool.query(
+      `INSERT INTO meters (
+        meter_number, account_number, pin, staff_passcode, registered_nic,
+        balance, status, name, user_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, 'Connected', $7, NULL)
+      RETURNING id, meter_number, account_number, registered_nic, staff_passcode, balance, status, name, created_at`,
+      [cleanMeterNumber, cleanAccountNumber, hashedPin, securePasscode, cleanNic, numBalance, name ? String(name).trim() : 'Home']
+    );
+    const createdMeter = insertRes.rows[0];
+
+    if (numBalance > 0) {
+      await pool.query(
+        `INSERT INTO payments (meter_id, amount, payment_method, transaction_id, previous_balance, new_balance, status)
+         VALUES ($1, $2, 'Staff Initial Credit', $3, 0, $4, 'Success')`,
+        [createdMeter.id, numBalance, `PROV-${Date.now()}`, numBalance]
+      );
+    }
+
+    // Log traceable staff activity
+    await logStaffActivity({
+      staffId: req.user?.id || null,
+      staffEmail: req.user?.email || 'staff@leco.lk',
+      actionType: 'METER_PROVISION_REGISTER',
+      targetEntity: `Meter #${cleanMeterNumber} (NIC: ${cleanNic})`,
+      details: {
+        meterId: createdMeter.id,
+        meterNumber: cleanMeterNumber,
+        accountNumber: cleanAccountNumber,
+        registeredNic: cleanNic,
+        passcodeProvided: securePasscode,
+        initialBalance: numBalance
+      },
+      ipAddress: req.ip || '127.0.0.1',
+      status: 'success'
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: `Meter ${cleanMeterNumber} registered successfully for NIC ${cleanNic}.`,
+      meter: createdMeter,
+      passcode: securePasscode
+    });
+  } catch (err) {
+    console.error('[Meter Registration Error]:', err);
+    return res.status(500).json({ success: false, message: 'Failed to register meter.' });
+  }
+};
+
+/**
+ * Staff API: View or regenerate security passcode for a registered meter
+ * POST /api/staff/meters/:meterId/regenerate-passcode
+ */
+const regenerateMeterPasscodeForStaff = async (req, res) => {
+  try {
+    const { meterId } = req.params;
+    const { staffPassword, customPasscode } = req.body;
+
+    if (!staffPassword) {
+      return res.status(400).json({ success: false, message: 'Staff authorization password is required.' });
+    }
+
+    const staffRes = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+    if (staffRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Staff profile not found.' });
+    }
+    const isStaffAuthValid = await bcrypt.compare(String(staffPassword), staffRes.rows[0].password);
+    if (!isStaffAuthValid) {
+      return res.status(401).json({ success: false, message: 'Incorrect staff authorization password.' });
+    }
+
+    const meterRes = await pool.query('SELECT * FROM meters WHERE id = $1', [meterId]);
+    if (meterRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Meter not found.' });
+    }
+    const meter = meterRes.rows[0];
+
+    const newPasscode = customPasscode && String(customPasscode).trim()
+      ? String(customPasscode).trim()
+      : String(Math.floor(100000 + Math.random() * 900000));
+
+    const hashedPin = await bcrypt.hash(newPasscode, 10);
+
+    await pool.query(
+      'UPDATE meters SET pin = $1, staff_passcode = $2 WHERE id = $3',
+      [hashedPin, newPasscode, meterId]
+    );
+
+    await logStaffActivity({
+      staffId: req.user?.id || null,
+      staffEmail: req.user?.email || 'staff@leco.lk',
+      actionType: 'METER_PASSCODE_REGENERATE',
+      targetEntity: `Meter #${meter.meter_number}`,
+      details: {
+        meterId,
+        meterNumber: meter.meter_number,
+        registeredNic: meter.registered_nic
+      },
+      ipAddress: req.ip || '127.0.0.1',
+      status: 'success'
+    });
+
+    return res.json({
+      success: true,
+      message: `Passcode regenerated successfully for meter ${meter.meter_number}.`,
+      passcode: newPasscode
+    });
+  } catch (err) {
+    console.error('[Meter Passcode Regenerate Error]:', err);
+    return res.status(500).json({ success: false, message: 'Failed to regenerate passcode.' });
+  }
+};
+
 module.exports = { 
   getUserMeters, 
   addMeter, 
@@ -1395,5 +1606,7 @@ module.exports = {
   setMeterBalance,
   getAllMetersForStaff,
   toggleMeterRelay,
-  staffTopupMeter
+  staffTopupMeter,
+  registerMeterForStaff,
+  regenerateMeterPasscodeForStaff
 };

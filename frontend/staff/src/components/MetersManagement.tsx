@@ -22,7 +22,15 @@ import {
   Activity,
   Layers,
   Download,
-  Lock
+  Lock,
+  Plus,
+  KeyRound,
+  ShieldCheck,
+  Copy,
+  Check,
+  Printer,
+  Eye,
+  EyeOff
 } from "lucide-react"
 import type { StaffMeter } from "../types"
 import StaffPasswordConfirmModal from "./StaffPasswordConfirmModal"
@@ -62,6 +70,37 @@ export default function MetersManagement({
   const [mlStatus, setMlStatus] = useState<any>(null)
   const [mlPrepaid, setMlPrepaid] = useState<any>(null)
   const [loadingMl, setLoadingMl] = useState(false)
+
+  // Meter Registration & Security Passcode state
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
+  const [registerMeterNumber, setRegisterMeterNumber] = useState("")
+  const [registerAccountNumber, setRegisterAccountNumber] = useState("")
+  const [registerNic, setRegisterNic] = useState("")
+  const [registerPasscode, setRegisterPasscode] = useState("")
+  const [registerBalance, setRegisterBalance] = useState("0.00")
+  const [registerName, setRegisterName] = useState("Home")
+  const [registerStaffPassword, setRegisterStaffPassword] = useState("")
+  const [showRegisterPasscode, setShowRegisterPasscode] = useState(true)
+  const [registerLoading, setRegisterLoading] = useState(false)
+
+  // Handover Voucher Slip state
+  const [handoverSlip, setHandoverSlip] = useState<{
+    meter_number: string
+    account_number: string
+    registered_nic: string
+    passcode: string
+    initial_balance: number
+    name: string
+  } | null>(null)
+  const [slipCopied, setSlipCopied] = useState(false)
+
+  // Passcode Management & Regeneration Modal state
+  const [passcodeModalMeter, setPasscodeModalMeter] = useState<StaffMeter | null>(null)
+  const [passcodeStaffPassword, setPasscodeStaffPassword] = useState("")
+  const [customPasscode, setCustomPasscode] = useState("")
+  const [activePasscodeDisplay, setActivePasscodeDisplay] = useState("")
+  const [passcodeRegenerating, setPasscodeRegenerating] = useState(false)
+  const [passcodeCopied, setPasscodeCopied] = useState(false)
 
   // Keep active meter synchronized live with incoming fleet updates from WebSocket
   useEffect(() => {
@@ -138,6 +177,148 @@ export default function MetersManagement({
   const showToast = (text: string, type: "success" | "error") => {
     setToastMessage({ text, type })
     setTimeout(() => setToastMessage(null), 4000)
+  }
+
+  const generateRandomMeterNumber = () => {
+    const num = Math.floor(100000 + Math.random() * 900000)
+    setRegisterMeterNumber(`MTR-${num}`)
+  }
+
+  const generateRandomAccountNumber = () => {
+    const num = Math.floor(10000000 + Math.random() * 90000000)
+    setRegisterAccountNumber(`ACC-${num}`)
+  }
+
+  const generateRandomPasscode = () => {
+    const code = String(Math.floor(100000 + Math.random() * 900000))
+    setRegisterPasscode(code)
+  }
+
+  const handleOpenRegisterModal = () => {
+    generateRandomMeterNumber()
+    generateRandomAccountNumber()
+    generateRandomPasscode()
+    setRegisterNic("")
+    setRegisterBalance("0.00")
+    setRegisterName("Main Residence")
+    setRegisterStaffPassword("")
+    setIsRegisterModalOpen(true)
+  }
+
+  const handleRegisterMeter = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!registerMeterNumber.trim()) {
+      showToast("Meter number is required.", "error")
+      return
+    }
+    if (!registerAccountNumber.trim()) {
+      showToast("Account number is required.", "error")
+      return
+    }
+    if (!registerNic.trim()) {
+      showToast("Registered Customer NIC is required for anti-theft binding.", "error")
+      return
+    }
+    if (!registerStaffPassword) {
+      showToast("Staff authorization password is required.", "error")
+      return
+    }
+
+    setRegisterLoading(true)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/staff/meters/register`, {
+        method: "POST",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({
+          meter_number: registerMeterNumber.trim().toUpperCase(),
+          account_number: registerAccountNumber.trim().toUpperCase(),
+          registered_nic: registerNic.trim().toUpperCase(),
+          passcode: registerPasscode.trim(),
+          initial_balance: parseFloat(registerBalance) || 0,
+          name: registerName.trim() || "Home",
+          staff_password: registerStaffPassword
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        showToast(data.message || "Meter registered successfully.", "success")
+        setIsRegisterModalOpen(false)
+        setHandoverSlip({
+          meter_number: data.meter.meter_number,
+          account_number: data.meter.account_number,
+          registered_nic: data.meter.registered_nic,
+          passcode: data.passcode,
+          initial_balance: parseFloat(data.meter.balance) || 0,
+          name: data.meter.name
+        })
+        onRefresh()
+      } else {
+        showToast(data.message || "Failed to register meter.", "error")
+      }
+    } catch (err) {
+      console.error("Register meter error:", err)
+      showToast("Network error registering meter.", "error")
+    } finally {
+      setRegisterLoading(false)
+    }
+  }
+
+  const handleOpenPasscodeModal = (meter: StaffMeter) => {
+    setPasscodeModalMeter(meter)
+    setActivePasscodeDisplay(meter.staff_passcode || "")
+    setPasscodeStaffPassword("")
+    setCustomPasscode("")
+    setPasscodeCopied(false)
+  }
+
+  const handleRegeneratePasscode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!passcodeModalMeter) return
+    if (!passcodeStaffPassword) {
+      showToast("Staff authorization password is required to regenerate passcode.", "error")
+      return
+    }
+
+    setPasscodeRegenerating(true)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/staff/meters/${passcodeModalMeter.id}/regenerate-passcode`, {
+        method: "POST",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({
+          staffPassword: passcodeStaffPassword,
+          customPasscode: customPasscode.trim() || undefined
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        showToast(data.message || "Passcode regenerated successfully.", "success")
+        setActivePasscodeDisplay(data.passcode)
+        setPasscodeStaffPassword("")
+        setCustomPasscode("")
+        onRefresh()
+      } else {
+        showToast(data.message || "Failed to regenerate passcode.", "error")
+      }
+    } catch (err) {
+      console.error("Regenerate passcode error:", err)
+      showToast("Network error regenerating passcode.", "error")
+    } finally {
+      setPasscodeRegenerating(false)
+    }
+  }
+
+  const handleCopyText = (text: string, setCopiedState: (v: boolean) => void) => {
+    navigator.clipboard.writeText(text)
+    setCopiedState(true)
+    setTimeout(() => setCopiedState(false), 2500)
+  }
+
+  const handlePrintSlip = () => {
+    window.print()
   }
 
   // Summary Metrics
@@ -488,6 +669,14 @@ export default function MetersManagement({
             </select>
           </div>
 
+            <Button
+            onClick={handleOpenRegisterModal}
+            className="bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-black font-bold h-9 px-3.5 rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 cursor-pointer"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Register New Meter
+          </Button>
+
           <Button
             onClick={onRefresh}
             variant="outline"
@@ -566,13 +755,22 @@ export default function MetersManagement({
                     </div>
                   </div>
 
-                  {/* Col 2: Customer Email & Phone */}
+                  {/* Col 2: Customer Email & Phone & Registered NIC */}
                   <div className="col-span-3">
                     <div className="font-medium text-white truncate max-w-[220px]">
-                      {meter.customer_email}
+                      {meter.customer_email || (
+                        <span className="text-amber-400 font-semibold italic text-[11px]">
+                          Awaiting Customer Link
+                        </span>
+                      )}
                     </div>
-                    <div className="text-[11px] text-white/50 font-mono mt-0.5">
-                      {meter.phone_number || "Not Registered"}
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-white/50 font-mono mt-0.5">
+                      {meter.registered_nic && (
+                        <span className="px-1.5 py-0.5 rounded bg-yellow-400/10 text-yellow-300 border border-yellow-400/20 text-[10px] font-semibold">
+                          NIC: {meter.registered_nic}
+                        </span>
+                      )}
+                      <span>{meter.phone_number || "Not Registered"}</span>
                     </div>
                   </div>
 
@@ -624,9 +822,20 @@ export default function MetersManagement({
                     <Button
                       size="sm"
                       variant="outline"
+                      title="View or Regenerate Passcode"
+                      onClick={() => handleOpenPasscodeModal(meter)}
+                      className="bg-amber-400/10 hover:bg-amber-400/20 border-amber-400/30 text-amber-300 text-xs h-7 px-2 rounded-lg flex items-center gap-1 cursor-pointer"
+                    >
+                      <KeyRound className="h-3 w-3" />
+                      Passcode
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
                       title="Adjust credit"
                       onClick={() => setTopupModalMeter(meter)}
-                      className="bg-yellow-400/10 hover:bg-yellow-400/20 border-yellow-400/30 text-yellow-300 text-xs h-7 px-2.5 rounded-lg flex items-center gap-1 cursor-pointer"
+                      className="bg-yellow-400/10 hover:bg-yellow-400/20 border-yellow-400/30 text-yellow-300 text-xs h-7 px-2 rounded-lg flex items-center gap-1 cursor-pointer"
                     >
                       <CreditCard className="h-3 w-3" />
                       Credit
@@ -727,7 +936,19 @@ export default function MetersManagement({
                   <div className="flex justify-between items-center">
                     <span className="text-white/50">Registered Email:</span>
                     <span className="font-semibold text-white truncate max-w-[200px]">
-                      {activeMeterDetail.customer_email}
+                      {activeMeterDetail.customer_email || "Awaiting Customer Link"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Registered NIC (Anti-Theft):</span>
+                    <span className="font-mono text-yellow-300 font-bold bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20">
+                      {activeMeterDetail.registered_nic || activeMeterDetail.customer_nic || "Not Specified"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Account Binding:</span>
+                    <span className={activeMeterDetail.customer_email ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+                      {activeMeterDetail.customer_email ? "Linked to Customer" : "Awaiting Customer Verification"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -738,16 +959,20 @@ export default function MetersManagement({
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-white/50">Customer System ID:</span>
-                    <span className="font-mono text-white/70">USR-{activeMeterDetail.customer_id}</span>
+                    <span className="font-mono text-white/70">
+                      {activeMeterDetail.customer_id ? `USR-${activeMeterDetail.customer_id}` : "Unlinked"}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-white/50">Member Registered:</span>
                     <span className="text-white/70">
-                      {new Date(activeMeterDetail.customer_since).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric"
-                      })}
+                      {activeMeterDetail.customer_since
+                        ? new Date(activeMeterDetail.customer_since).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric"
+                          })
+                        : "Awaiting Link"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -1010,6 +1235,14 @@ export default function MetersManagement({
                 </Button>
 
                 <Button
+                  onClick={() => handleOpenPasscodeModal(activeMeterDetail)}
+                  className="bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/30 text-xs h-9 px-3.5 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Passcode Voucher
+                </Button>
+
+                <Button
                   onClick={() => setRelayModalMeter(activeMeterDetail)}
                   className={`text-xs h-9 px-4 rounded-xl font-bold flex items-center gap-2 cursor-pointer ${
                     activeMeterDetail.status === "Connected"
@@ -1204,7 +1437,450 @@ export default function MetersManagement({
         </div>
       )}
 
-      {/* Staff Password Confirmation Modal for Sensitive Relay & Topup Operations */}
+      {/* MODAL 3: Register New Smart Meter with NIC and Passcode */}
+      {isRegisterModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#0f0f11] border border-white/10 rounded-3xl max-w-xl w-full p-6 text-white space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center text-black font-bold">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Register New Smart Meter</h3>
+                  <p className="text-xs text-white/50">Anti-Theft Hardware Registration & NIC Identity Binding</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRegisterModalOpen(false)}
+                className="text-white/40 hover:text-white p-1.5 rounded-lg bg-black/40 border border-white/5 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Anti-Theft Notice */}
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2.5 text-xs text-amber-200">
+              <ShieldCheck className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold block">Anti-Theft Security Enforcement</span>
+                <span>The meter will be permanently bound to the specified National Identity Card (NIC). Only a customer authenticated with this NIC can claim and link the meter to their profile.</span>
+              </div>
+            </div>
+
+            {/* Registration Form */}
+            <form onSubmit={handleRegisterMeter} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Meter Serial Number */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-white/70 font-medium">Meter Serial Number *</label>
+                    <button
+                      type="button"
+                      onClick={generateRandomMeterNumber}
+                      className="text-[10px] text-yellow-400 hover:underline cursor-pointer"
+                    >
+                      Generate New
+                    </button>
+                  </div>
+                  <Input
+                    required
+                    value={registerMeterNumber}
+                    onChange={(e) => setRegisterMeterNumber(e.target.value.toUpperCase())}
+                    placeholder="e.g. MTR-782910"
+                    className="bg-black/40 border-white/10 text-white font-mono h-9 rounded-xl focus-visible:border-yellow-400"
+                  />
+                </div>
+
+                {/* Account Number */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-white/70 font-medium">Account Number *</label>
+                    <button
+                      type="button"
+                      onClick={generateRandomAccountNumber}
+                      className="text-[10px] text-yellow-400 hover:underline cursor-pointer"
+                    >
+                      Generate New
+                    </button>
+                  </div>
+                  <Input
+                    required
+                    value={registerAccountNumber}
+                    onChange={(e) => setRegisterAccountNumber(e.target.value.toUpperCase())}
+                    placeholder="e.g. ACC-9821734"
+                    className="bg-black/40 border-white/10 text-white font-mono h-9 rounded-xl focus-visible:border-yellow-400"
+                  />
+                </div>
+              </div>
+
+              {/* Registered Customer NIC */}
+              <div className="space-y-1.5">
+                <label className="text-white/70 font-medium">Registered Customer NIC (Anti-Theft Binding) *</label>
+                <Input
+                  required
+                  value={registerNic}
+                  onChange={(e) => setRegisterNic(e.target.value.toUpperCase())}
+                  placeholder="e.g. 199512345678 or 951234567V"
+                  className="bg-black/40 border-white/10 text-white font-mono h-9 rounded-xl focus-visible:border-yellow-400"
+                />
+                <span className="text-[10px] text-white/40 block">Customer must present this National Identity Card (NIC) to claim the meter.</span>
+              </div>
+
+              {/* Staff-Issued Security Passcode */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-white/70 font-medium">Customer Security Passcode (6 Digits) *</label>
+                  <button
+                    type="button"
+                    onClick={generateRandomPasscode}
+                    className="text-[10px] text-yellow-400 hover:underline cursor-pointer"
+                  >
+                    Generate Passcode
+                  </button>
+                </div>
+                <div className="relative">
+                  <Input
+                    required
+                    type={showRegisterPasscode ? "text" : "password"}
+                    value={registerPasscode}
+                    onChange={(e) => setRegisterPasscode(e.target.value)}
+                    placeholder="6-digit security PIN"
+                    maxLength={10}
+                    className="bg-black/40 border-white/10 text-white font-mono font-bold tracking-widest text-sm h-9 rounded-xl pr-10 focus-visible:border-yellow-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegisterPasscode(!showRegisterPasscode)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white p-1 cursor-pointer"
+                  >
+                    {showRegisterPasscode ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+                <span className="text-[10px] text-white/40 block">Hand this passcode to the customer along with the official provisioning voucher.</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Initial Balance */}
+                <div className="space-y-1.5">
+                  <label className="text-white/70 font-medium">Initial Credit Balance (LKR)</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={registerBalance}
+                    onChange={(e) => setRegisterBalance(e.target.value)}
+                    placeholder="0.00"
+                    className="bg-black/40 border-white/10 text-white font-mono h-9 rounded-xl focus-visible:border-yellow-400"
+                  />
+                </div>
+
+                {/* Friendly Location Label */}
+                <div className="space-y-1.5">
+                  <label className="text-white/70 font-medium">Meter Label / Premise</label>
+                  <Input
+                    value={registerName}
+                    onChange={(e) => setRegisterName(e.target.value)}
+                    placeholder="e.g. Main Residence, Shop 2"
+                    className="bg-black/40 border-white/10 text-white h-9 rounded-xl focus-visible:border-yellow-400"
+                  />
+                </div>
+              </div>
+
+              {/* Staff Password Authorization */}
+              <div className="space-y-1.5 pt-2 border-t border-white/5">
+                <label className="text-yellow-400 font-semibold flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5" />
+                  Staff Authorization Password *
+                </label>
+                <Input
+                  required
+                  type="password"
+                  value={registerStaffPassword}
+                  onChange={(e) => setRegisterStaffPassword(e.target.value)}
+                  placeholder="Enter your staff account password"
+                  className="bg-black/40 border-yellow-400/30 text-white h-9 rounded-xl focus-visible:border-yellow-400"
+                />
+                <span className="text-[10px] text-white/40 block">Mandatory security barrier to record authorization in staff activity audit ledger.</span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={registerLoading}
+                  onClick={() => setIsRegisterModalOpen(false)}
+                  className="bg-white/5 border-white/10 text-white text-xs h-9 px-4 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={registerLoading}
+                  className="bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-black font-bold text-xs h-9 px-5 rounded-xl shadow-lg shadow-amber-500/20 flex items-center gap-2 cursor-pointer"
+                >
+                  {registerLoading ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Provisioning Meter...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-3.5 w-3.5" />
+                      Register & Issue Meter
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Official LECO Meter Handover Voucher Slip */}
+      {handoverSlip && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#0f0f11] border border-amber-500/30 rounded-3xl max-w-lg w-full p-6 text-white space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+            {/* Slip Header */}
+            <div className="text-center pb-4 border-b border-white/10 space-y-1">
+              <span className="text-[10px] font-mono tracking-widest text-yellow-400 uppercase font-bold block">
+                LANKA ELECTRICITY COMPANY (PVT) LTD
+              </span>
+              <h3 className="text-xl font-bold text-white">Smart Meter Provisioning Voucher</h3>
+              <p className="text-xs text-white/50">Official Customer Handover Document</p>
+            </div>
+
+            {/* Anti-Theft Identity Binding Badge */}
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 text-center space-y-1">
+              <span className="text-[11px] uppercase font-bold tracking-wider text-amber-300 block">
+                Anti-Theft Hardware Protection
+              </span>
+              <p className="text-xs text-white/80">
+                This meter is registered strictly to National Identity Card (NIC):
+              </p>
+              <div className="font-mono text-base font-extrabold text-yellow-300 tracking-wider">
+                {handoverSlip.registered_nic}
+              </div>
+              <span className="text-[10px] text-white/50 block">
+                The customer must log in with an account registered to this exact NIC to link and activate this meter.
+              </span>
+            </div>
+
+            {/* Meter Credentials Box */}
+            <div className="bg-black/60 border border-white/10 rounded-2xl p-4 space-y-3 text-xs">
+              <div className="flex justify-between items-center py-1 border-b border-white/5">
+                <span className="text-white/50">Meter Serial Number:</span>
+                <span className="font-mono font-bold text-sm text-white">{handoverSlip.meter_number}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-white/5">
+                <span className="text-white/50">Account Number:</span>
+                <span className="font-mono font-bold text-sm text-white">{handoverSlip.account_number}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-white/5">
+                <span className="text-white/50">Premise Label:</span>
+                <span className="font-medium text-white">{handoverSlip.name}</span>
+              </div>
+              <div className="flex justify-between items-center py-1 border-b border-white/5">
+                <span className="text-white/50">Initial Balance Credited:</span>
+                <span className="font-mono font-bold text-emerald-400">Rs. {handoverSlip.initial_balance.toFixed(2)}</span>
+              </div>
+
+              {/* Large Passcode Highlight */}
+              <div className="pt-2">
+                <span className="text-[11px] text-white/60 block mb-1 font-medium">Customer Security Passcode:</span>
+                <div className="bg-yellow-400/10 border border-yellow-400/30 rounded-xl p-3 flex items-center justify-between">
+                  <span className="font-mono text-2xl font-extrabold text-yellow-300 tracking-widest">
+                    {handoverSlip.passcode}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCopyText(handoverSlip.passcode, setSlipCopied)}
+                    className="bg-yellow-400/20 hover:bg-yellow-400/30 text-yellow-300 border-yellow-400/40 text-xs h-8 px-3 rounded-lg flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {slipCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {slipCopied ? "Copied" : "Copy Passcode"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="space-y-1.5 text-[11px] text-white/60 bg-white/5 p-3 rounded-xl border border-white/5">
+              <span className="font-bold text-white block">Instructions for the Customer:</span>
+              <p>1. Open the LECO Smart Electricity app or web dashboard.</p>
+              <p>2. Ensure customer profile is registered under NIC <strong>{handoverSlip.registered_nic}</strong>.</p>
+              <p>3. Go to <strong>Add Meter</strong> and enter the Meter Number, Account Number, and Security Passcode.</p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/10">
+              <Button
+                variant="outline"
+                onClick={handlePrintSlip}
+                className="bg-white/5 border-white/10 text-white text-xs h-9 px-3.5 rounded-xl flex items-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="h-3.5 w-3.5 text-yellow-400" />
+                Print Handover Slip
+              </Button>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const fullText = `LECO SMART METER PROVISIONING VOUCHER\nMeter Number: ${handoverSlip.meter_number}\nAccount Number: ${handoverSlip.account_number}\nRegistered NIC: ${handoverSlip.registered_nic}\nSecurity Passcode: ${handoverSlip.passcode}\nInitial Balance: Rs. ${handoverSlip.initial_balance.toFixed(2)}`
+                    handleCopyText(fullText, setSlipCopied)
+                  }}
+                  className="bg-white/5 border-white/10 text-white text-xs h-9 px-3 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Copy className="h-3.5 w-3.5 text-yellow-400" />
+                  Copy Voucher
+                </Button>
+                <Button
+                  onClick={() => setHandoverSlip(null)}
+                  className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-xs h-9 px-4 rounded-xl shadow-lg cursor-pointer"
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: Security Passcode Management & Regeneration */}
+      {passcodeModalMeter && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#0f0f11] border border-white/10 rounded-3xl max-w-lg w-full p-6 text-white space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300 font-bold">
+                  <KeyRound className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Security Passcode Management</h3>
+                  <p className="text-xs text-white/50">Meter #{passcodeModalMeter.meter_number}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPasscodeModalMeter(null)}
+                className="text-white/40 hover:text-white p-1.5 rounded-lg bg-black/40 border border-white/5 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Anti-Theft Binding Details */}
+            <div className="bg-black/40 border border-white/10 rounded-2xl p-4 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-white/50">Registered NIC (Anti-Theft):</span>
+                <span className="font-mono text-yellow-300 font-bold bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20">
+                  {passcodeModalMeter.registered_nic || passcodeModalMeter.customer_nic || "Not Bound"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-white/50">Account Number:</span>
+                <span className="font-mono text-white font-semibold">{passcodeModalMeter.account_number}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-white/50">Customer Account:</span>
+                <span className="text-white font-semibold">{passcodeModalMeter.customer_email || "Awaiting Customer Link"}</span>
+              </div>
+            </div>
+
+            {/* Current Passcode Display */}
+            <div className="space-y-1.5">
+              <span className="text-xs text-white/70 font-medium block">Current Provisioned Passcode:</span>
+              <div className="bg-yellow-400/10 border border-yellow-400/30 rounded-xl p-3 flex items-center justify-between">
+                <span className="font-mono text-xl font-extrabold text-yellow-300 tracking-widest">
+                  {activePasscodeDisplay || (
+                    <span className="text-xs text-white/50 font-normal tracking-normal italic">
+                      Secured with Cryptographic Bcrypt Hash
+                    </span>
+                  )}
+                </span>
+                {activePasscodeDisplay && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCopyText(activePasscodeDisplay, setPasscodeCopied)}
+                    className="bg-yellow-400/20 hover:bg-yellow-400/30 text-yellow-300 border-yellow-400/40 text-xs h-8 px-3 rounded-lg flex items-center gap-1 cursor-pointer"
+                  >
+                    {passcodeCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    {passcodeCopied ? "Copied" : "Copy"}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Regenerate Passcode Section */}
+            <form onSubmit={handleRegeneratePasscode} className="space-y-3 pt-3 border-t border-white/10 text-xs">
+              <div className="flex items-center gap-2 text-yellow-400 font-bold uppercase text-[11px] tracking-wider">
+                <Lock className="h-3.5 w-3.5" />
+                Regenerate Passcode with Staff Authorization
+              </div>
+              <p className="text-white/50 text-[11px]">
+                If the customer lost their handover voucher, generate a new passcode here after verifying their physical National Identity Card (NIC).
+              </p>
+
+              <div className="space-y-1.5">
+                <label className="text-white/70 font-medium">Custom Passcode (Optional - leave blank to auto-generate 6 digits)</label>
+                <Input
+                  value={customPasscode}
+                  onChange={(e) => setCustomPasscode(e.target.value)}
+                  placeholder="e.g. 849201"
+                  className="bg-black/40 border-white/10 text-white font-mono h-9 rounded-xl focus-visible:border-yellow-400"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-yellow-400 font-medium">Staff Password Authorization *</label>
+                <Input
+                  required
+                  type="password"
+                  value={passcodeStaffPassword}
+                  onChange={(e) => setPasscodeStaffPassword(e.target.value)}
+                  placeholder="Enter your staff password to confirm"
+                  className="bg-black/40 border-yellow-400/30 text-white h-9 rounded-xl focus-visible:border-yellow-400"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPasscodeModalMeter(null)}
+                  className="bg-white/5 border-white/10 text-white text-xs h-9 px-4 rounded-xl cursor-pointer"
+                >
+                  Close
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={passcodeRegenerating}
+                  className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-bold text-xs h-9 px-4 rounded-xl shadow-lg flex items-center gap-2 cursor-pointer"
+                >
+                  {passcodeRegenerating ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Regenerating...
+                    </>
+                  ) : (
+                    <>
+                      <KeyRound className="h-3.5 w-3.5" />
+                      Regenerate Passcode
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {passwordModalConfig && (
         <StaffPasswordConfirmModal
           isOpen={passwordModalConfig.isOpen}

@@ -9,10 +9,15 @@ export interface StaffMeter {
   emergency_credit_active: boolean
   emergency_credit_activated_at?: string
   created_at: string
-  customer_id: number
-  customer_email: string
-  customer_role: string
-  customer_since: string
+  registered_nic?: string
+  staff_passcode?: string
+  is_claimed?: boolean
+  customer_id?: number
+  customer_email?: string
+  customer_role?: string
+  customer_since?: string
+  customer_nic?: string
+  customer_name?: string
   phone_number: string
   tariff_type: string
   low_balance_threshold: number

@@ -14,7 +14,10 @@ import {
   X,
   Loader2,
   Eye,
-  EyeOff
+  EyeOff,
+  KeyRound,
+  Copy,
+  Check
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -83,6 +86,91 @@ export default function CustomerMembersManagement({ getAuthHeaders }: CustomerMe
   const showToast = (text: string, type: "success" | "error") => {
     setToastMessage({ text, type })
     setTimeout(() => setToastMessage(null), 4500)
+  }
+
+  // Customer Password Reset State
+  const [resetPasswordCustomer, setResetPasswordCustomer] = useState<CustomerMember | null>(null)
+  const [newCustomerPassword, setNewCustomerPassword] = useState("")
+  const [confirmCustomerPassword, setConfirmCustomerPassword] = useState("")
+  const [resetPasswordStaffAuth, setResetPasswordStaffAuth] = useState("")
+  const [resetPasswordReason, setResetPasswordReason] = useState("Customer requested in-person password reset at LECO branch office")
+  const [showNewPassword, setShowNewPassword] = useState(true)
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false)
+  const [completedResetResult, setCompletedResetResult] = useState<{ email: string; tempPass: string } | null>(null)
+  const [tempPassCopied, setTempPassCopied] = useState(false)
+
+  const generateStrongPassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*"
+    let pass = ""
+    for (let i = 0; i < 12; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    setNewCustomerPassword(pass)
+    setConfirmCustomerPassword(pass)
+  }
+
+  const handleOpenResetModal = (customer: CustomerMember) => {
+    setResetPasswordCustomer(customer)
+    generateStrongPassword()
+    setResetPasswordStaffAuth("")
+    setResetPasswordReason("Customer requested in-person password reset at LECO branch office")
+    setShowNewPassword(true)
+    setCompletedResetResult(null)
+    setTempPassCopied(false)
+  }
+
+  const handleExecutePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resetPasswordCustomer) return
+
+    if (!newCustomerPassword || newCustomerPassword.length < 8) {
+      showToast("New customer password must be at least 8 characters long.", "error")
+      return
+    }
+    if (newCustomerPassword !== confirmCustomerPassword) {
+      showToast("Password confirmation does not match.", "error")
+      return
+    }
+    if (!resetPasswordStaffAuth) {
+      showToast("Staff authorization password is required to reset customer password.", "error")
+      return
+    }
+
+    setResetPasswordLoading(true)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/staff/customers/${resetPasswordCustomer.id}/reset-password`, {
+        method: "POST",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({
+          staffPassword: resetPasswordStaffAuth,
+          newPassword: newCustomerPassword,
+          reason: resetPasswordReason.trim()
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        showToast(data.message || `Password reset successfully for ${resetPasswordCustomer.email}.`, "success")
+        setCompletedResetResult({
+          email: resetPasswordCustomer.email,
+          tempPass: newCustomerPassword
+        })
+      } else {
+        showToast(data.message || "Failed to reset customer password.", "error")
+      }
+    } catch (err) {
+      console.error("Reset password error:", err)
+      showToast("Network error resetting password.", "error")
+    } finally {
+      setResetPasswordLoading(false)
+    }
+  }
+
+  const handleCopyTempPassword = (text: string) => {
+    navigator.clipboard.writeText(text)
+    setTempPassCopied(true)
+    setTimeout(() => setTempPassCopied(false), 2500)
   }
 
   // Fetch Customers
@@ -459,15 +547,28 @@ export default function CustomerMembersManagement({ getAuthHeaders }: CustomerMe
                       </td>
 
                       <td className="py-3.5 px-4 text-right">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedCustomer(c)}
-                          className="h-7 text-[11px] border-white/10 hover:bg-white/5 text-white/80 cursor-pointer"
-                        >
-                          View Details
-                        </Button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            title="Reset Customer Password"
+                            onClick={() => handleOpenResetModal(c)}
+                            className="h-7 text-[11px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/20 flex items-center gap-1 cursor-pointer"
+                          >
+                            <KeyRound className="h-3 w-3" />
+                            Reset Password
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedCustomer(c)}
+                            className="h-7 text-[11px] border-white/10 hover:bg-white/5 text-white/80 cursor-pointer"
+                          >
+                            View Details
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -570,7 +671,21 @@ export default function CustomerMembersManagement({ getAuthHeaders }: CustomerMe
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex items-center justify-between">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  const cust = selectedCustomer
+                  setSelectedCustomer(null)
+                  handleOpenResetModal(cust)
+                }}
+                className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs h-9 px-4 flex items-center gap-1.5 cursor-pointer"
+              >
+                <KeyRound className="h-3.5 w-3.5" />
+                Reset Account Password
+              </Button>
+
               <Button
                 type="button"
                 variant="outline"
@@ -796,7 +911,207 @@ export default function CustomerMembersManagement({ getAuthHeaders }: CustomerMe
         </div>
       )}
 
-      {/* Security Password Confirmation Modal */}
+      {/* Reset Customer Password Modal */}
+      {resetPasswordCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-[#0f0f11] border border-white/10 rounded-2xl shadow-2xl p-6 text-white relative max-h-[92vh] overflow-y-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setResetPasswordCustomer(null)
+                setCompletedResetResult(null)
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            {completedResetResult ? (
+              /* Success Result View */
+              <div className="space-y-4 py-2">
+                <div className="flex items-center gap-3 pb-3 border-b border-white/5">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Password Reset Completed</h3>
+                    <p className="text-[11px] text-white/50">{completedResetResult.email}</p>
+                  </div>
+                </div>
+
+                <div className="bg-black/50 border border-white/10 rounded-xl p-4 space-y-2">
+                  <span className="text-[11px] text-white/50 block font-medium">New Account Password:</span>
+                  <div className="bg-yellow-400/10 border border-yellow-400/30 rounded-lg p-3 flex items-center justify-between">
+                    <span className="font-mono text-lg font-bold text-yellow-300">
+                      {completedResetResult.tempPass}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCopyTempPassword(completedResetResult.tempPass)}
+                      className="bg-yellow-400/20 hover:bg-yellow-400/30 text-yellow-300 border-yellow-400/40 text-xs h-8 px-3 rounded-lg flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {tempPassCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {tempPassCopied ? "Copied" : "Copy Password"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-white/60 bg-white/5 p-3 rounded-xl border border-white/5">
+                  Securely provide this password to the customer. They can now log in using their email and this password, and update it under account settings.
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <Button
+                    onClick={() => {
+                      setResetPasswordCustomer(null)
+                      setCompletedResetResult(null)
+                    }}
+                    className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold text-xs h-9 px-5 rounded-xl cursor-pointer"
+                  >
+                    Done
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              /* Reset Password Form */
+              <form onSubmit={handleExecutePasswordReset} className="space-y-4">
+                <div className="flex items-center gap-3 pb-3 border-b border-white/5">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center">
+                    <KeyRound className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Reset Customer Password</h3>
+                    <p className="text-[11px] text-white/50">Staff Administrative Credential Reset</p>
+                  </div>
+                </div>
+
+                {/* Target Customer Identity Badge */}
+                <div className="bg-black/50 border border-white/10 rounded-xl p-3 text-xs space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Customer Name:</span>
+                    <span className="font-semibold text-white">{resetPasswordCustomer.full_name}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Account Email:</span>
+                    <span className="font-mono text-white/90">{resetPasswordCustomer.email}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/50">Verified NIC:</span>
+                    <span className="font-mono text-yellow-300 font-bold bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20">
+                      {resetPasswordCustomer.nic || "Not Linked"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* New Password */}
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <label className="text-white/70 font-medium">New Customer Password *</label>
+                    <button
+                      type="button"
+                      onClick={generateStrongPassword}
+                      className="text-[10px] text-yellow-400 hover:underline cursor-pointer"
+                    >
+                      Generate Strong Password
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      required
+                      type={showNewPassword ? "text" : "password"}
+                      value={newCustomerPassword}
+                      onChange={(e) => setNewCustomerPassword(e.target.value)}
+                      placeholder="Minimum 8 characters"
+                      minLength={8}
+                      className="bg-black/40 border-white/10 text-white font-mono text-xs h-9 pr-10 rounded-xl focus-visible:border-yellow-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white p-1 cursor-pointer"
+                    >
+                      {showNewPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm New Password */}
+                <div className="space-y-1.5 text-xs">
+                  <label className="text-white/70 font-medium">Confirm New Password *</label>
+                  <Input
+                    required
+                    type="password"
+                    value={confirmCustomerPassword}
+                    onChange={(e) => setConfirmCustomerPassword(e.target.value)}
+                    placeholder="Re-enter new password"
+                    minLength={8}
+                    className="bg-black/40 border-white/10 text-white font-mono text-xs h-9 rounded-xl focus-visible:border-yellow-400"
+                  />
+                </div>
+
+                {/* Reason for Reset */}
+                <div className="space-y-1.5 text-xs">
+                  <label className="text-white/70 font-medium">Reason for Password Reset</label>
+                  <Input
+                    value={resetPasswordReason}
+                    onChange={(e) => setResetPasswordReason(e.target.value)}
+                    placeholder="e.g. In-person request with verified national ID"
+                    className="bg-black/40 border-white/10 text-white text-xs h-9 rounded-xl focus-visible:border-yellow-400"
+                  />
+                </div>
+
+                {/* Staff Authorization Password */}
+                <div className="space-y-1.5 pt-2 border-t border-white/5 text-xs">
+                  <label className="text-yellow-400 font-semibold flex items-center gap-1.5">
+                    <Lock className="h-3.5 w-3.5" />
+                    Staff Authorization Password *
+                  </label>
+                  <Input
+                    required
+                    type="password"
+                    value={resetPasswordStaffAuth}
+                    onChange={(e) => setResetPasswordStaffAuth(e.target.value)}
+                    placeholder="Enter your staff password to authorize"
+                    className="bg-black/40 border-yellow-400/30 text-white text-xs h-9 rounded-xl focus-visible:border-yellow-400"
+                  />
+                  <span className="text-[10px] text-white/40 block">This security override will be logged in the immutable staff activity audit log.</span>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={resetPasswordLoading}
+                    onClick={() => setResetPasswordCustomer(null)}
+                    className="bg-white/5 border-white/10 text-white text-xs h-9 px-4 rounded-xl cursor-pointer"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={resetPasswordLoading}
+                    className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-bold text-xs h-9 px-5 rounded-xl shadow-lg flex items-center gap-2 cursor-pointer"
+                  >
+                    {resetPasswordLoading ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Resetting Password...
+                      </>
+                    ) : (
+                      <>
+                        <KeyRound className="h-3.5 w-3.5" />
+                        Reset Customer Password
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
       <StaffPasswordConfirmModal
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}

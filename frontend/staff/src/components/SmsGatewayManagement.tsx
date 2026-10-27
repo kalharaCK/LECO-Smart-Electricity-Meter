@@ -485,7 +485,7 @@ export default function SmsGatewayManagement({
                   <option value="" disabled>-- Select consumer account --</option>
                   {meters.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.account_number || m.meter_number} • {m.customer_email.split('@')[0]} ({m.phone_number})
+                      {m.account_number || m.meter_number} • {(m.customer_email || 'Unassigned').split('@')[0]} ({m.phone_number})
                     </option>
                   ))}
                 </select>
