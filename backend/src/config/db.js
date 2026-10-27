@@ -215,6 +215,10 @@ const initDb = async () => {
     const activityLogService = require('../services/activityLogService');
     await activityLogService.initializeActivityLogsTable();
 
+    // Initialize email gateway settings and logs
+    const emailService = require('../services/emailService');
+    await emailService.initializeEmailSettingsTable();
+
     const bcrypt = require('bcryptjs');
 
     // Security migrations run in every environment; only demo data is development-only.

@@ -136,18 +136,33 @@ const sendRegisterOtp = async (req, res) => {
     const otpCode = generateOtp();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Invalidate previous unverified registration OTPs for this mobile
+    // Invalidate previous unverified registration OTPs for this mobile and email
     await pool.query(
       `DELETE FROM verification_otps WHERE identifier = $1 AND purpose = 'registration'`,
       [cleanMobile]
     );
+    if (cleanEmail) {
+      await pool.query(
+        `DELETE FROM verification_otps WHERE identifier = $1 AND purpose = 'registration'`,
+        [cleanEmail]
+      );
+    }
 
-    // Save OTP
+    // Save OTP for mobile
     await pool.query(
       `INSERT INTO verification_otps (purpose, identifier, otp_hash, expires_at)
        VALUES ('registration', $1, $2, $3)`,
       [cleanMobile, hashOtp(otpCode), expiresAt]
     );
+
+    // Save OTP for email
+    if (cleanEmail) {
+      await pool.query(
+        `INSERT INTO verification_otps (purpose, identifier, otp_hash, expires_at)
+         VALUES ('registration', $1, $2, $3)`,
+        [cleanEmail, hashOtp(otpCode), expiresAt]
+      );
+    }
 
     // Dispatch SMS via Text.lk Gateway in customer preferred language
     const userLang = req.body.language || 'en';
@@ -221,24 +236,24 @@ const registerWithProfile = async (req, res) => {
 
     const otpCheck = await pool.query(
       `SELECT id FROM verification_otps
-       WHERE identifier = $1 AND purpose = 'registration' AND (otp_hash = $2 OR otp_code = $3) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
+       WHERE identifier IN ($1, $2) AND purpose = 'registration' AND (otp_hash = $3 OR otp_code = $4) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
        ORDER BY id DESC LIMIT 1`,
-      [cleanMobile, hashOtp(otp), otp]
+      [cleanMobile, cleanEmail, hashOtp(otp), otp]
     );
 
     if (otpCheck.rows.length === 0) {
-      return res.status(400).json({ success: false, error: 'Invalid or expired SMS verification code. Please check and try again.' });
+      return res.status(400).json({ success: false, error: 'Invalid or expired verification code. Please check and try again.' });
     }
 
     const consumedOtp = await pool.query(
       `UPDATE verification_otps
        SET verified = TRUE, otp_hash = NULL, otp_code = NULL
-       WHERE id = $1 AND verified = FALSE AND expires_at > CURRENT_TIMESTAMP
+       WHERE identifier IN ($1, $2) AND purpose = 'registration' AND verified = FALSE AND expires_at > CURRENT_TIMESTAMP
        RETURNING id`,
-      [otpCheck.rows[0].id]
+      [cleanMobile, cleanEmail]
     );
     if (consumedOtp.rows.length === 0) {
-      return res.status(400).json({ success: false, error: 'Invalid or expired SMS verification code. Please request a new code.' });
+      return res.status(400).json({ success: false, error: 'Invalid or expired verification code. Please request a new code.' });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -317,17 +332,33 @@ const sendForgotPasswordOtp = async (req, res) => {
     const otpCode = generateOtp();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Invalidate previous unverified forgot password OTPs for this NIC
+    // Invalidate previous unverified forgot password OTPs for this NIC and email
     await pool.query(
       `DELETE FROM verification_otps WHERE identifier = $1 AND purpose = 'forgot_password'`,
       [cleanNic]
     );
+    if (user.email) {
+      await pool.query(
+        `DELETE FROM verification_otps WHERE identifier = $1 AND purpose = 'forgot_password'`,
+        [user.email.trim().toLowerCase()]
+      );
+    }
 
+    // Save OTP for NIC
     await pool.query(
       `INSERT INTO verification_otps (purpose, identifier, otp_hash, expires_at)
        VALUES ('forgot_password', $1, $2, $3)`,
       [cleanNic, hashOtp(otpCode), expiresAt]
     );
+
+    // Save OTP for registered Email
+    if (user.email) {
+      await pool.query(
+        `INSERT INTO verification_otps (purpose, identifier, otp_hash, expires_at)
+         VALUES ('forgot_password', $1, $2, $3)`,
+        [user.email.trim().toLowerCase(), hashOtp(otpCode), expiresAt]
+      );
+    }
 
     // Dispatch SMS via Text.lk Gateway
     const targetMobile = user.mobile_number || cleanMobile;
@@ -391,11 +422,14 @@ const verifyForgotPasswordOtp = async (req, res) => {
     const cleanNic = nic.trim().toUpperCase();
     const cleanOtp = otp.trim();
 
+    const userLookup = await pool.query(`SELECT email FROM users WHERE UPPER(TRIM(nic)) = $1`, [cleanNic]);
+    const userEmail = userLookup.rows[0]?.email ? userLookup.rows[0].email.trim().toLowerCase() : cleanNic;
+
     const otpCheck = await pool.query(
       `SELECT id FROM verification_otps
-       WHERE identifier = $1 AND purpose = 'forgot_password' AND (otp_hash = $2 OR otp_code = $3) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
+       WHERE identifier IN ($1, $2) AND purpose = 'forgot_password' AND (otp_hash = $3 OR otp_code = $4) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
        ORDER BY id DESC LIMIT 1`,
-      [cleanNic, hashOtp(cleanOtp), cleanOtp]
+      [cleanNic, userEmail, hashOtp(cleanOtp), cleanOtp]
     );
 
     if (otpCheck.rows.length === 0) {
@@ -426,12 +460,15 @@ const resetPasswordWithOtp = async (req, res) => {
     const cleanNic = nic.trim().toUpperCase();
     const cleanOtp = otp.trim();
 
-    // Verify OTP
+    const userLookup = await pool.query(`SELECT email FROM users WHERE UPPER(TRIM(nic)) = $1`, [cleanNic]);
+    const userEmail = userLookup.rows[0]?.email ? userLookup.rows[0].email.trim().toLowerCase() : cleanNic;
+
+    // Verify OTP against either NIC or registered Email
     const otpCheck = await pool.query(
       `SELECT id FROM verification_otps
-       WHERE identifier = $1 AND purpose = 'forgot_password' AND (otp_hash = $2 OR otp_code = $3) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
+       WHERE identifier IN ($1, $2) AND purpose = 'forgot_password' AND (otp_hash = $3 OR otp_code = $4) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
        ORDER BY id DESC LIMIT 1`,
-      [cleanNic, hashOtp(cleanOtp), cleanOtp]
+      [cleanNic, userEmail, hashOtp(cleanOtp), cleanOtp]
     );
 
     if (otpCheck.rows.length === 0) {
@@ -442,9 +479,9 @@ const resetPasswordWithOtp = async (req, res) => {
     const consumedOtp = await pool.query(
       `UPDATE verification_otps
        SET verified = TRUE, otp_hash = NULL, otp_code = NULL
-       WHERE id = $1 AND verified = FALSE AND expires_at > CURRENT_TIMESTAMP
+       WHERE identifier IN ($1, $2) AND purpose = 'forgot_password' AND verified = FALSE AND expires_at > CURRENT_TIMESTAMP
        RETURNING id`,
-      [otpCheck.rows[0].id]
+      [cleanNic, userEmail]
     );
     if (consumedOtp.rows.length === 0) {
       return res.status(400).json({ success: false, error: 'Invalid or expired verification code. Please request a new code.' });
@@ -671,25 +708,40 @@ const sendEmailVerificationOtp = async (req, res) => {
     const otpCode = generateOtp();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Invalidate previous unverified verify_email OTPs for this email
-    await pool.query(
-      `DELETE FROM verification_otps WHERE identifier = $1 AND purpose = 'verify_email'`,
-      [cleanEmail]
-    );
-
-    // Save OTP
-    await pool.query(
-      `INSERT INTO verification_otps (purpose, identifier, otp_hash, expires_at)
-       VALUES ('verify_email', $1, $2, $3)`,
-      [cleanEmail, hashOtp(otpCode), expiresAt]
-    );
-
     // Look up if user has a mobile number registered
     const userLookup = await pool.query(
       `SELECT mobile_number, full_name FROM users WHERE email = $1 LIMIT 1`,
       [cleanEmail]
     );
     const user = userLookup.rows[0];
+
+    // Invalidate previous unverified verify_email OTPs for this email and mobile
+    await pool.query(
+      `DELETE FROM verification_otps WHERE identifier = $1 AND purpose = 'verify_email'`,
+      [cleanEmail]
+    );
+    if (user?.mobile_number) {
+      await pool.query(
+        `DELETE FROM verification_otps WHERE identifier = $1 AND purpose = 'verify_email'`,
+        [user.mobile_number.trim()]
+      );
+    }
+
+    // Save OTP for email
+    await pool.query(
+      `INSERT INTO verification_otps (purpose, identifier, otp_hash, expires_at)
+       VALUES ('verify_email', $1, $2, $3)`,
+      [cleanEmail, hashOtp(otpCode), expiresAt]
+    );
+
+    // Save OTP for mobile if available
+    if (user?.mobile_number) {
+      await pool.query(
+        `INSERT INTO verification_otps (purpose, identifier, otp_hash, expires_at)
+         VALUES ('verify_email', $1, $2, $3)`,
+        [user.mobile_number.trim(), hashOtp(otpCode), expiresAt]
+      );
+    }
 
     // Dispatch Email OTP
     const emailRes = await emailService.sendOtpEmail({
@@ -741,14 +793,20 @@ const confirmEmailVerification = async (req, res) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanOtp = String(otp).trim();
 
+    const userLookup = await pool.query(
+      `SELECT mobile_number FROM users WHERE email = $1 LIMIT 1`,
+      [cleanEmail]
+    );
+    const userMobile = userLookup.rows[0]?.mobile_number ? userLookup.rows[0].mobile_number.trim() : cleanEmail;
+
     const otpCheck = await pool.query(
       `SELECT id FROM verification_otps
-       WHERE identifier = $1 AND purpose = 'verify_email' 
-         AND (otp_hash = $2 OR otp_code = $3) 
+       WHERE identifier IN ($1, $2) AND purpose = 'verify_email' 
+         AND (otp_hash = $3 OR otp_code = $4) 
          AND expires_at > CURRENT_TIMESTAMP 
          AND verified = FALSE
        ORDER BY id DESC LIMIT 1`,
-      [cleanEmail, hashOtp(cleanOtp), cleanOtp]
+      [cleanEmail, userMobile, hashOtp(cleanOtp), cleanOtp]
     );
 
     if (otpCheck.rows.length === 0) {
@@ -758,8 +816,8 @@ const confirmEmailVerification = async (req, res) => {
     await pool.query(
       `UPDATE verification_otps
        SET verified = TRUE, otp_hash = NULL, otp_code = NULL
-       WHERE id = $1`,
-      [otpCheck.rows[0].id]
+       WHERE identifier IN ($1, $2) AND purpose = 'verify_email'`,
+      [cleanEmail, userMobile]
     );
 
     // Update user record

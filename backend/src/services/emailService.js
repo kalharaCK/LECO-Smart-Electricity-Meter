@@ -26,31 +26,31 @@ async function resolveSmtpCredentials() {
          LIMIT 1`
       );
 
-    if (dbRes.rows.length > 0) {
-      const row = dbRes.rows[0];
-      const user = (row.sender_email || '').trim();
-      const pass = (row.app_password || '').trim();
-      if (user && pass) {
-        return {
-          user,
-          pass,
-          host: (row.smtp_host || 'smtp.gmail.com').trim(),
-          port: parseInt(row.smtp_port, 10) || 465,
-          secure: row.smtp_secure !== false,
-          source: 'database',
-          isConfigured: true
-        };
+      if (dbRes.rows.length > 0) {
+        const row = dbRes.rows[0];
+        const user = (row.sender_email || '').trim();
+        const pass = (row.app_password || '').trim().replace(/\s+/g, '');
+        if (user && pass) {
+          return {
+            user,
+            pass,
+            host: (row.smtp_host || 'smtp.gmail.com').trim(),
+            port: parseInt(row.smtp_port, 10) || 465,
+            secure: row.smtp_secure !== false,
+            source: 'database',
+            isConfigured: true
+          };
+        }
       }
     }
-  }
-} catch (err) {
+  } catch (err) {
     // If table doesn't exist yet or query fails, fall back gracefully to environment
     console.warn('[EmailService] Notice: Database email_settings lookup skipped:', err.message);
   }
 
   // Fallback to environment variables
   const envUser = (process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER || '').trim();
-  const envPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD || '').trim();
+  const envPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD || '').trim().replace(/\s+/g, '');
   const envHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
   const envPort = parseInt(process.env.SMTP_PORT || '465', 10);
   const envSecure = process.env.SMTP_SECURE !== 'false';
@@ -573,9 +573,9 @@ async function saveEmailConfig({ senderEmail, appPassword, smtpHost = 'smtp.gmai
       `SELECT app_password FROM email_settings WHERE is_active = TRUE ORDER BY id DESC LIMIT 1`
     );
     if (existing.rows.length > 0) {
-      cleanPass = existing.rows[0].app_password;
+      cleanPass = (existing.rows[0].app_password || '').replace(/\s+/g, '');
     } else if (process.env.SMTP_PASS) {
-      cleanPass = process.env.SMTP_PASS.trim();
+      cleanPass = process.env.SMTP_PASS.trim().replace(/\s+/g, '');
     } else {
       throw new Error('Gmail App Password is required');
     }
@@ -608,6 +608,124 @@ async function saveEmailConfig({ senderEmail, appPassword, smtpHost = 'smtp.gmai
 }
 
 /**
+ * Sends a generic HTML or text email (e.g. for customer welcome, statements, alerts)
+ */
+async function sendHtmlEmail({ to, subject, htmlBody, html, text, purpose = 'notification' }) {
+  if (!to || !to.includes('@')) {
+    return { success: false, error: 'Valid recipient email address is required' };
+  }
+
+  const cleanTo = to.trim().toLowerCase();
+  const { transporter, creds } = await getTransporter();
+
+  if (!transporter || !creds.isConfigured) {
+    console.warn(`[EmailService] SMTP not configured. HTML email to ${cleanTo} skipped.`);
+    return { success: false, error: 'SMTP sender credentials not configured' };
+  }
+
+  const fromAddress = process.env.EMAIL_FROM || `"LECO Smart Electricity" <${creds.user}>`;
+  const body = htmlBody || html || '';
+
+  try {
+    const info = await transporter.sendMail({
+      from: fromAddress,
+      to: cleanTo,
+      subject,
+      text: text || '',
+      html: body
+    });
+
+    try {
+      const pool = getPool();
+      if (pool) {
+        await pool.query(
+          `INSERT INTO email_logs (recipient, subject, purpose, status, message_id)
+           VALUES ($1, $2, $3, 'sent', $4)`,
+          [cleanTo, subject, purpose, info.messageId]
+        );
+      }
+    } catch (_) {}
+
+    return {
+      success: true,
+      messageId: info.messageId
+    };
+  } catch (err) {
+    console.error(`[EmailService] Error sending HTML email to ${cleanTo}:`, err.message);
+    try {
+      const pool = getPool();
+      if (pool) {
+        await pool.query(
+          `INSERT INTO email_logs (recipient, subject, purpose, status, error_message)
+           VALUES ($1, $2, $3, 'failed', $4)`,
+          [cleanTo, subject, purpose, err.message]
+        );
+      }
+    } catch (_) {}
+
+    return {
+      success: false,
+      error: err.message
+    };
+  }
+}
+
+/**
+ * Initializes email_settings and email_logs tables in PostgreSQL if they don't exist.
+ * Also seeds with .env SMTP credentials if email_settings has no active rows.
+ */
+async function initializeEmailSettingsTable() {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS email_settings (
+        id SERIAL PRIMARY KEY,
+        sender_email VARCHAR(255) NOT NULL,
+        app_password VARCHAR(255) NOT NULL,
+        smtp_host VARCHAR(255) DEFAULT 'smtp.gmail.com',
+        smtp_port INTEGER DEFAULT 465,
+        smtp_secure BOOLEAN DEFAULT TRUE,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS email_logs (
+        id SERIAL PRIMARY KEY,
+        recipient VARCHAR(255) NOT NULL,
+        subject VARCHAR(255) NOT NULL,
+        purpose VARCHAR(100),
+        status VARCHAR(50) NOT NULL,
+        message_id VARCHAR(255),
+        error_message TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Check if table has active configuration; if not and env credentials exist, seed it
+    const countRes = await pool.query('SELECT COUNT(*) FROM email_settings WHERE is_active = TRUE');
+    const rowCount = countRes?.rows?.[0]?.count;
+    if (rowCount !== undefined && parseInt(rowCount, 10) === 0) {
+      const envUser = (process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER || '').trim();
+      const envPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD || '').trim().replace(/\s+/g, '');
+      const envHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+      const envPort = parseInt(process.env.SMTP_PORT || '465', 10);
+      if (envUser && envPass) {
+        await pool.query(
+          `INSERT INTO email_settings (sender_email, app_password, smtp_host, smtp_port, is_active)
+           VALUES ($1, $2, $3, $4, TRUE)`,
+          [envUser, envPass, envHost, envPort]
+        );
+        console.log(`[EmailService] Seeded email_settings table from .env with ${envUser}`);
+      }
+    }
+  } catch (err) {
+    console.warn('[EmailService] initializeEmailSettingsTable warning:', err.message);
+  }
+}
+
+/**
  * Returns recent email delivery audit logs
  */
 async function getEmailLogs(limit = 50) {
@@ -633,9 +751,11 @@ module.exports = {
   getTransporter,
   buildOtpEmailHtml,
   sendOtpEmail,
+  sendHtmlEmail,
   sendTestEmail,
   getEmailConfigStatus,
   saveEmailConfig,
   getEmailLogs,
+  initializeEmailSettingsTable,
   invalidateTransporterCache
 };

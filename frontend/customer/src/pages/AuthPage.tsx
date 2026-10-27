@@ -173,7 +173,10 @@ export default function AuthPage() {
       }
 
       setRegStep(3)
-      setMessage({ type: "success", text: `${t.alerts.otpSentSuccess} (${mobileNumber})` })
+      setMessage({
+        type: "success",
+        text: data.message || `${t.alerts.otpSentSuccess} (${mobileNumber} & ${regEmail})`
+      })
     } catch (err: any) {
       setMessage({ type: "error", text: err.message })
     } finally {
@@ -202,7 +205,10 @@ export default function AuthPage() {
       if (!res.ok) {
         throw new Error(data.error || t.alerts.genericError)
       }
-      setMessage({ type: "success", text: `New verification code dispatched via SMS to ${mobileNumber}` })
+      setMessage({
+        type: "success",
+        text: data.message || `New verification code dispatched to ${mobileNumber} and ${regEmail}`
+      })
     } catch (err: any) {
       setMessage({ type: "error", text: err.message })
     } finally {
@@ -216,7 +222,7 @@ export default function AuthPage() {
     setMessage(null)
 
     if (!regOtp.trim() || regOtp.length < 6) {
-      setMessage({ type: "error", text: "Please enter the complete 6-digit verification code sent to your mobile." })
+      setMessage({ type: "error", text: "Please enter the complete 6-digit verification code sent to your mobile or email." })
       return
     }
 
@@ -282,7 +288,10 @@ export default function AuthPage() {
 
       setFpMaskedPhone(data.maskedPhone || fpMobile)
       setFpStep(2)
-      setMessage({ type: "success", text: `${t.alerts.otpSentSuccess} (${data.maskedPhone || fpMobile})` })
+      setMessage({
+        type: "success",
+        text: data.message || `${t.alerts.otpSentSuccess} (${data.maskedPhone || fpMobile})`
+      })
     } catch (err: any) {
       setMessage({ type: "error", text: err.message })
     } finally {
@@ -308,7 +317,10 @@ export default function AuthPage() {
       if (!res.ok) {
         throw new Error(data.error || t.alerts.genericError)
       }
-      setMessage({ type: "success", text: `New verification code dispatched via SMS to ${fpMaskedPhone || fpMobile}` })
+      setMessage({
+        type: "success",
+        text: data.message || `New verification code dispatched to ${fpMaskedPhone || fpMobile}`
+      })
     } catch (err: any) {
       setMessage({ type: "error", text: err.message })
     } finally {
@@ -546,8 +558,8 @@ export default function AuthPage() {
                     <FieldGroup className="space-y-3.5">
                       <Field>
                         <FieldLabel className="text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                          <Smartphone className="h-3.5 w-3.5 text-yellow-400" />
-                          <span>Enter 6-Digit SMS Verification Code</span>
+                          <Mail className="h-3.5 w-3.5 text-yellow-400" />
+                          <span>{t.fields.otpLabel}</span>
                         </FieldLabel>
                         <OtpInputBoxes
                           length={6}
@@ -990,22 +1002,22 @@ export default function AuthPage() {
                   </form>
                 )}
 
-                {/* STEP 3: Mobile Phone Verification (OTP) */}
+                {/* STEP 3: Dual Verification (SMS & Email OTP) */}
                 {regStep === 3 && (
                   <form onSubmit={handleFinalizeRegistration}>
                     <CardContent className="flex flex-col gap-3.5 p-5 sm:p-7 pt-3">
                       <div className="mb-1">
                         <h4 className="font-bold text-sm text-white">{t.steps.step3Title}</h4>
                         <p className="text-xs text-white/60">
-                          {t.steps.step3Desc}: <strong className="text-yellow-400 font-mono">{mobileNumber}</strong>
+                          {t.steps.step3Desc}: <strong className="text-yellow-400 font-mono">{mobileNumber}</strong> & <strong className="text-yellow-400 font-mono">{regEmail}</strong>
                         </p>
                       </div>
 
                       <FieldGroup className="space-y-2">
                         <Field>
                           <FieldLabel className="text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                            <Smartphone className="h-3.5 w-3.5 text-yellow-400" />
-                            <span>Enter 6-Digit SMS Verification Code</span>
+                            <Mail className="h-3.5 w-3.5 text-yellow-400" />
+                            <span>{t.fields.otpLabel}</span>
                           </FieldLabel>
                           <OtpInputBoxes
                             length={6}
