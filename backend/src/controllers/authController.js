@@ -300,107 +300,146 @@ const registerWithProfile = async (req, res) => {
  */
 const sendForgotPasswordOtp = async (req, res) => {
   try {
-    const nic = req.body.nic;
+    const rawEmail = req.body.email || req.body.loginEmail;
+    const rawNic = req.body.nic;
     const rawMobile = req.body.mobile_number || req.body.mobile;
-    if (!nic || !rawMobile) {
-      return res.status(400).json({ success: false, error: 'NIC number and registered Mobile number are required.' });
-    }
 
-    const cleanNic = nic.trim().toUpperCase();
-    const cleanMobile = rawMobile.trim();
-
-    // Find customer account matching NIC and Mobile number
-    // Allows flexible phone matching (+9477... or 077...)
-    const userRes = await pool.query(
-      `SELECT id, email, full_name, mobile_number, nic, role FROM users 
-       WHERE UPPER(TRIM(nic)) = $1 
-         AND (
-           mobile_number = $2 
-           OR RIGHT(mobile_number, 9) = RIGHT($2, 9)
-         )`,
-      [cleanNic, cleanMobile]
-    );
-
-    if (userRes.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'No customer account found matching the provided NIC and Mobile Number. Please verify your details.'
+    if (!rawEmail && !rawNic) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Registered Email address or NIC number is required to reset your password.' 
       });
     }
 
-    const user = userRes.rows[0];
+    const cleanEmail = rawEmail ? rawEmail.trim().toLowerCase() : null;
+    const cleanNic = rawNic ? rawNic.trim().toUpperCase() : null;
+    const cleanMobile = rawMobile ? rawMobile.trim() : null;
+
+    let targetUser = null;
+
+    // 1. Primary lookup: by Email
+    if (cleanEmail) {
+      const emailUserRes = await pool.query(
+        `SELECT id, email, full_name, mobile_number, nic, role FROM users WHERE email = $1`,
+        [cleanEmail]
+      );
+      if (emailUserRes.rows.length > 0) {
+        targetUser = emailUserRes.rows[0];
+
+        // If NIC is also supplied and account already has an NIC, verify it matches
+        if (cleanNic && targetUser.nic && targetUser.nic.trim().toUpperCase() !== cleanNic) {
+          return res.status(400).json({
+            success: false,
+            error: `The provided NIC (${cleanNic}) does not match the registered account details for ${cleanEmail}.`
+          });
+        }
+      }
+    }
+
+    // 2. Secondary lookup: by NIC & Mobile (if not found by email or if email not supplied)
+    if (!targetUser && cleanNic) {
+      let nicQuery = `SELECT id, email, full_name, mobile_number, nic, role FROM users WHERE UPPER(TRIM(nic)) = $1`;
+      const nicParams = [cleanNic];
+
+      if (cleanMobile) {
+        nicQuery += ` AND (mobile_number = $2 OR RIGHT(mobile_number, 9) = RIGHT($2, 9))`;
+        nicParams.push(cleanMobile);
+      }
+
+      const nicUserRes = await pool.query(nicQuery, nicParams);
+      if (nicUserRes.rows.length > 0) {
+        targetUser = nicUserRes.rows[0];
+      }
+    }
+
+    if (!targetUser) {
+      const lookupTarget = cleanEmail || cleanNic;
+      return res.status(404).json({
+        success: false,
+        error: `No customer account found for "${lookupTarget}". Please verify your email or sign up.`
+      });
+    }
+
+    const destinationEmail = targetUser.email ? targetUser.email.trim().toLowerCase() : cleanEmail;
+    const destinationMobile = targetUser.mobile_number || cleanMobile;
+    const destinationNic = targetUser.nic ? targetUser.nic.trim().toUpperCase() : cleanNic;
+
     const otpCode = generateOtp();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Invalidate previous unverified forgot password OTPs for this NIC and email
-    await pool.query(
-      `DELETE FROM verification_otps WHERE identifier = $1 AND purpose = 'forgot_password'`,
-      [cleanNic]
-    );
-    if (user.email) {
+    // Invalidate previous unverified forgot password OTPs for this user's identifiers
+    const identifiersToClean = [destinationEmail, destinationNic, destinationMobile].filter(Boolean);
+    if (identifiersToClean.length > 0) {
       await pool.query(
-        `DELETE FROM verification_otps WHERE identifier = $1 AND purpose = 'forgot_password'`,
-        [user.email.trim().toLowerCase()]
+        `DELETE FROM verification_otps WHERE identifier = ANY($1) AND purpose = 'forgot_password'`,
+        [identifiersToClean]
       );
     }
 
-    // Save OTP for NIC
-    await pool.query(
-      `INSERT INTO verification_otps (purpose, identifier, otp_hash, expires_at)
-       VALUES ('forgot_password', $1, $2, $3)`,
-      [cleanNic, hashOtp(otpCode), expiresAt]
-    );
-
-    // Save OTP for registered Email
-    if (user.email) {
+    // Save OTP for Email identifier
+    if (destinationEmail) {
       await pool.query(
         `INSERT INTO verification_otps (purpose, identifier, otp_hash, expires_at)
          VALUES ('forgot_password', $1, $2, $3)`,
-        [user.email.trim().toLowerCase(), hashOtp(otpCode), expiresAt]
+        [destinationEmail, hashOtp(otpCode), expiresAt]
       );
     }
 
-    // Dispatch SMS via Text.lk Gateway
-    const targetMobile = user.mobile_number || cleanMobile;
-    const userLang = req.body.language || 'en';
-    const smsRes = await smsService.sendEventSms({
-      recipient: targetMobile,
-      eventType: 'otp',
-      eventSubtype: 'forgot_password',
-      language: userLang,
-      data: { otp: otpCode }
-    });
+    // Save OTP for NIC identifier
+    if (destinationNic) {
+      await pool.query(
+        `INSERT INTO verification_otps (purpose, identifier, otp_hash, expires_at)
+         VALUES ('forgot_password', $1, $2, $3)`,
+        [destinationNic, hashOtp(otpCode), expiresAt]
+      );
+    }
 
-    // Also dispatch Email OTP via Nodemailer to user's registered email
+    // Dispatch Email OTP to the user's registered/provided email address
     let emailRes = { success: false };
-    if (user.email) {
+    if (destinationEmail) {
       emailRes = await emailService.sendOtpEmail({
-        to: user.email,
+        to: destinationEmail,
         otp: otpCode,
         purpose: 'forgot_password',
-        recipientName: user.full_name || '',
+        recipientName: targetUser.full_name || 'Valued Customer',
         expiresMinutes: 10
       });
     }
 
-    // Mask phone number and email for user privacy
-    const maskedMobile = targetMobile.length >= 7 
-      ? targetMobile.slice(0, 3) + '••••' + targetMobile.slice(-3)
-      : '••••' + targetMobile.slice(-2);
-    const maskedEmail = user.email ? maskEmail(user.email) : null;
+    // Also dispatch SMS OTP if mobile is registered
+    let smsRes = { success: false };
+    if (destinationMobile) {
+      const userLang = req.body.language || 'en';
+      smsRes = await smsService.sendEventSms({
+        recipient: destinationMobile,
+        eventType: 'otp',
+        eventSubtype: 'forgot_password',
+        language: userLang,
+        data: { otp: otpCode }
+      });
+    }
 
-    let deliveryMsg = `Verification code sent via SMS to registered mobile (${maskedMobile})`;
-    if (user.email) {
-      deliveryMsg = `Verification code sent to registered mobile (${maskedMobile}) and email (${maskedEmail})`;
+    // Mask destinations for UI feedback
+    const maskedEmail = destinationEmail ? maskEmail(destinationEmail) : null;
+    const maskedMobile = destinationMobile 
+      ? (destinationMobile.length >= 7 
+          ? destinationMobile.slice(0, 3) + '••••' + destinationMobile.slice(-3)
+          : '••••' + destinationMobile.slice(-2))
+      : null;
+
+    let deliveryMsg = `Verification code sent to your registered email (${maskedEmail})`;
+    if (destinationMobile) {
+      deliveryMsg = `Verification code sent to your email (${maskedEmail}) and mobile (${maskedMobile})`;
     }
 
     return res.json({
       success: true,
       message: deliveryMsg,
-      maskedPhone: maskedMobile,
+      email: destinationEmail,
       maskedEmail,
-      smsDelivered: smsRes.success,
-      emailDelivered: emailRes.success
+      maskedPhone: maskedMobile,
+      emailDelivered: emailRes.success,
+      smsDelivered: smsRes.success
     });
   } catch (err) {
     console.error('[Forgot Password Send OTP Error]:', err);
@@ -414,22 +453,29 @@ const sendForgotPasswordOtp = async (req, res) => {
  */
 const verifyForgotPasswordOtp = async (req, res) => {
   try {
-    const { nic, otp } = req.body;
-    if (!nic || !otp) {
-      return res.status(400).json({ success: false, error: 'NIC and verification code are required' });
+    const rawEmail = req.body.email || req.body.loginEmail;
+    const rawNic = req.body.nic;
+    const rawOtp = req.body.otp;
+
+    if (!rawOtp || (!rawEmail && !rawNic)) {
+      return res.status(400).json({ success: false, error: 'Email or NIC and 6-digit verification code are required' });
     }
 
-    const cleanNic = nic.trim().toUpperCase();
-    const cleanOtp = otp.trim();
+    const cleanEmail = rawEmail ? rawEmail.trim().toLowerCase() : null;
+    const cleanNic = rawNic ? rawNic.trim().toUpperCase() : null;
+    const cleanOtp = rawOtp.trim();
 
-    const userLookup = await pool.query(`SELECT email FROM users WHERE UPPER(TRIM(nic)) = $1`, [cleanNic]);
-    const userEmail = userLookup.rows[0]?.email ? userLookup.rows[0].email.trim().toLowerCase() : cleanNic;
+    const searchIdentifiers = [cleanEmail, cleanNic].filter(Boolean);
 
     const otpCheck = await pool.query(
       `SELECT id FROM verification_otps
-       WHERE identifier IN ($1, $2) AND purpose = 'forgot_password' AND (otp_hash = $3 OR otp_code = $4) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
+       WHERE identifier = ANY($1) 
+         AND purpose = 'forgot_password' 
+         AND (otp_hash = $2 OR otp_code = $3) 
+         AND expires_at > CURRENT_TIMESTAMP 
+         AND verified = FALSE
        ORDER BY id DESC LIMIT 1`,
-      [cleanNic, userEmail, hashOtp(cleanOtp), cleanOtp]
+      [searchIdentifiers, hashOtp(cleanOtp), cleanOtp]
     );
 
     if (otpCheck.rows.length === 0) {
@@ -449,62 +495,104 @@ const verifyForgotPasswordOtp = async (req, res) => {
  */
 const resetPasswordWithOtp = async (req, res) => {
   try {
-    const { nic, otp, newPassword } = req.body;
-    if (!nic || !otp || !newPassword) {
-      return res.status(400).json({ success: false, error: 'NIC, verification code, and new password are required' });
+    const rawEmail = req.body.email || req.body.loginEmail;
+    const rawNic = req.body.nic;
+    const rawOtp = req.body.otp;
+    const newPassword = req.body.newPassword || req.body.password;
+
+    if (!rawOtp || !newPassword || (!rawEmail && !rawNic)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email or NIC, verification code, and new password are required' 
+      });
     }
 
     const passwordError = validateNewPassword(newPassword);
     if (passwordError) return res.status(400).json({ success: false, error: passwordError });
 
-    const cleanNic = nic.trim().toUpperCase();
-    const cleanOtp = otp.trim();
+    const cleanEmail = rawEmail ? rawEmail.trim().toLowerCase() : null;
+    const cleanNic = rawNic ? rawNic.trim().toUpperCase() : null;
+    const cleanOtp = rawOtp.trim();
 
-    const userLookup = await pool.query(`SELECT email FROM users WHERE UPPER(TRIM(nic)) = $1`, [cleanNic]);
-    const userEmail = userLookup.rows[0]?.email ? userLookup.rows[0].email.trim().toLowerCase() : cleanNic;
+    // 1. Locate the exact user account
+    let targetUser = null;
+    if (cleanEmail) {
+      const emailUserRes = await pool.query(
+        `SELECT id, email, full_name, mobile_number, nic FROM users WHERE email = $1`,
+        [cleanEmail]
+      );
+      if (emailUserRes.rows.length > 0) targetUser = emailUserRes.rows[0];
+    }
 
-    // Verify OTP against either NIC or registered Email
+    if (!targetUser && cleanNic) {
+      const nicUserRes = await pool.query(
+        `SELECT id, email, full_name, mobile_number, nic FROM users WHERE UPPER(TRIM(nic)) = $1`,
+        [cleanNic]
+      );
+      if (nicUserRes.rows.length > 0) targetUser = nicUserRes.rows[0];
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: 'User account not found.' });
+    }
+
+    // 2. Verify OTP against all associated identifiers
+    const identifiersToVerify = [
+      cleanEmail,
+      cleanNic,
+      targetUser.email ? targetUser.email.trim().toLowerCase() : null,
+      targetUser.nic ? targetUser.nic.trim().toUpperCase() : null
+    ].filter(Boolean);
+
     const otpCheck = await pool.query(
       `SELECT id FROM verification_otps
-       WHERE identifier IN ($1, $2) AND purpose = 'forgot_password' AND (otp_hash = $3 OR otp_code = $4) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
+       WHERE identifier = ANY($1) 
+         AND purpose = 'forgot_password' 
+         AND (otp_hash = $2 OR otp_code = $3) 
+         AND expires_at > CURRENT_TIMESTAMP 
+         AND verified = FALSE
        ORDER BY id DESC LIMIT 1`,
-      [cleanNic, userEmail, hashOtp(cleanOtp), cleanOtp]
+      [[...new Set(identifiersToVerify)], hashOtp(cleanOtp), cleanOtp]
     );
 
     if (otpCheck.rows.length === 0) {
       return res.status(400).json({ success: false, error: 'Invalid or expired verification code.' });
     }
 
-    // Mark OTP as verified
-    const consumedOtp = await pool.query(
+    // 3. Mark OTP as consumed
+    await pool.query(
       `UPDATE verification_otps
        SET verified = TRUE, otp_hash = NULL, otp_code = NULL
-       WHERE identifier IN ($1, $2) AND purpose = 'forgot_password' AND verified = FALSE AND expires_at > CURRENT_TIMESTAMP
-       RETURNING id`,
-      [cleanNic, userEmail]
+       WHERE identifier = ANY($1) 
+         AND purpose = 'forgot_password' 
+         AND verified = FALSE 
+         AND expires_at > CURRENT_TIMESTAMP`,
+      [[...new Set(identifiersToVerify)]]
     );
-    if (consumedOtp.rows.length === 0) {
-      return res.status(400).json({ success: false, error: 'Invalid or expired verification code. Please request a new code.' });
-    }
 
-    // Update password
+    // 4. Hash new password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    const updateRes = await pool.query(
-      `UPDATE users SET password = $1 WHERE UPPER(TRIM(nic)) = $2 RETURNING id, email, full_name`,
-      [hashedPassword, cleanNic]
-    );
+    // 5. Update user password by User ID (ensures 100% precision)
+    let updateSql = `UPDATE users SET password = $1`;
+    const updateParams = [hashedPassword, targetUser.id];
 
-    if (updateRes.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'User account not found' });
+    if (cleanNic && !targetUser.nic) {
+      updateSql += `, nic = $3 WHERE id = $2 RETURNING id, email, full_name, nic`;
+      updateParams.push(cleanNic);
+    } else {
+      updateSql += ` WHERE id = $2 RETURNING id, email, full_name, nic`;
     }
 
-    console.log('[Auth] Password reset completed.');
+    await pool.query(updateSql, updateParams);
+
+    console.log(`[Auth] Password reset successfully for customer ${targetUser.email} (ID: ${targetUser.id})`);
 
     return res.json({
       success: true,
-      message: 'Your password has been reset successfully. You can now sign in with your new password.'
+      message: 'Your password has been reset successfully. You can now sign in with your new password.',
+      email: targetUser.email
     });
   } catch (err) {
     console.error('[Reset Password Error]:', err);

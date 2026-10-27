@@ -83,9 +83,10 @@ export default function AuthPage() {
 
   // --- Forgot Password State ---
   const [fpStep, setFpStep] = useState<1 | 2>(1)
+  const [fpEmail, setFpEmail] = useState("")
   const [fpNic, setFpNic] = useState("")
-  const [fpMobile, setFpMobile] = useState("")
   const [fpOtp, setFpOtp] = useState("")
+  const [fpMaskedEmail, setFpMaskedEmail] = useState("")
   const [fpMaskedPhone, setFpMaskedPhone] = useState("")
   const [fpNewPassword, setFpNewPassword] = useState("")
   const [fpConfirmPassword, setFpConfirmPassword] = useState("")
@@ -148,7 +149,7 @@ export default function AuthPage() {
       return
     }
 
-    if (regPassword.length < 6) {
+    if (regPassword.length < 10) {
       setMessage({ type: "error", text: t.alerts.passwordTooShort })
       return
     }
@@ -260,13 +261,13 @@ export default function AuthPage() {
     }
   }
 
-  // Forgot Password: Step 1 -> Send OTP based on NIC and Mobile
+  // Forgot Password: Step 1 -> Send OTP based on Registered Email (and optional NIC)
   const handleSendFpOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     setMessage(null)
 
-    if (!fpNic.trim() || !fpMobile.trim()) {
-      setMessage({ type: "error", text: "NIC Number and registered Mobile Number are required." })
+    if (!fpEmail.trim() && !fpNic.trim()) {
+      setMessage({ type: "error", text: "Registered Email address or NIC Number is required." })
       return
     }
 
@@ -277,8 +278,8 @@ export default function AuthPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          nic: fpNic.trim(),
-          mobile_number: fpMobile.trim()
+          email: fpEmail.trim() || undefined,
+          nic: fpNic.trim() || undefined
         })
       })
       const data = await res.json()
@@ -286,11 +287,12 @@ export default function AuthPage() {
         throw new Error(data.error || t.alerts.genericError)
       }
 
-      setFpMaskedPhone(data.maskedPhone || fpMobile)
+      setFpMaskedEmail(data.maskedEmail || fpEmail.trim())
+      setFpMaskedPhone(data.maskedPhone || "")
       setFpStep(2)
       setMessage({
         type: "success",
-        text: data.message || `${t.alerts.otpSentSuccess} (${data.maskedPhone || fpMobile})`
+        text: data.message || `${t.alerts.otpSentSuccess} (${data.maskedEmail || fpEmail.trim()})`
       })
     } catch (err: any) {
       setMessage({ type: "error", text: err.message })
@@ -309,8 +311,8 @@ export default function AuthPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          nic: fpNic.trim(),
-          mobile_number: fpMobile.trim()
+          email: fpEmail.trim() || undefined,
+          nic: fpNic.trim() || undefined
         })
       })
       const data = await res.json()
@@ -319,7 +321,7 @@ export default function AuthPage() {
       }
       setMessage({
         type: "success",
-        text: data.message || `New verification code dispatched to ${fpMaskedPhone || fpMobile}`
+        text: data.message || `New verification code dispatched to ${data.maskedEmail || fpMaskedEmail || fpEmail.trim()}`
       })
     } catch (err: any) {
       setMessage({ type: "error", text: err.message })
@@ -338,7 +340,7 @@ export default function AuthPage() {
       return
     }
 
-    if (fpNewPassword.length < 6) {
+    if (fpNewPassword.length < 10) {
       setMessage({ type: "error", text: t.alerts.passwordTooShort })
       return
     }
@@ -355,7 +357,8 @@ export default function AuthPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          nic: fpNic.trim(),
+          email: fpEmail.trim() || undefined,
+          nic: fpNic.trim() || undefined,
           otp: fpOtp.trim(),
           newPassword: fpNewPassword
         })
@@ -364,6 +367,12 @@ export default function AuthPage() {
       if (!res.ok) {
         throw new Error(data.error || t.alerts.genericError)
       }
+
+      // Prepopulate login email with the newly reset account email
+      if (data.email || fpEmail.trim()) {
+        setLoginEmail(data.email || fpEmail.trim())
+      }
+      setLoginPassword("")
 
       setMessage({ type: "success", text: t.forgotPassword.resetSuccess })
       setTimeout(() => {
@@ -478,14 +487,33 @@ export default function AuthPage() {
               )}
 
               {fpStep === 1 ? (
-                /* Forgot Password Step 1: NIC & Mobile */
+                /* Forgot Password Step 1: Email & Optional NIC */
                 <form onSubmit={handleSendFpOtp}>
                   <CardContent className="flex flex-col gap-4 p-5 sm:p-7 pt-3">
                     <FieldGroup className="space-y-3.5">
                       <Field>
+                        <FieldLabel htmlFor="fp-email" className="text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                          <Mail className="h-3.5 w-3.5 text-yellow-400" />
+                          <span>{t.fields.emailLabel}</span>
+                        </FieldLabel>
+                        <Input
+                          id="fp-email"
+                          type="email"
+                          placeholder={t.fields.emailPlaceholder}
+                          value={fpEmail}
+                          onChange={(e) => setFpEmail(e.target.value)}
+                          autoComplete="email"
+                          className="bg-black/40 border border-white/15 placeholder:text-white/30 text-white h-11 text-sm rounded-xl focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:border-yellow-400 focus:bg-black/60 transition-all mt-1"
+                          required
+                        />
+                        <p className="text-[11px] text-white/50 mt-1">
+                          The 6-digit verification code will be dispatched directly to your registered email inbox.
+                        </p>
+                      </Field>
+                      <Field>
                         <FieldLabel htmlFor="fp-nic" className="text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
                           <CreditCard className="h-3.5 w-3.5 text-yellow-400" />
-                          <span>{t.fields.nicLabel}</span>
+                          <span>{t.fields.nicLabel} (Optional)</span>
                         </FieldLabel>
                         <Input
                           id="fp-nic"
@@ -493,23 +521,10 @@ export default function AuthPage() {
                           value={fpNic}
                           onChange={(e) => setFpNic(e.target.value)}
                           className="bg-black/40 border border-white/15 placeholder:text-white/30 text-white h-11 text-sm rounded-xl focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:border-yellow-400 focus:bg-black/60 transition-all mt-1 uppercase"
-                          required
                         />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="fp-mobile" className="text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
-                          <Smartphone className="h-3.5 w-3.5 text-yellow-400" />
-                          <span>{t.fields.mobileLabel}</span>
-                        </FieldLabel>
-                        <Input
-                          id="fp-mobile"
-                          type="tel"
-                          placeholder={t.fields.mobilePlaceholder}
-                          value={fpMobile}
-                          onChange={(e) => setFpMobile(e.target.value)}
-                          className="bg-black/40 border border-white/15 placeholder:text-white/30 text-white h-11 text-sm rounded-xl focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:border-yellow-400 focus:bg-black/60 transition-all mt-1"
-                          required
-                        />
+                        <p className="text-[11px] text-white/50 mt-1">
+                          If registered on your account, identity verification ensures enhanced account security.
+                        </p>
                       </Field>
                     </FieldGroup>
                   </CardContent>
@@ -522,12 +537,12 @@ export default function AuthPage() {
                       {sendingFpOtp ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          {t.buttons.sendingOtp}
+                          <span>{t.buttons.sendingOtp}</span>
                         </>
                       ) : (
                         <>
-                          <Smartphone className="h-4 w-4" />
-                          {t.forgotPassword.verifyBtn}
+                          <Mail className="h-4 w-4" />
+                          <span>{t.forgotPassword.verifyBtn}</span>
                         </>
                       )}
                     </Button>
@@ -549,10 +564,19 @@ export default function AuthPage() {
                 /* Forgot Password Step 2: OTP & New Password */
                 <form onSubmit={handleResetPasswordSubmit}>
                   <CardContent className="flex flex-col gap-4 p-5 sm:p-7 pt-3">
-                    {fpMaskedPhone && (
-                      <p className="text-xs text-white/75 bg-black/25 p-2.5 rounded-xl border border-white/10">
-                        {t.forgotPassword.phoneHint}: <strong className="text-yellow-400 font-mono">{fpMaskedPhone}</strong>
-                      </p>
+                    {(fpMaskedEmail || fpEmail || fpMaskedPhone) && (
+                      <div className="text-xs text-white/80 bg-black/40 p-3 rounded-xl border border-white/10 space-y-1">
+                        <div className="flex items-center gap-1.5 text-yellow-400 font-semibold">
+                          <Mail className="h-3.5 w-3.5 shrink-0" />
+                          <span>{t.forgotPassword.phoneHint}:</span>
+                        </div>
+                        <div className="pl-5 text-white font-mono text-[13px] break-all">
+                          {fpMaskedEmail || fpEmail}
+                          {fpMaskedPhone && (
+                            <span className="text-white/60 font-sans text-xs ml-2">(& SMS: {fpMaskedPhone})</span>
+                          )}
+                        </div>
+                      </div>
                     )}
 
                     <FieldGroup className="space-y-3.5">
@@ -596,6 +620,7 @@ export default function AuthPage() {
                             {showFpNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
                         </div>
+                        <p className="text-[11px] text-white/50 mt-1">Must be at least 10 characters long.</p>
                       </Field>
                       <Field>
                         <FieldLabel htmlFor="fp-confirm-password" className="text-white text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
