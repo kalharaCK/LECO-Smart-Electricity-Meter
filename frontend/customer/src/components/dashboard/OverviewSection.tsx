@@ -21,7 +21,8 @@ import {
   Wallet,
   PhoneCall,
   FileText,
-  AlertCircle
+  AlertCircle,
+  Download
 } from "lucide-react"
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 import { getSocket } from "@/lib/socket"
@@ -31,6 +32,7 @@ import { Label } from "@/components/ui/label"
 import TariffSlabCard from "./TariffSlabCard"
 import PeakHoursAdvisoryWidget from "./PeakHoursAdvisoryWidget"
 import PowerLoadGauge from "./PowerLoadGauge"
+import ExportDataModal from "./ExportDataModal"
 
 interface UserSettingsState {
   phone_number?: string
@@ -81,6 +83,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
   })
   const [savingBudget, setSavingBudget] = useState(false)
   const [budgetSuccessMsg, setBudgetSuccessMsg] = useState<string | null>(null)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
 
   const activeMeterIdRef = useRef<number | null>(null)
   const user = JSON.parse(localStorage.getItem("user") || '{"email": "Customer"}')
@@ -804,9 +807,21 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
                   Daily smart meter energy readings in kilowatt-hours (kWh)
                 </p>
               </div>
-              <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-full bg-yellow-400/10 text-yellow-400 border border-yellow-400/20">
-                Weekly Trend
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-full bg-yellow-400/10 text-yellow-400 border border-yellow-400/20">
+                  Weekly Trend
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setExportModalOpen(true)}
+                  className="bg-white/5 hover:bg-white/10 text-white border-white/10 text-xs h-7 px-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <Download className="h-3 w-3 text-yellow-400" />
+                  <span>Export</span>
+                </Button>
+              </div>
             </CardHeader>
 
             <CardContent className="p-4 sm:p-6 pt-4 h-[260px] sm:h-[290px]">
@@ -1204,6 +1219,18 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
           </div>
         </div>
       )}
+
+      {/* Export Consumption Data Modal */}
+      <ExportDataModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        records={chartList}
+        meta={{
+          meterNumber: meter.meter_number || "LECO-001",
+          accountNumber: meter.account_number || "04291884",
+          tariffType: meter.tariff_type || "Domestic D-1",
+        }}
+      />
     </div>
   )
 }
