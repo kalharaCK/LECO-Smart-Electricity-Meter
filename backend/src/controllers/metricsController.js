@@ -1,4 +1,5 @@
 const { getPoolStats } = require('../config/db');
+const { getReliabilityMetrics } = require('../utils/retryEngine');
 
 /**
  * Controller providing system performance metrics
@@ -8,6 +9,7 @@ const getMetrics = async (req, res) => {
   const memory = process.memoryUsage();
   const uptime = process.uptime();
   const poolStats = getPoolStats ? getPoolStats() : { total: 0, idle: 0, waiting: 0 };
+  const reliability = getReliabilityMetrics();
 
   if (req.query.format === 'prometheus') {
     res.setHeader('Content-Type', 'text/plain; version=0.0.4');
@@ -26,7 +28,13 @@ const getMetrics = async (req, res) => {
       `db_pool_connections_total ${poolStats.total || 0}`,
       '# HELP db_pool_connections_idle Idle connections in pool.',
       '# TYPE db_pool_connections_idle gauge',
-      `db_pool_connections_idle ${poolStats.idle || 0}`
+      `db_pool_connections_idle ${poolStats.idle || 0}`,
+      '# HELP reliability_retries_total Total retry attempts executed.',
+      '# TYPE reliability_retries_total counter',
+      `reliability_retries_total ${reliability.totalRetries || 0}`,
+      '# HELP reliability_fallbacks_total Total fallback activations.',
+      '# TYPE reliability_fallbacks_total counter',
+      `reliability_fallbacks_total ${reliability.fallbackActivations || 0}`
     ].join('\n');
     return res.send(prometheusText);
   }
@@ -46,6 +54,7 @@ const getMetrics = async (req, res) => {
     database: {
       pool: poolStats
     },
+    reliability,
     timestamp: new Date().toISOString()
   });
 };

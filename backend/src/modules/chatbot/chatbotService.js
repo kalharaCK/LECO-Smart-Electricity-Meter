@@ -1,6 +1,7 @@
 const OpenAI = require('openai');
 const { pool } = require('../../config/db');
 const { getWalletLifetimePrediction } = require('../prediction');
+const { retryWithBackoff } = require('../../utils/retryEngine');
 
 // Initialize OpenAI client if key is configured
 const openai = process.env.OPENAI_API_KEY
@@ -350,13 +351,16 @@ async function processChatMessage({ message, history = [], userId }) {
         { role: "user", content: message }
       ];
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages,
-        tools: TOOLS_SCHEMA,
-        tool_choice: "auto",
-        temperature: 0.3
-      });
+      const response = await retryWithBackoff(
+        () => openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages,
+          tools: TOOLS_SCHEMA,
+          tool_choice: "auto",
+          temperature: 0.3
+        }),
+        { maxRetries: 2, initialDelayMs: 250 }
+      );
 
       const choice = response.choices[0];
       const toolCalls = choice.message?.tool_calls;

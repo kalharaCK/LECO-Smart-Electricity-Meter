@@ -24,6 +24,7 @@ const { pool } = require('./config/db');
 const { setupProcessImmunity, shutdownGuardMiddleware } = require('./utils/immunitySupervisor');
 const { malformedUriGuard, prototypePollutionGuard } = require('./middlewares/malformedRequestGuard');
 const { createTimeoutMiddleware } = require('./middlewares/timeoutMiddleware');
+const { createIdempotencyMiddleware } = require('./utils/idempotency');
 
 // Initialize runtime process crash immunity
 setupProcessImmunity();
@@ -100,6 +101,9 @@ app.use(prototypePollutionGuard);
 
 // 5. Input Sanitization against XSS & script injection
 app.use(sanitizeInputs);
+
+// 5b. Idempotency & Retry Deduplication Guard
+app.use(createIdempotencyMiddleware());
 
 // 6. Primary REST API Routes
 // Authentication
