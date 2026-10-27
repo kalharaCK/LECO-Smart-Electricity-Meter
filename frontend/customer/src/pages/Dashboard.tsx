@@ -418,7 +418,7 @@ function DashboardInner() {
       </SidebarInset>
 
       {/* Floating AI Energy Assistant Bot (Auto adjusts on mobile) */}
-      <EnergyAssistantBot />
+      <EnergyAssistantBot onNavigate={handleSelectSection} />
 
       {/* Native-Style Mobile Bottom Navigation Bar (Dock) */}
       <nav 

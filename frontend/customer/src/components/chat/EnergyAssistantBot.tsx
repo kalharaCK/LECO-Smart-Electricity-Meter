@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "@/lib/api"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -12,19 +12,39 @@ import {
   CreditCard, 
   TrendingUp, 
   ShieldAlert,
-  RotateCcw
+  RotateCcw,
+  Zap,
+  Clock,
+  Coins,
+  ArrowRight,
+  MessageSquareWarning,
+  Settings,
+  PlusCircle,
+  LayoutDashboard
 } from "lucide-react"
 import { useDashboardI18n } from "@/lib/dashboardI18n"
 
-interface Message {
+export interface ChatAction {
+  label: string
+  route: string
+  variant?: "primary" | "secondary" | "outline"
+}
+
+export interface Message {
   id: string
   role: "user" | "bot"
   text: string
   timestamp: string
+  actions?: ChatAction[]
+  source?: string
 }
 
-export default function EnergyAssistantBot() {
-  const { t } = useDashboardI18n()
+interface EnergyAssistantBotProps {
+  onNavigate?: (route: string) => void
+}
+
+export default function EnergyAssistantBot({ onNavigate }: EnergyAssistantBotProps) {
+  const { t, language } = useDashboardI18n()
   const [isOpen, setIsOpen] = useState(false)
   const [input, setInput] = useState("")
   const [messages, setMessages] = useState<Message[]>([
@@ -32,7 +52,11 @@ export default function EnergyAssistantBot() {
       id: "welcome",
       role: "bot",
       text: t.bot.welcomeMessage,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      actions: [
+        { label: language === 'si' ? "ශේෂය පරීක්ෂා කරන්න" : language === 'ta' ? "இருப்பு பார்க்க" : "Check Balance", route: "overview", variant: "outline" },
+        { label: language === 'si' ? "රීචාර්ජ් කරන්න" : language === 'ta' ? "ரீசார்ஜ் செய்க" : "Recharge Now", route: "payments", variant: "primary" }
+      ]
     }
   ])
   const [isTyping, setIsTyping] = useState(false)
@@ -41,12 +65,19 @@ export default function EnergyAssistantBot() {
   // Update initial welcome message if user changes language before sending messages
   useEffect(() => {
     setMessages((prev) => {
-      if (prev.length === 1 && prev[0].id === "welcome") {
-        return [{ ...prev[0], text: t.bot.welcomeMessage }]
+      if (prev.length === 1 && prev[0].id.startsWith("welcome")) {
+        return [{
+          ...prev[0],
+          text: t.bot.welcomeMessage,
+          actions: [
+            { label: language === 'si' ? "ශේෂය පරීක්ෂා කරන්න" : language === 'ta' ? "இருப்பு பார்க்க" : "Check Balance", route: "overview", variant: "outline" },
+            { label: language === 'si' ? "රීචාර්ජ් කරන්න" : language === 'ta' ? "ரீசார்ஜ் செய்க" : "Recharge Now", route: "payments", variant: "primary" }
+          ]
+        }]
       }
       return prev
     })
-  }, [t.bot.welcomeMessage])
+  }, [t.bot.welcomeMessage, language])
 
   const handleResetChat = () => {
     setMessages([
@@ -54,7 +85,11 @@ export default function EnergyAssistantBot() {
         id: "welcome-" + Date.now(),
         role: "bot",
         text: t.bot.welcomeMessage,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        actions: [
+          { label: language === 'si' ? "ශේෂය පරීක්ෂා කරන්න" : language === 'ta' ? "இருப்பு பார்க்க" : "Check Balance", route: "overview", variant: "outline" },
+          { label: language === 'si' ? "රීචාර්ජ් කරන්න" : language === 'ta' ? "ரீசார்ஜ் செய்க" : "Recharge Now", route: "payments", variant: "primary" }
+        ]
       }
     ])
   }
@@ -113,18 +148,22 @@ export default function EnergyAssistantBot() {
         headers,
         body: JSON.stringify({
           message: userMessage.text,
-          history
+          history,
+          language
         })
       })
 
       const data = await res.json()
       const botReply = data.reply || t.bot.fallbackReply
+      const actions: ChatAction[] = Array.isArray(data.actions) ? data.actions : []
 
       const botMessage: Message = {
         id: "bot-" + Date.now(),
         role: "bot",
         text: botReply,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        actions,
+        source: data.source
       }
 
       setMessages((prev) => [...prev, botMessage])
@@ -138,7 +177,10 @@ export default function EnergyAssistantBot() {
           id: "err-" + Date.now(),
           role: "bot",
           text: t.bot.networkError,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          actions: [
+            { label: language === 'si' ? "නැවත උත්සාහ කරන්න" : language === 'ta' ? "மீண்டும் முயல்க" : "Retry", route: "overview", variant: "outline" }
+          ]
         }
       ])
     } finally {
@@ -146,16 +188,188 @@ export default function EnergyAssistantBot() {
     }
   }
 
-  // Simple safe markdown formatter for bolding, code spans, lists
+  const handleActionClick = (route: string) => {
+    if (onNavigate) {
+      onNavigate(route)
+    }
+  }
+
+  const getActionIcon = (route: string) => {
+    switch (route) {
+      case "payments":
+        return <CreditCard className="h-3 w-3 shrink-0" />
+      case "history":
+        return <TrendingUp className="h-3 w-3 shrink-0" />
+      case "complaints":
+        return <MessageSquareWarning className="h-3 w-3 shrink-0" />
+      case "settings":
+        return <Settings className="h-3 w-3 shrink-0" />
+      case "add-meter":
+        return <PlusCircle className="h-3 w-3 shrink-0" />
+      case "overview":
+      default:
+        return <LayoutDashboard className="h-3 w-3 shrink-0" />
+    }
+  }
+
+  /**
+   * Specialized Tokenizer & Highlighting Formatter:
+   * 1. Status Badges: [LIFELINE MODE ACTIVE], [CONNECTED], [NOTICE]
+   * 2. Currency Values: Rs. 1,450.00, LKR 500, රු. 1,250
+   * 3. Energy Units: 14.5 kWh, 2.4 kW, 230V
+   * 4. Time & TOU Windows: 18:30 - 22:30, Peak Hours, Off-Peak Hours
+   * 5. Tariff Blocks & Days: Block 1-6, Group A-C, ~18 days
+   * 6. Interactive Action Links: [Text](action:route)
+   */
+  const highlightSpecialValues = (text: string): ReactNode[] => {
+    // Regex matching all high-value tokens
+    const combinedRegex = /(\[(?:LIFELINE MODE ACTIVE|LIFELINE ACTIVE|CONNECTED|DISCONNECTED|NOTICE|ALERT|හදිසි ණය ක්‍රියාත්මකයි|අවවාදයයි|அவசர கடன் செயலில் உள்ளது|அறிவிப்பு)\]|\[[^\]]+\]\(action:[a-z-]+\)|(?:Rs\.|LKR|රු\.|ரூ\.)\s*[\d,]+(?:\.\d{1,2})?|\b\d+(?:\.\d+)?\s*(?:kWh|kW|kVA|V)\b|(?:18:30\s*[-–to]\s*22:30|22:30\s*[-–to]\s*05:30|05:30\s*[-–to]\s*18:30|Peak Hours|Off-Peak Hours|Day Hours|උච්ච වේලාවන්|අවම වේලාවන්|දිවා වේලාවන්|உச்ச நேரம்|குறைந்த நேரம்|பகல் நேரம்)|(?:Block\s*[1-6]|Group\s*[A-C]|~\d+\s*(?:days|දින|நாட்கள்)|\b\d+\s*(?:days|දින|நாட்கள்)\b)|[+-]?\d+%\s*(?:\([+-]?\d+(?:\.\d+)?\s*kWh\))?)/gi
+
+    const parts = text.split(combinedRegex)
+
+    return parts.map((part, index) => {
+      if (!part) return null
+
+      // A. Action Link: [Button Text](action:route)
+      const actionLinkMatch = part.match(/^\[([^\]]+)\]\(action:([a-z-]+)\)$/i)
+      if (actionLinkMatch) {
+        const btnText = actionLinkMatch[1]
+        const route = actionLinkMatch[2]
+        return (
+          <button
+            key={`act-${index}`}
+            type="button"
+            onClick={() => handleActionClick(route)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 my-0.5 mx-1 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black font-semibold text-[11px] shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            {getActionIcon(route)}
+            <span>{btnText}</span>
+            <ArrowRight className="h-3 w-3" />
+          </button>
+        )
+      }
+
+      // B. Status Pills: [LIFELINE MODE ACTIVE], etc.
+      if (/^\[(?:LIFELINE MODE ACTIVE|LIFELINE ACTIVE|CONNECTED|DISCONNECTED|NOTICE|ALERT|හදිසි ණය ක්‍රියාත්මකයි|අවවාදයයි|அவசர கடன் செயலில் உள்ளது|அறிவிப்பு)\]$/i.test(part)) {
+        const isAlert = /LIFELINE|DISCONNECTED|ALERT|හදිසි|அவசர/i.test(part)
+        return (
+          <span
+            key={`status-${index}`}
+            className={`inline-flex items-center gap-1.5 px-2 py-0.5 my-0.5 mx-0.5 rounded-full font-bold text-[10px] tracking-wide ${
+              isAlert
+                ? "bg-red-500/15 border border-red-500/40 text-red-300"
+                : "bg-yellow-400/15 border border-yellow-400/40 text-yellow-300"
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${isAlert ? "bg-red-400 animate-pulse" : "bg-yellow-400"}`} />
+            {part.slice(1, -1)}
+          </span>
+        )
+      }
+
+      // C. Currency: Rs. 1,450.00 / LKR / රු. / ரூ.
+      if (/^(?:Rs\.|LKR|රු\.|ரூ\.)\s*[\d,]+(?:\.\d{1,2})?$/i.test(part)) {
+        return (
+          <span
+            key={`curr-${index}`}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono font-bold text-[11px] shadow-[0_0_8px_rgba(16,185,129,0.15)]"
+          >
+            <Coins className="h-3 w-3 text-emerald-400 shrink-0" />
+            <span>{part}</span>
+          </span>
+        )
+      }
+
+      // D. Energy Units: 14.5 kWh, 2.3 kW, 230V
+      if (/^\b\d+(?:\.\d+)?\s*(?:kWh|kW|kVA|V)\b$/i.test(part)) {
+        return (
+          <span
+            key={`nrg-${index}`}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-mono font-bold text-[11px] shadow-[0_0_8px_rgba(6,182,212,0.15)]"
+          >
+            <Zap className="h-3 w-3 text-cyan-400 shrink-0" />
+            <span>{part}</span>
+          </span>
+        )
+      }
+
+      // E. Time-of-Use & Time Windows
+      if (/^(?:18:30\s*[-–to]\s*22:30|22:30\s*[-–to]\s*05:30|05:30\s*[-–to]\s*18:30|Peak Hours|Off-Peak Hours|Day Hours|උච්ච වේලාවන්|අවම වේලාවන්|දිවා වේලාවන්|உச்ச நேரம்|குறைந்த நேரம்|பகல் நேரம்)$/i.test(part)) {
+        return (
+          <span
+            key={`tou-${index}`}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 font-medium text-[11px] shadow-[0_0_8px_rgba(168,85,247,0.15)]"
+          >
+            <Clock className="h-3 w-3 text-purple-400 shrink-0" />
+            <span>{part}</span>
+          </span>
+        )
+      }
+
+      // F. Tariff Blocks & Days Remaining
+      if (/^(?:Block\s*[1-6]|Group\s*[A-C]|~\d+\s*(?:days|දින|நாட்கள்)|\b\d+\s*(?:days|දින|நாட்கள்)\b)$/i.test(part)) {
+        return (
+          <span
+            key={`tier-${index}`}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-medium text-[11px] shadow-[0_0_8px_rgba(245,158,11,0.15)]"
+          >
+            <Calendar className="h-3 w-3 text-amber-400 shrink-0" />
+            <span>{part}</span>
+          </span>
+        )
+      }
+
+      // G. Percentage Changes (+15% or -10%)
+      if (/^[+-]?\d+%\s*(?:\([+-]?\d+(?:\.\d+)?\s*kWh\))?$/i.test(part)) {
+        const isUp = part.startsWith("+")
+        return (
+          <span
+            key={`pct-${index}`}
+            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 mx-0.5 rounded-md font-mono font-medium text-[11px] ${
+              isUp
+                ? "bg-amber-500/15 border border-amber-500/30 text-amber-300"
+                : "bg-emerald-500/15 border border-emerald-500/30 text-emerald-300"
+            }`}
+          >
+            {part}
+          </span>
+        )
+      }
+
+      // Regular text formatting (markdown bold and inline code)
+      return formatMarkdownSpans(part, index)
+    })
+  }
+
+  const formatMarkdownSpans = (text: string, parentIdx: number): ReactNode => {
+    const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g)
+    return parts.map((part, i) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return (
+          <strong key={`${parentIdx}-b-${i}`} className="font-semibold text-white">
+            {part.slice(2, -2)}
+          </strong>
+        )
+      }
+      if (part.startsWith("`") && part.endsWith("`")) {
+        return (
+          <code key={`${parentIdx}-c-${i}`} className="bg-white/10 text-yellow-300 px-1 py-0.5 rounded font-mono text-[11px]">
+            {part.slice(1, -1)}
+          </code>
+        )
+      }
+      return part
+    })
+  }
+
   const renderFormattedText = (text: string) => {
     const lines = text.split("\n")
     return lines.map((line, idx) => {
-      // Bullet list items
       if (line.trim().startsWith("- ")) {
         const itemContent = line.trim().substring(2)
         return (
           <li key={idx} className="ml-4 list-disc my-0.5 text-white/90">
-            {formatSpans(itemContent)}
+            {highlightSpecialValues(itemContent)}
           </li>
         )
       }
@@ -164,31 +378,9 @@ export default function EnergyAssistantBot() {
       }
       return (
         <p key={idx} className="my-0.5 leading-relaxed">
-          {formatSpans(line)}
+          {highlightSpecialValues(line)}
         </p>
       )
-    })
-  }
-
-  const formatSpans = (text: string) => {
-    // Matches **bold** and `code`
-    const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g)
-    return parts.map((part, i) => {
-      if (part.startsWith("**") && part.endsWith("**")) {
-        return (
-          <strong key={i} className="font-semibold text-white">
-            {part.slice(2, -2)}
-          </strong>
-        )
-      }
-      if (part.startsWith("`") && part.endsWith("`")) {
-        return (
-          <code key={i} className="bg-white/10 text-yellow-300 px-1 py-0.5 rounded font-mono text-[11px]">
-            {part.slice(1, -1)}
-          </code>
-        )
-      }
-      return part
     })
   }
 
@@ -202,7 +394,7 @@ export default function EnergyAssistantBot() {
         />
       )}
 
-      {/* Floating Chat Bubble Trigger (Positioned above mobile bottom dock) */}
+      {/* Floating Chat Bubble Trigger */}
       <div className="fixed bottom-20 right-3.5 sm:bottom-6 sm:right-6 z-40 sm:z-50 flex items-center gap-3">
         {!isOpen && (
           <div 
@@ -238,9 +430,9 @@ export default function EnergyAssistantBot() {
         </button>
       </div>
 
-      {/* Responsive Chat Window: Native Bottom Sheet on Mobile, Floating Card on Desktop */}
+      {/* Responsive Chat Window */}
       {isOpen && (
-        <div className="fixed inset-x-0 bottom-0 top-12 z-50 sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[420px] sm:h-[580px] sm:max-h-[85vh] bg-[#0c0c0e]/98 backdrop-blur-2xl border-t sm:border border-white/15 shadow-[0_-10px_40px_rgba(0,0,0,0.9)] sm:shadow-[0_20px_50px_rgba(0,0,0,0.8)] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-6 duration-300">
+        <div className="fixed inset-x-0 bottom-0 top-12 z-50 sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[440px] sm:h-[600px] sm:max-h-[85vh] bg-[#0c0c0e]/98 backdrop-blur-2xl border-t sm:border border-white/15 shadow-[0_-10px_40px_rgba(0,0,0,0.9)] sm:shadow-[0_20px_50px_rgba(0,0,0,0.8)] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-6 duration-300">
           {/* Mobile Sheet Pull Bar */}
           <div className="sm:hidden pt-2 pb-1 flex justify-center bg-[#18181b]">
             <div className="w-12 h-1 rounded-full bg-white/25" />
@@ -251,7 +443,7 @@ export default function EnergyAssistantBot() {
             <div className="flex items-center gap-2.5 sm:gap-3">
               <div className="relative">
                 <img src="/leco-logo.png" alt="LECO Self Care" className="h-8 w-auto object-contain" />
-                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-black" />
+                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-black" />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
@@ -294,15 +486,44 @@ export default function EnergyAssistantBot() {
                 className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"} animate-in fade-in duration-200`}
               >
                 <div
-                  className={`max-w-[88%] sm:max-w-[85%] p-3 sm:p-3.5 rounded-2xl text-xs ${
+                  className={`max-w-[90%] sm:max-w-[88%] p-3 sm:p-3.5 rounded-2xl text-xs ${
                     m.role === "user"
                       ? "bg-gradient-to-r from-[#992511] to-[#c13018] text-white rounded-br-none shadow-md"
                       : "bg-[#18181b] text-white/90 border border-white/10 rounded-bl-none shadow-sm"
                   }`}
                 >
                   {renderFormattedText(m.text)}
+
+                  {/* Mentioned Menu Navigation Actions Deck */}
+                  {m.role === "bot" && m.actions && m.actions.length > 0 && (
+                    <div className="mt-3 pt-2.5 border-t border-white/10 flex flex-wrap gap-2">
+                      {m.actions.map((act, actIdx) => (
+                        <button
+                          key={actIdx}
+                          type="button"
+                          onClick={() => handleActionClick(act.route)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer ${
+                            act.variant === "primary"
+                              ? "bg-yellow-400 hover:bg-yellow-300 text-black font-bold shadow-md shadow-yellow-400/20"
+                              : "bg-white/10 hover:bg-white/15 border border-white/15 text-white"
+                          }`}
+                        >
+                          {getActionIcon(act.route)}
+                          <span>{act.label}</span>
+                          <ArrowRight className="h-3 w-3" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <span className="text-[9px] text-white/40 mt-1 px-1">{m.timestamp}</span>
+                <div className="flex items-center gap-1.5 mt-1 px-1">
+                  <span className="text-[9px] text-white/40">{m.timestamp}</span>
+                  {m.source && (
+                    <span className="text-[8px] font-mono text-white/30 uppercase">
+                      {m.source.includes('groq') ? 'Groq AI' : 'Live RAG'}
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
 
@@ -339,7 +560,7 @@ export default function EnergyAssistantBot() {
             })}
           </div>
 
-          {/* Input Bar with Safe Mobile Padding */}
+          {/* Input Bar */}
           <div className="p-3 bg-[#111114] border-t border-white/10 pb-4 sm:pb-3">
             <form
               onSubmit={(e) => {
