@@ -45,6 +45,6 @@ router.post('/:meterId/set-balance', requireCustomer, developmentOnly, setMeterB
 router.get('/payments/history', requireCustomer, getPaymentHistory);
 router.get('/:meterId/consumption', requireCustomer, getMeterConsumption);
 router.get('/:meterId/prediction', requireCustomer, getMeterPrediction);
-router.post('/:meterId/recharge', requireCustomer, rechargeMeter);
+router.post('/:meterId/recharge', requireCustomer, developmentOnly, rechargeMeter);
 
 module.exports = router;

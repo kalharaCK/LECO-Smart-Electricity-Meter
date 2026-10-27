@@ -35,7 +35,7 @@ router.get('/meters/:meterId/consumption', getMeterConsumption);
 router.get('/meters/:meterId/prediction', getMeterPrediction);
 router.get('/meters/:id/statement-pdf', downloadMeterStatementPdf);
 router.get('/meters/statement-pdf', downloadMeterStatementPdf);
-router.post('/meters/:meterId/recharge', rechargeMeter);
+router.post('/meters/:meterId/recharge', developmentOnly, rechargeMeter);
 router.post('/meters/:meterId/emergency-credit', activateEmergencyCredit);
 router.post('/meters/:meterId/simulate-consumption', developmentOnly, simulateConsumption);
 router.post('/meters/:meterId/settle-cycle', developmentOnly, settleMonthlyCycle);
