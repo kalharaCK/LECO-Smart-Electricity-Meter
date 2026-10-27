@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const { runPendingMigrations } = require('./migrationRunner');
 
 const connectionString = process.env.DATABASE_URL;
 const disableDatabaseTls = process.env.DATABASE_SSL === 'false';
@@ -278,6 +279,7 @@ const connectDb = async () => {
     const result = await client.query('SELECT NOW()');
     console.log('[Database Connected] Neon PostgreSQL:', result.rows[0].now);
     await initDb();
+    await runPendingMigrations(pool);
   } catch (err) {
     console.error('[Database Connection Error]:', err.message);
     throw err;
