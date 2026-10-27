@@ -187,6 +187,7 @@ export default function AuthPage() {
                       <Input
                         id="login-email"
                         type="email"
+                        autoComplete="username"
                         placeholder={t.fields.emailPlaceholder}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
@@ -201,6 +202,7 @@ export default function AuthPage() {
                         <Input
                           id="login-password"
                           type={showLoginPassword ? "text" : "password"}
+                          autoComplete="current-password"
                           value={password}
                           placeholder={t.fields.passwordPlaceholder}
                           onChange={(e) => setPassword(e.target.value)}
@@ -213,7 +215,7 @@ export default function AuthPage() {
                           onClick={() => setShowLoginPassword(!showLoginPassword)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                           aria-label={showLoginPassword ? "Hide password" : "Show password"}
-                          tabIndex={-1}
+                          aria-pressed={showLoginPassword}
                         >
                           {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
@@ -255,6 +257,7 @@ export default function AuthPage() {
                       <Input
                         id="signup-email"
                         type="email"
+                        autoComplete="email"
                         placeholder={t.fields.emailPlaceholder}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
@@ -269,6 +272,7 @@ export default function AuthPage() {
                         <Input
                           id="signup-password"
                           type={showSignupPassword ? "text" : "password"}
+                          autoComplete="new-password"
                           placeholder={t.fields.createPasswordPlaceholder}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
@@ -281,7 +285,7 @@ export default function AuthPage() {
                           onClick={() => setShowSignupPassword(!showSignupPassword)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                           aria-label={showSignupPassword ? "Hide password" : "Show password"}
-                          tabIndex={-1}
+                          aria-pressed={showSignupPassword}
                         >
                           {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>

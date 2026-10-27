@@ -86,7 +86,7 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
 
         <CardContent className="pt-2 pb-8 px-6 space-y-5">
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-black/60 border border-red-500/40 text-red-200 text-xs flex items-center gap-2">
+            <div role="alert" className="p-3 rounded-xl bg-black/60 border border-red-500/40 text-red-200 text-xs flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
               <span>{errorMsg}</span>
             </div>
@@ -100,6 +100,7 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
               </Label>
               <Input
                 type="email"
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="staff@leco.lk"
@@ -116,6 +117,7 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
               <div className="relative">
                 <Input
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -124,10 +126,10 @@ export default function StaffLogin({ onLoginSuccess }: StaffLoginProps) {
                 />
                 <button
                   type="button"
-                  tabIndex={-1}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors p-1"
                   aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
