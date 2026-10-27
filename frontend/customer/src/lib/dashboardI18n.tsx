@@ -112,6 +112,24 @@ export interface DashboardTranslations {
     adjustBudgetBtn: string
     spentOf: string
     remainingOf: string
+    simplifiedView: string
+    detailedView: string
+    simplifiedViewDesc: string
+    supplyDaysTitle: string
+    supplyDaysSubtext: string
+    dailyEstimateTitle: string
+    dailyEstimateSubtext: string
+    actualUsage: string
+    predictedUsage: string
+    todayUsageTitle: string
+    activeLoadTitle: string
+    connectedGrid: string
+    disconnectedGrid: string
+    daysUnit: string
+    perDayUnit: string
+    savingTipTitle: string
+    savingTipDesc: string
+    quickActions: string
   }
   addMeter: {
     title: string
@@ -407,6 +425,24 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       adjustBudgetBtn: "Adjust Budget & Alerts",
       spentOf: "spent of",
       remainingOf: "remaining",
+      simplifiedView: "Simplified View",
+      detailedView: "Detailed View",
+      simplifiedViewDesc: "Clean, non-technical dashboard tailored for everyday home use",
+      supplyDaysTitle: "Estimated Supply Horizon",
+      supplyDaysSubtext: "Estimated power supply will last until",
+      dailyEstimateTitle: "Daily Cost Estimation",
+      dailyEstimateSubtext: "Average daily electricity cost",
+      actualUsage: "Real Usage",
+      predictedUsage: "Predicted Usage",
+      todayUsageTitle: "Today's Energy Usage",
+      activeLoadTitle: "Current Power Draw",
+      connectedGrid: "Connected to Grid",
+      disconnectedGrid: "Grid Disconnected",
+      daysUnit: "Days",
+      perDayUnit: "/ day",
+      savingTipTitle: "Energy Saving Tip",
+      savingTipDesc: "Reduce high-power appliances (iron, oven, water heater) during peak hours (6:30 PM - 10:30 PM) to minimize your monthly bill.",
+      quickActions: "Quick Actions",
     },
     addMeter: {
       title: "Add Existing Smart Meter",
@@ -701,6 +737,24 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       adjustBudgetBtn: "අයවැය සහ දැනුම්දීම් සකසන්න",
       spentOf: "වැයවූ මුදල (මුළු ඉලක්කයෙන්)",
       remainingOf: "ඉතිරි මුදල",
+      simplifiedView: "සරල දැක්ම",
+      detailedView: "සවිස්තර දැක්ම",
+      simplifiedViewDesc: "නිවසේ එදිනෙදා භාවිතයට පහසු, පැහැදිලි සරල තිරය",
+      supplyDaysTitle: "විදුලිය පවතින ඇස්තමේන්තුගත කාලය",
+      supplyDaysSubtext: "විදුලි සැපයුම පවතිනු ඇතැයි අපේක්ෂිත දිනය",
+      dailyEstimateTitle: "දෛනික ඇස්තමේන්තුගත වියදම",
+      dailyEstimateSubtext: "සාමාන්‍ය දෛනික විදුලි වියදම",
+      actualUsage: "සැබෑ භාවිතය",
+      predictedUsage: "පුරෝකථනය කළ භාවිතය",
+      todayUsageTitle: "අද දින විදුලි භාවිතය",
+      activeLoadTitle: "වත්මන් විදුලි ධාරිතාව",
+      connectedGrid: "විදුලිබල පද්ධතියට සම්බන්ධයි",
+      disconnectedGrid: "විදුලි සැපයුම විසන්ධි වී ඇත",
+      daysUnit: "දින",
+      perDayUnit: "/ දිනකට",
+      savingTipTitle: "විදුලි ඉතිරි කිරීමේ උපදෙසක්",
+      savingTipDesc: "රාත්‍රී 6:30 සිට 10:30 දක්වා උපරිම විදුලි ගාස්තු අයවන බැවින්, වැඩි විදුලියක් වැයවන උපකරණ භාවිතය සීමා කිරීමෙන් බිල්පත අඩු කරගත හැක.",
+      quickActions: "ක්ෂණික සේවා",
     },
     addMeter: {
       title: "නව ස්මාර්ට් මීටරයක් එක් කරන්න",
@@ -995,6 +1049,24 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       adjustBudgetBtn: "வரவுசெலவு & எச்சரிக்கைகளை மாற்றுக",
       spentOf: "செலவிடப்பட்டது (மொத்தத்தில்)",
       remainingOf: "மீதமுள்ளது",
+      simplifiedView: "எளிய பார்வை",
+      detailedView: "விரிவான பார்வை",
+      simplifiedViewDesc: "வீட்டின் அன்றாட பயன்பாட்டிற்கு ஏற்ற தெளிவான எளிய இடைமுகம்",
+      supplyDaysTitle: "மின்சாரம் நீடிக்கும் மதிப்பிடப்பட்ட நாட்கள்",
+      supplyDaysSubtext: "மின்சாரம் நீடிக்கும் என எதிர்பார்க்கப்படும் தேதி",
+      dailyEstimateTitle: "மதிப்பிடப்பட்ட தினசரி செலவு",
+      dailyEstimateSubtext: "சராசரி தினசரி மின்சாரச் செலவு",
+      actualUsage: "உண்மையான பயன்பாடு",
+      predictedUsage: "கணிக்கப்பட்ட பயன்பாடு",
+      todayUsageTitle: "இன்றைய மின் பயன்பாடு",
+      activeLoadTitle: "தற்போதைய மின் திறன்",
+      connectedGrid: "மின் கட்டமைப்புடன் இணைக்கப்பட்டுள்ளது",
+      disconnectedGrid: "மின் இணைப்பு துண்டிக்கப்பட்டுள்ளது",
+      daysUnit: "நாட்கள்",
+      perDayUnit: "/ நாள்",
+      savingTipTitle: "மின் சேமிப்பு குறிப்பு",
+      savingTipDesc: "இரவு 6:30 முதல் 10:30 வரையிலான உச்ச கட்டண நேரங்களில் அதிக மின்சாரம் பயன்படுத்தும் சாதனங்களைக் குறைப்பதன் மூலம் மாதாந்திரக் கட்டணத்தைக் குறைக்கலாம்.",
+      quickActions: "விரைவு சேவைகள்",
     },
     addMeter: {
       title: "புதிய ஸ்மார்ட் மீட்டரைச் சேர்க்கவும்",

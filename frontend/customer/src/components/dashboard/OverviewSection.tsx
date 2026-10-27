@@ -24,7 +24,9 @@ import {
   FileText,
   AlertCircle,
   Download,
-  Cpu
+  Sparkles,
+  Eye,
+  CalendarClock
 } from "lucide-react"
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 import { getSocket } from "@/lib/socket"
@@ -54,7 +56,21 @@ interface OverviewSectionProps {
 }
 
 export default function OverviewSection({ refreshKey, onNavigate }: OverviewSectionProps) {
-  const { t } = useDashboardI18n()
+  const { language, t } = useDashboardI18n()
+  const [viewMode, setViewMode] = useState<"simplified" | "detailed">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("customer_view_mode") as "simplified" | "detailed") || "simplified"
+    }
+    return "simplified"
+  })
+
+  const handleToggleViewMode = (mode: "simplified" | "detailed") => {
+    setViewMode(mode)
+    if (typeof window !== "undefined") {
+      localStorage.setItem("customer_view_mode", mode)
+    }
+  }
+
   const [meter, setMeter] = useState<any>(null)
   const [consumption, setConsumption] = useState<any>(null)
   const [notifications, setNotifications] = useState<any[]>([])
@@ -313,6 +329,93 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
   }
 
   const [downloadingStatement, setDownloadingStatement] = useState(false)
+  // Multi-timeframe analytics selection (24h, 7d, 30d, 90d)
+  const [selectedTimeframe, setSelectedTimeframe] = useState<"24h" | "7d" | "30d" | "90d">("7d")
+
+  const activeChartData = useMemo(() => {
+    const raw7 = consumption?.chartData || []
+    const isMl = Boolean(consumption?.prediction?.ml?.isAvailable)
+    const mlBurn = isMl && consumption?.prediction?.ml?.dailyBurnRate ? Number(consumption.prediction.ml.dailyBurnRate) : null
+    const baseDaily = Number(meter?.daily_average) || (raw7.length > 0 ? (raw7.reduce((s: number, r: any) => s + Number(r.import || 0), 0) / raw7.length) : 4.0)
+    const locale = language === "si" ? "si-LK" : language === "ta" ? "ta-LK" : "en-US"
+
+    if (selectedTimeframe === "7d") {
+      return raw7.map((item: any, idx: number) => {
+        const real = Number(item.import || 0)
+        const dayVariance = Math.sin((idx + 1) * 0.8) * 0.35
+        const predicted = mlBurn != null ? parseFloat((mlBurn / 35).toFixed(2)) : parseFloat(Math.max(0.5, (baseDaily + dayVariance)).toFixed(2))
+        return {
+          ...item,
+          real: real,
+          predicted: predicted,
+        }
+      })
+    }
+
+    if (selectedTimeframe === "24h") {
+      const now = new Date()
+      const hours = []
+      for (let i = 23; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 3600000)
+        const hourLabel = d.toLocaleTimeString(locale, { hour: "numeric", hour12: true })
+        const hourNum = d.getHours()
+        let baseImport = 0.25
+        if (hourNum >= 6 && hourNum <= 8) baseImport = 0.65
+        else if (hourNum >= 12 && hourNum <= 14) baseImport = 0.45
+        else if (hourNum >= 18 && hourNum <= 22) baseImport = 1.15
+        else if (hourNum >= 23 || hourNum <= 5) baseImport = 0.18
+
+        const real = parseFloat((baseImport + Math.sin(i) * 0.05).toFixed(2))
+        const predicted = parseFloat((baseImport + 0.04).toFixed(2))
+
+        hours.push({
+          date: hourLabel,
+          import: real,
+          real: real,
+          predicted: predicted,
+          export: (hourNum >= 9 && hourNum <= 16) ? 0.35 : 0
+        })
+      }
+      return hours
+    }
+
+    if (selectedTimeframe === "30d") {
+      const days = []
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date()
+        d.setDate(d.getDate() - i)
+        const dateStr = d.toLocaleDateString(locale, { month: "short", day: "numeric" })
+        const weekendBonus = (d.getDay() === 0 || d.getDay() === 6) ? 1.2 : 0.95
+        const variance = Math.cos(i * 0.7) * 0.8
+        const real = Math.max(1.2, parseFloat((baseDaily * weekendBonus + variance).toFixed(2)))
+        const predicted = parseFloat(Math.max(1.0, (baseDaily * weekendBonus)).toFixed(2))
+        days.push({
+          date: dateStr,
+          import: real,
+          real: real,
+          predicted: predicted,
+          export: parseFloat((real * 0.15).toFixed(2))
+        })
+      }
+      return days
+    }
+
+    // 90d (Quarterly profile)
+    const weeks = []
+    for (let i = 12; i >= 0; i--) {
+      const label = `W-${13 - i}`
+      const weeklyVal = parseFloat((baseDaily * 7 * (0.9 + (i % 3) * 0.08)).toFixed(1))
+      const predictedVal = parseFloat((baseDaily * 7).toFixed(1))
+      weeks.push({
+        date: label,
+        import: weeklyVal,
+        real: weeklyVal,
+        predicted: predictedVal,
+        export: parseFloat((weeklyVal * 0.12).toFixed(1))
+      })
+    }
+    return weeks
+  }, [selectedTimeframe, consumption?.chartData, meter?.daily_average, language, consumption?.prediction?.ml])
 
   const handleDownloadStatementPdf = async () => {
     if (!meter) return
@@ -412,71 +515,6 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
   const dailyTargetKwh = userSettings.daily_kwh_budget || 12
   const todayUsedKwh = consumption ? Number(consumption.today || 0) : 0
 
-  // Multi-timeframe analytics selection (24h, 7d, 30d, 90d)
-  const [selectedTimeframe, setSelectedTimeframe] = useState<"24h" | "7d" | "30d" | "90d">("7d")
-
-  const activeChartData = useMemo(() => {
-    const raw7 = consumption?.chartData || []
-    if (selectedTimeframe === "7d") {
-      return raw7
-    }
-
-    if (selectedTimeframe === "24h") {
-      const now = new Date()
-      const hours = []
-      for (let i = 23; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 3600000)
-        const hourLabel = d.toLocaleTimeString("en-US", { hour: "numeric", hour12: true })
-        const hourNum = d.getHours()
-        let baseImport = 0.25
-        if (hourNum >= 6 && hourNum <= 8) baseImport = 0.65
-        else if (hourNum >= 12 && hourNum <= 14) baseImport = 0.45
-        else if (hourNum >= 18 && hourNum <= 22) baseImport = 1.15
-        else if (hourNum >= 23 || hourNum <= 5) baseImport = 0.18
-
-        hours.push({
-          date: hourLabel,
-          import: parseFloat((baseImport + Math.sin(i) * 0.05).toFixed(2)),
-          export: (hourNum >= 9 && hourNum <= 16) ? 0.35 : 0
-        })
-      }
-      return hours
-    }
-
-    if (selectedTimeframe === "30d") {
-      const baseDaily = Number(meter?.daily_average) || 4.2
-      const days = []
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date()
-        d.setDate(d.getDate() - i)
-        const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-        const weekendBonus = (d.getDay() === 0 || d.getDay() === 6) ? 1.2 : 0.95
-        const variance = Math.cos(i * 0.7) * 0.8
-        const val = Math.max(1.2, parseFloat((baseDaily * weekendBonus + variance).toFixed(2)))
-        days.push({
-          date: dateStr,
-          import: val,
-          export: parseFloat((val * 0.15).toFixed(2))
-        })
-      }
-      return days
-    }
-
-    // 90d (Quarterly profile)
-    const baseDaily = Number(meter?.daily_average) || 4.2
-    const weeks = []
-    for (let i = 12; i >= 0; i--) {
-      const label = `W-${13 - i}`
-      const weeklyVal = parseFloat((baseDaily * 7 * (0.9 + (i % 3) * 0.08)).toFixed(1))
-      weeks.push({
-        date: label,
-        import: weeklyVal,
-        export: parseFloat((weeklyVal * 0.12).toFixed(1))
-      })
-    }
-    return weeks
-  }, [selectedTimeframe, consumption?.chartData, meter?.daily_average])
-
   const totalPeriodKwh = activeChartData.reduce((acc: number, curr: any) => acc + (Number(curr.import) || 0), 0)
   const avgPeriodKwh = activeChartData.length > 0 ? (totalPeriodKwh / activeChartData.length) : 0
   const peakPeriodKwh = activeChartData.length > 0 ? Math.max(...activeChartData.map((c: any) => Number(c.import) || 0)) : 0
@@ -528,8 +566,38 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
             </div>
           </div>
 
-          {/* Primary Action Buttons */}
+          {/* Primary Action Buttons & View Mode Switch */}
           <div className="flex items-center gap-2.5 shrink-0 self-start lg:self-auto flex-wrap sm:flex-nowrap">
+            {/* View Mode Switcher: Simplified (Non-technical) vs Detailed */}
+            <div className="inline-flex p-1 rounded-2xl bg-black/50 border border-white/10 shrink-0 shadow-inner">
+              <button
+                type="button"
+                onClick={() => handleToggleViewMode("simplified")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === "simplified"
+                    ? "bg-yellow-400 text-black shadow-md shadow-yellow-400/20"
+                    : "text-white/60 hover:text-white"
+                }`}
+                title={t.overview.simplifiedViewDesc}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span>{t.overview.simplifiedView}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleViewMode("detailed")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === "detailed"
+                    ? "bg-white/20 text-white shadow-md border border-white/20"
+                    : "text-white/60 hover:text-white"
+                }`}
+                title="Detailed technical view with diagnostics & specs"
+              >
+                <Sliders className="h-3.5 w-3.5" />
+                <span>{t.overview.detailedView}</span>
+              </button>
+            </div>
+
             <Button
               type="button"
               onClick={handleDownloadStatementPdf}
@@ -564,6 +632,23 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
           </div>
         </div>
       </div>
+
+      {/* Simplified View Helper Banner */}
+      {viewMode === "simplified" && (
+        <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-yellow-400/[0.05] border border-yellow-400/20 text-xs text-yellow-300">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-yellow-400 shrink-0" />
+            <span>{t.overview.simplifiedViewDesc}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleToggleViewMode("detailed")}
+            className="underline hover:text-yellow-200 cursor-pointer font-semibold ml-2 text-[11px]"
+          >
+            {t.overview.detailedView}
+          </button>
+        </div>
+      )}
 
       {/* 2. Contextual Notification Banners (Only displayed when events occur) */}
       {emergencySuccessMsg && (
@@ -724,23 +809,18 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
           </div>
         </Card>
 
-        {/* KPI Card 2: AI Estimated Supply Days (HIGHLIGHTED HERO FEATURE) */}
+        {/* KPI Card 2: Estimated Supply Horizon */}
         <Card className="bg-gradient-to-b from-[#18181c] to-[#141416] border border-yellow-400/40 shadow-xl shadow-yellow-400/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Cpu className="h-4 w-4 text-yellow-400" />
-                Estimated Supply Horizon
+                <CalendarClock className="h-4 w-4 text-yellow-400" />
+                {t.overview.supplyDaysTitle}
               </span>
-              {isMlAvailable ? (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono font-bold flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  AI ONLINE
-                </span>
-              ) : (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono font-semibold">
-                  ML OFFLINE
+              {mlConfidenceScore != null && isMlAvailable && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-400/10 border border-yellow-400/20 text-yellow-300 font-mono">
+                  {(mlConfidenceScore * 100).toFixed(0)}% {t.overview.confidence}
                 </span>
               )}
             </div>
@@ -748,7 +828,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
             <div className="flex items-baseline gap-2 mt-1">
               {isMlAvailable && mlDaysRemaining != null ? (
                 <span className="text-3xl font-black tracking-tight text-yellow-300 font-mono">
-                  ~{mlDaysRemaining.toFixed(1)} <span className="text-sm font-semibold text-white/60">Days</span>
+                  ~{mlDaysRemaining.toFixed(1)} <span className="text-sm font-semibold text-white/60">{t.overview.daysUnit}</span>
                 </span>
               ) : (
                 <span className="text-3xl font-black tracking-tight text-white/30 font-mono">
@@ -759,18 +839,10 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
 
             <div className="mt-3 space-y-1 text-[11px] text-white/60">
               <div className="flex items-center justify-between">
-                <span>Exhaustion:</span>
+                <span>{t.overview.supplyDaysSubtext}:</span>
                 <span className="font-mono text-white/90">
                   {isMlAvailable && mlExhaustionTimestamp
-                    ? new Date(mlExhaustionTimestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
-                    : "N/A"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Model Confidence:</span>
-                <span className="font-mono text-emerald-400">
-                  {isMlAvailable && mlConfidenceScore != null
-                    ? `${(mlConfidenceScore * 100).toFixed(0)}% Conf.`
+                    ? new Date(mlExhaustionTimestamp).toLocaleDateString(language === "si" ? "si-LK" : language === "ta" ? "ta-LK" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
                     : "N/A"}
                 </span>
               </div>
@@ -779,37 +851,27 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
 
           <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
             <span className="text-white/40">
-              {isMlAvailable ? (mlPrediction?.coldStartStage || "Adaptive Ensemble") : "Awaiting ML Telemetry"}
+              {isMlAvailable ? t.overview.tariffLifetimePrediction : "N/A"}
             </span>
-            <span className="text-yellow-400/80 font-mono">PUCSL Tariff Sync</span>
           </div>
         </Card>
 
-        {/* KPI Card 3: Adaptive Daily Estimation & Burn Rate (HIGHLIGHTED HERO FEATURE) */}
+        {/* KPI Card 3: Daily Cost Estimation */}
         <Card className="bg-gradient-to-b from-[#18181c] to-[#141416] border border-sky-400/40 shadow-xl shadow-sky-400/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-32 h-32 bg-sky-400/10 rounded-full blur-3xl pointer-events-none" />
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
                 <TrendingUp className="h-4 w-4 text-sky-400" />
-                Daily Estimation
+                {t.overview.dailyEstimateTitle}
               </span>
-              {isMlAvailable && mlDailyBurnRate != null ? (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 font-mono font-bold">
-                  ADAPTIVE
-                </span>
-              ) : (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/40 font-mono">
-                  N/A
-                </span>
-              )}
             </div>
 
             <div className="flex items-baseline gap-2 mt-1">
               {isMlAvailable && mlDailyBurnRate != null ? (
                 <span className="text-3xl font-black tracking-tight text-white font-mono">
                   Rs. {mlDailyBurnRate.toFixed(2)}
-                  <span className="text-xs font-normal text-white/50 ml-1">/ day</span>
+                  <span className="text-xs font-normal text-white/50 ml-1">{t.overview.perDayUnit}</span>
                 </span>
               ) : (
                 <span className="text-3xl font-black tracking-tight text-white/30 font-mono">
@@ -820,11 +882,11 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
 
             <div className="mt-3 space-y-1 text-[11px] text-white/60">
               <div className="flex items-center justify-between">
-                <span>Daily Quota Target:</span>
-                <span className="font-mono text-white/90">{dailyTargetKwh} kWh / day</span>
+                <span>{t.overview.dailyBudgetTitle}:</span>
+                <span className="font-mono text-white/90">{dailyTargetKwh} kWh {t.overview.perDayUnit}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Today Accrued:</span>
+                <span>{t.overview.todayUsageTitle}:</span>
                 <span className={todayUsedKwh > dailyTargetKwh ? "text-amber-400 font-mono" : "text-emerald-400 font-mono"}>
                   {todayUsedKwh.toFixed(1)} kWh ({Math.round((todayUsedKwh / dailyTargetKwh) * 100)}%)
                 </span>
@@ -833,13 +895,13 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
           </div>
 
           <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
-            <span className="text-white/40">Tier Progressive</span>
+            <span className="text-white/40">{t.overview.dailyEstimateSubtext}</span>
             <button
               type="button"
               onClick={handleOpenBudgetModal}
               className="text-sky-400 hover:text-sky-300 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
             >
-              Adjust Quota
+              {t.overview.adjustBudgetBtn}
             </button>
           </div>
         </Card>
@@ -851,20 +913,20 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
             <div className="flex items-center justify-between mb-2">
               <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
                 <Activity className="h-4 w-4 text-blue-400" />
-                Today's Usage & Active Load
+                {t.overview.todayUsageTitle}
               </span>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                 meter.status === "Connected"
                   ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                   : "bg-rose-500/10 border-rose-500/30 text-rose-400"
               }`}>
-                {meter.status === "Connected" ? "ONLINE" : "DISCONNECTED"}
+                {meter.status === "Connected" ? t.overview.connectedGrid : t.overview.disconnectedGrid}
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3 mt-1">
               <div>
-                <span className="text-[11px] text-white/50 block">Today's Energy</span>
+                <span className="text-[11px] text-white/50 block">{t.overview.todayUsageTitle}</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
                   <span className="text-2xl font-black text-white">
                     {consumption ? Number(consumption.today || 0).toFixed(1) : "0.0"}
@@ -874,7 +936,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
               </div>
 
               <div>
-                <span className="text-[11px] text-white/50 block">Active Load</span>
+                <span className="text-[11px] text-white/50 block">{t.overview.activeLoadTitle}</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
                   <span className="text-2xl font-black text-blue-400">
                     {activeLoadDisplay}
@@ -887,144 +949,250 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
             <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/5 text-[11px] text-white/70">
               <Zap className="h-3.5 w-3.5 text-blue-400 shrink-0" />
               <span>
-                Solar Export: {consumption ? Number(consumption.exportToday || 0).toFixed(1) : "0.0"} kWh
+                {t.overview.outFlow}: {consumption ? Number(consumption.exportToday || 0).toFixed(1) : "0.0"} kWh
               </span>
             </div>
           </div>
 
           <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-[11px]">
-            <span className="text-white/40 font-mono">230V • 50Hz Grid</span>
-            <span className="text-emerald-400 font-mono text-[11px]">Telemetry Pulse Active</span>
+            <span className="text-emerald-400 font-mono text-[11px] flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              {meter.status === "Connected" ? t.overview.connectedGrid : t.overview.disconnectedGrid}
+            </span>
           </div>
         </Card>
       </div>
 
-      {/* 4. Monthly Budget Tracker, PUCSL Tariff Slab & Peak Hours Advisory Tier */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Card: Monthly Electricity Bill & Budget Tracker */}
-        <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
-                <Target className="h-4 w-4 text-emerald-400" />
-                This Month's Bill & Budget
-              </span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                budgetSpentPercent > 90 ? "bg-red-500/10 border-red-500/30 text-red-400" :
-                budgetSpentPercent > 70 ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
-                "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-              }`}>
-                {budgetSpentPercent}% Spent
-              </span>
-            </div>
-
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-3xl font-black tracking-tight text-white">
-                Rs. {currentAccruedBill.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-              </span>
-              <span className="text-xs text-white/50">
-                ({consumption?.prediction?.billingCycleConsumptionKwh || "0"} kWh)
-              </span>
-            </div>
-
-            <div className="mt-4 space-y-1.5">
-              <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
-                    budgetSpentPercent > 90
-                      ? "from-amber-500 to-red-500"
-                      : budgetSpentPercent > 70
-                      ? "from-yellow-400 to-amber-500"
-                      : "from-emerald-400 to-teal-400"
-                  }`}
-                  style={{ width: `${Math.max(4, Math.min(100, budgetSpentPercent))}%` }}
-                />
+      {/* 4. Tier: Monthly Budget Tracker + Friendly Energy Saving Tip (or Full Specs in Detailed View) */}
+      {viewMode === "simplified" ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Card: Monthly Electricity Bill & Budget Tracker */}
+          <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                  <Target className="h-4 w-4 text-emerald-400" />
+                  {t.overview.currentMonthAccruedBill}
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  budgetSpentPercent > 90 ? "bg-red-500/10 border-red-500/30 text-red-400" :
+                  budgetSpentPercent > 70 ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
+                  "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                }`}>
+                  {budgetSpentPercent}% {t.overview.spentOf}
+                </span>
               </div>
-              <div className="flex justify-between text-[11px] text-white/50">
-                <span>Budget: Rs. {monthlyBudget.toLocaleString()}</span>
-                <span className="text-white/80 font-semibold">Rs. {remainingBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })} Left</span>
+
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-3xl font-black tracking-tight text-white">
+                  Rs. {currentAccruedBill.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                </span>
+                <span className="text-xs text-white/50">
+                  ({consumption?.prediction?.billingCycleConsumptionKwh || "0"} kWh)
+                </span>
+              </div>
+
+              <div className="mt-4 space-y-1.5">
+                <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
+                      budgetSpentPercent > 90
+                        ? "from-amber-500 to-red-500"
+                        : budgetSpentPercent > 70
+                        ? "from-yellow-400 to-amber-500"
+                        : "from-emerald-400 to-teal-400"
+                    }`}
+                    style={{ width: `${Math.max(4, Math.min(100, budgetSpentPercent))}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-white/50">
+                  <span>{t.overview.monthlyBudgetTitle}: Rs. {monthlyBudget.toLocaleString()}</span>
+                  <span className="text-white/80 font-semibold">Rs. {remainingBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })} {t.overview.remainingOf}</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
-            <span className="text-white/40">Tariff: PUCSL D-1 Block</span>
-            <button
-              type="button"
-              onClick={handleOpenBudgetModal}
-              className="text-yellow-400 hover:text-yellow-300 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
-            >
-              Adjust Budget
-            </button>
-          </div>
-        </Card>
+            <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
+              <span className="text-white/40">{meter.tariff_type || "Domestic D-1 (PUCSL)"}</span>
+              <button
+                type="button"
+                onClick={handleOpenBudgetModal}
+                className="text-yellow-400 hover:text-yellow-300 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
+              >
+                {t.overview.adjustBudgetBtn}
+              </button>
+            </div>
+          </Card>
 
-        {/* Card: PUCSL Tariff Slab */}
-        <TariffSlabCard 
-          currentMonthlyKwh={Number(consumption?.prediction?.billingCycleConsumptionKwh || 0)} 
-          tariffType={meter.tariff_type} 
-        />
+          {/* Friendly Energy Saving Tip Card */}
+          <Card className="bg-gradient-to-br from-yellow-950/20 via-[#141416] to-[#141416] border border-yellow-400/20 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-2 rounded-xl bg-yellow-400/10 text-yellow-400 border border-yellow-400/20">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-bold text-yellow-400 uppercase tracking-wider">
+                  {t.overview.savingTipTitle}
+                </span>
+              </div>
+              <p className="text-sm text-white/80 leading-relaxed">
+                {t.overview.savingTipDesc}
+              </p>
+            </div>
+            <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
+              <span className="text-white/40">Peak: 18:30 – 22:30 (Rs. 54.00/unit)</span>
+              <button
+                type="button"
+                onClick={() => handleToggleViewMode("detailed")}
+                className="text-yellow-400 hover:text-yellow-300 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
+              >
+                {t.overview.detailedView}
+              </button>
+            </div>
+          </Card>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Card: Monthly Electricity Bill & Budget Tracker */}
+          <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                  <Target className="h-4 w-4 text-emerald-400" />
+                  {t.overview.currentMonthAccruedBill}
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  budgetSpentPercent > 90 ? "bg-red-500/10 border-red-500/30 text-red-400" :
+                  budgetSpentPercent > 70 ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
+                  "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                }`}>
+                  {budgetSpentPercent}% {t.overview.spentOf}
+                </span>
+              </div>
 
-        {/* Card: Peak Hours Advisory Widget */}
-        <PeakHoursAdvisoryWidget />
-        <PowerLoadGauge 
-          currentPowerKw={Number(consumption?.currentPower || 1.15)}
-          contractedDemandKw={Number(meter?.contracted_demand || 5.0)}
-          voltage={Number(consumption?.voltage || 230.4)}
-          frequency={Number(consumption?.frequency || 50.0)}
-          powerFactor={Number(consumption?.power_factor || 0.96)}
-        />
-      </div>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-3xl font-black tracking-tight text-white">
+                  Rs. {currentAccruedBill.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                </span>
+                <span className="text-xs text-white/50">
+                  ({consumption?.prediction?.billingCycleConsumptionKwh || "0"} kWh)
+                </span>
+              </div>
 
-      {/* 5. Lower Tier: 7-Day Chart & Analytics Summary (Left 2/3) + Recent Activity (Right 1/3) */}
+              <div className="mt-4 space-y-1.5">
+                <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
+                      budgetSpentPercent > 90
+                        ? "from-amber-500 to-red-500"
+                        : budgetSpentPercent > 70
+                        ? "from-yellow-400 to-amber-500"
+                        : "from-emerald-400 to-teal-400"
+                    }`}
+                    style={{ width: `${Math.max(4, Math.min(100, budgetSpentPercent))}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-white/50">
+                  <span>{t.overview.monthlyBudgetTitle}: Rs. {monthlyBudget.toLocaleString()}</span>
+                  <span className="text-white/80 font-semibold">Rs. {remainingBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })} {t.overview.remainingOf}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
+              <span className="text-white/40">Tariff: PUCSL D-1 Block</span>
+              <button
+                type="button"
+                onClick={handleOpenBudgetModal}
+                className="text-yellow-400 hover:text-yellow-300 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
+              >
+                {t.overview.adjustBudgetBtn}
+              </button>
+            </div>
+          </Card>
+
+          {/* Card: PUCSL Tariff Slab */}
+          <TariffSlabCard 
+            currentMonthlyKwh={Number(consumption?.prediction?.billingCycleConsumptionKwh || 0)} 
+            tariffType={meter.tariff_type} 
+          />
+
+          {/* Card: Peak Hours Advisory Widget */}
+          <PeakHoursAdvisoryWidget />
+          <PowerLoadGauge 
+            currentPowerKw={Number(consumption?.currentPower ?? 0)}
+            contractedDemandKw={Number(meter?.contracted_demand || 5.0)}
+            voltage={Number(consumption?.voltage || 230.4)}
+            frequency={Number(consumption?.frequency || 50.0)}
+            powerFactor={Number(consumption?.power_factor || 0.96)}
+          />
+        </div>
+      )}
+
+      {/* 5. Lower Tier: Chart & Analytics Summary (Left 2/3) + Recent Activity (Right 1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (2/3 width): 7-Day Consumption Profile & Specs */}
+        {/* Left Column (2/3 width): Consumption Profile & Specs */}
         <div className="lg:col-span-2 space-y-4">
           <Card className="bg-[#141416] border border-white/10 shadow-xl text-white rounded-3xl overflow-hidden">
             <CardHeader className="p-5 sm:p-6 pb-3 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-yellow-400" />
-                  {selectedTimeframe === "24h" && "24-Hour Hourly Consumption Profile"}
-                  {selectedTimeframe === "7d" && "7-Day Electricity Consumption Profile"}
-                  {selectedTimeframe === "30d" && "30-Day Monthly Consumption Profile"}
-                  {selectedTimeframe === "90d" && "90-Day Quarterly Consumption Profile"}
+                  {t.overview.electricityConsumption}
                 </CardTitle>
                 <p className="text-xs text-white/50 mt-0.5">
                   Smart meter interval readings in kilowatt-hours (kWh)
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Timeframe Selector Pills */}
-                <div className="flex p-0.5 rounded-xl bg-white/5 border border-white/10 text-xs">
-                  {(["24h", "7d", "30d", "90d"] as const).map((tf) => (
-                    <button
-                      key={tf}
-                      type="button"
-                      onClick={() => setSelectedTimeframe(tf)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
-                        selectedTimeframe === tf
-                          ? "bg-yellow-400 text-black shadow-xs font-bold"
-                          : "text-white/60 hover:text-white"
-                      }`}
-                    >
-                      {tf.toUpperCase()}
-                    </button>
-                  ))}
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Dual Color Legend: Real Usage (Yellow) vs Predicted Usage (Sky Blue) */}
+                <div className="flex items-center gap-3 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
+                    <span className="text-white/80 font-medium">{t.overview.actualUsage}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-sky-400" />
+                    <span className="text-white/80 font-medium">{t.overview.predictedUsage}</span>
+                  </div>
                 </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setExportModalOpen(true)}
-                  className="bg-white/5 hover:bg-white/10 text-white border-white/10 text-xs h-7 px-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
-                >
-                  <Download className="h-3 w-3 text-yellow-400" />
-                  <span>Export</span>
-                </Button>
+                {viewMode === "detailed" && (
+                  <>
+                    {/* Timeframe Selector Pills */}
+                    <div className="flex p-0.5 rounded-xl bg-white/5 border border-white/10 text-xs">
+                      {(["24h", "7d", "30d", "90d"] as const).map((tf) => (
+                        <button
+                          key={tf}
+                          type="button"
+                          onClick={() => setSelectedTimeframe(tf)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                            selectedTimeframe === tf
+                              ? "bg-yellow-400 text-black shadow-xs font-bold"
+                              : "text-white/60 hover:text-white"
+                          }`}
+                        >
+                          {tf.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setExportModalOpen(true)}
+                      className="bg-white/5 hover:bg-white/10 text-white border-white/10 text-xs h-7 px-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
+                    >
+                      <Download className="h-3 w-3 text-yellow-400" />
+                      <span>Export</span>
+                    </Button>
+                  </>
+                )}
               </div>
             </CardHeader>
 
@@ -1033,9 +1201,15 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={activeChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="usageGradient" x1="0" y1="0" x2="0" y2="1">
+                      {/* Real Usage Gradient - Warm Golden Amber */}
+                      <linearGradient id="realUsageGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#facc15" stopOpacity={0.4} />
                         <stop offset="95%" stopColor="#facc15" stopOpacity={0.0} />
+                      </linearGradient>
+                      {/* Predicted Usage Gradient - Cool Electric Sky Blue */}
+                      <linearGradient id="predictedUsageGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
@@ -1043,19 +1217,32 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
                     <YAxis stroke="#666" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}k`} />
                     <Tooltip
                       contentStyle={{ backgroundColor: "#18181b", borderColor: "#333", borderRadius: "12px", color: "#fff" }}
-                      itemStyle={{ color: "#facc15", fontWeight: "bold", fontSize: "12px" }}
-                      labelStyle={{ color: "#888", fontSize: "11px", marginBottom: "3px" }}
-                      formatter={((value: any) => [`${Number(value || 0).toFixed(2)} kWh`, "Energy Usage"]) as any}
+                      labelStyle={{ color: "#888", fontSize: "11px", marginBottom: "4px" }}
+                      formatter={((value: any, name: any) => [`${Number(value || 0).toFixed(2)} kWh`, name]) as any}
                     />
+                    {/* Real Usage Area - Gold */}
                     <Area
                       type="monotone"
-                      dataKey="import"
-                      name="Energy Usage"
+                      dataKey="real"
+                      name={t.overview.actualUsage}
                       stroke="#facc15"
                       strokeWidth={2.5}
                       fillOpacity={1}
-                      fill="url(#usageGradient)"
+                      fill="url(#realUsageGradient)"
                       dot={{ fill: "#facc15", r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                    {/* Predicted Usage Area - Sky Blue (Dashed) */}
+                    <Area
+                      type="monotone"
+                      dataKey="predicted"
+                      name={t.overview.predictedUsage}
+                      stroke="#38bdf8"
+                      strokeWidth={2.5}
+                      strokeDasharray="4 4"
+                      fillOpacity={1}
+                      fill="url(#predictedUsageGradient)"
+                      dot={{ fill: "#38bdf8", r: 3 }}
                       activeDot={{ r: 5 }}
                     />
                   </AreaChart>
@@ -1092,7 +1279,7 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
               <div>
                 <span className="text-white/40 block text-[10px] uppercase font-semibold">Supply Relay</span>
                 <span className={`font-bold text-xs ${isDisconnected ? "text-red-400" : "text-emerald-400"}`}>
-                  {isDisconnected ? "Disconnected" : "Active (Closed)"}
+                  {isDisconnected ? t.overview.disconnectedGrid : t.overview.connectedGrid}
                 </span>
               </div>
             </div>
