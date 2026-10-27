@@ -5,7 +5,7 @@ const { calculateDomesticBill } = require('./tariffEngine');
 
 // Initialize OpenAI client if key is present
 const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 15000, maxRetries: 0 })
   : null;
 
 // System prompt defines bot personality, knowledge boundary, and strict accuracy rules

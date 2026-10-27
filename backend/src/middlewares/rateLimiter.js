@@ -3,6 +3,8 @@ const rateLimit = require('express-rate-limit');
 const AUTH_WINDOW_MS = 15 * 60 * 1000;
 const AUTH_MAX_ATTEMPTS = 20;
 const METER_LINK_MAX_ATTEMPTS = 10;
+const CHAT_WINDOW_MS = 15 * 60 * 1000;
+const CHAT_MAX_REQUESTS = 20;
 
 /**
  * Phase 4: Defend Against Automated Attacks (Brute Force)
@@ -64,12 +66,29 @@ const complaintRateLimiter = rateLimit({
   }
 });
 
+// Chat can trigger paid upstream AI calls, so limit it per authenticated account.
+const chatRateLimiter = rateLimit({
+  windowMs: CHAT_WINDOW_MS,
+  limit: CHAT_MAX_REQUESTS,
+  keyGenerator: (req) => `user:${req.user.id}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'Too Many Requests',
+    message: 'You have sent too many chat requests. Please try again later.',
+    statusCode: 429
+  }
+});
+
 module.exports = {
   authRateLimiter,
   meterLinkRateLimiter,
   complaintRateLimiter,
+  chatRateLimiter,
   AUTH_WINDOW_MS,
   AUTH_MAX_ATTEMPTS,
-  METER_LINK_MAX_ATTEMPTS
+  METER_LINK_MAX_ATTEMPTS,
+  CHAT_WINDOW_MS,
+  CHAT_MAX_REQUESTS
 };
 

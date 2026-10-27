@@ -17,7 +17,7 @@ const { createComplaint, getMyComplaints } = require('../controllers/complaintCo
 const { getUserSettings, updateUserSettings, changePassword, updateMeterPin, updateMeterAlias } = require('../controllers/settingsController');
 const { getUserNotifications, markAsRead } = require('../controllers/notificationController');
 const { handleChat } = require('../controllers/chatController');
-const { meterLinkRateLimiter, complaintRateLimiter } = require('../middlewares/rateLimiter');
+const { meterLinkRateLimiter, complaintRateLimiter, chatRateLimiter } = require('../middlewares/rateLimiter');
 const { validateMeterInput } = require('../middlewares/sanitizer');
 const { initPayhereCheckout, completePayhereCheckout } = require('../controllers/payhereController');
 
@@ -59,6 +59,6 @@ router.get('/notifications', getUserNotifications);
 router.put('/notifications/:id/read', markAsRead);
 
 // AI Chatbot
-router.post('/chat', handleChat);
+router.post('/chat', chatRateLimiter, handleChat);
 
 module.exports = router;
