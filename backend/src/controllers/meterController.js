@@ -203,36 +203,9 @@ const addMeter = async (req, res) => {
       return res.status(200).json({ message: 'Meter linked successfully', meter: linkResult.rows[0] });
     }
 
-    // If meter does not exist yet (self-provisioning / seed in database):
-    // Cryptographically hash the PIN with a one-way salt using bcrypt (10 rounds)
-    const hashedPin = await bcrypt.hash(String(pin), 10);
-
-    const initialBalance = 1850.00;
-    const dailyAvg = 220.00;
-    const meterName = sanitizeString(name || 'Home', 100);
-
-    const result = await pool.query(
-      `INSERT INTO meters (user_id, meter_number, account_number, pin, balance, daily_average, name) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) 
-       RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, 
-                 emergency_credit_limit, emergency_credit_active, emergency_credit_activated_at, created_at`,
-      [userId, meterNumber, accountNumber, hashedPin, initialBalance, dailyAvg, meterName]
-    );
-
-    const newMeter = result.rows[0];
-
-    // Send legitimate initial connection notification
-    try {
-      await pool.query(
-        `INSERT INTO notifications (user_id, meter_id, type, title, message) 
-         VALUES ($1, $2, 'success', 'Meter Connected', $3)`,
-        [userId, newMeter.id, `Smart meter ${meterNumber} has been successfully connected to your account.`]
-      );
-    } catch (notifErr) {
-      console.warn('[AddMeter Notification Warning]:', notifErr.message);
-    }
-
-    res.status(201).json({ message: 'Meter added successfully', meter: newMeter });
+    return res.status(404).json({
+      message: 'Meter is not registered. Contact LECO to provision the meter before linking it.'
+    });
   } catch (error) {
     console.error('Error adding meter:', error);
     // Handle unique violation for meter_number if already exists
