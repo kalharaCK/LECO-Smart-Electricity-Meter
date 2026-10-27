@@ -176,7 +176,9 @@ const addMeter = async (req, res) => {
 
       // Cryptographic comparison: compare user-supplied plaintext PIN with stored bcrypt hash
       const isPinValid = await bcrypt.compare(String(pin), existingMeter.pin);
-      if (!isPinValid) {
+      const isAccountValid = String(accountNumber).trim().toUpperCase() ===
+        String(existingMeter.account_number).trim().toUpperCase();
+      if (!isPinValid || !isAccountValid) {
         return res.status(401).json({ message: 'Invalid Meter PIN. Verification failed.' });
       }
 
@@ -193,11 +195,11 @@ const addMeter = async (req, res) => {
       const meterName = sanitizeString(name || existingMeter.name || 'Home', 100);
       const linkResult = await pool.query(
         `UPDATE meters 
-         SET user_id = $1, account_number = COALESCE($2, account_number), name = $3 
-         WHERE id = $4 
+         SET user_id = $1, name = $2 
+         WHERE id = $3 
          RETURNING id, user_id, meter_number, account_number, balance, status, daily_average, name, 
                    emergency_credit_limit, emergency_credit_active, emergency_credit_activated_at, created_at`,
-        [userId, accountNumber, meterName, existingMeter.id]
+        [userId, meterName, existingMeter.id]
       );
 
       return res.status(200).json({ message: 'Meter linked successfully', meter: linkResult.rows[0] });
