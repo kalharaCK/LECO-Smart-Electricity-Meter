@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const { pool } = require('../config/db');
 const smsService = require('../services/smsService');
 const { validateNewPassword } = require('../services/passwordPolicy');
-const { generateOtp } = require('../services/otpService');
+const { generateOtp, hashOtp } = require('../services/otpService');
 
 // Secure Cookie Configuration
 const getCookieOptions = () => {
@@ -131,9 +131,9 @@ const sendRegisterOtp = async (req, res) => {
 
     // Save OTP
     await pool.query(
-      `INSERT INTO verification_otps (purpose, identifier, otp_code, expires_at)
+      `INSERT INTO verification_otps (purpose, identifier, otp_hash, expires_at)
        VALUES ('registration', $1, $2, $3)`,
-      [cleanMobile, otpCode, expiresAt]
+      [cleanMobile, hashOtp(otpCode), expiresAt]
     );
 
     // Dispatch SMS via Text.lk Gateway in customer preferred language
@@ -190,16 +190,19 @@ const registerWithProfile = async (req, res) => {
 
     const otpCheck = await pool.query(
       `SELECT id FROM verification_otps 
-       WHERE identifier = $1 AND purpose = 'registration' AND otp_code = $2 AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
+       WHERE identifier = $1 AND purpose = 'registration' AND (otp_hash = $2 OR otp_code = $3) AND expires_at > CURRENT_TIMESTAMP AND verified = FALSE
        ORDER BY id DESC LIMIT 1`,
-      [cleanMobile, otp]
+      [cleanMobile, hashOtp(otp), otp]
     );
 
     if (otpCheck.rows.length === 0) {
       return res.status(400).json({ success: false, error: 'Invalid or expired SMS verification code. Please check and try again.' });
     }
 
-    await pool.query(`UPDATE verification_otps SET verified = TRUE WHERE id = $1`, [otpCheck.rows[0].id]);
+    await pool.query(
+      'UPDATE verification_otps SET verified = TRUE, otp_hash = NULL, otp_code = NULL WHERE id = $1',
+      [otpCheck.rows[0].id]
+    );
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
