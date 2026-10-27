@@ -1,108 +1,113 @@
 # LECO Smart Electricity Metering & Bidirectional Grid Analytics Platform
 
-> An enterprise-grade, end-to-end Smart Prepaid Electricity Metering, Bidirectional Net-Metering, Adaptive Machine Learning, and Conversational AI Platform engineered for modern utility providers (Lanka Electricity Company - LECO) and domestic prosumers.
+> An enterprise-grade, end-to-end Smart Prepaid Electricity Metering, Bidirectional Net-Metering, Adaptive Streaming Machine Learning, and Conversational AI Platform engineered for modern utility providers (Lanka Electricity Company - LECO) and domestic prosumers.
 
 ---
 
 ## Table of Contents
-1. [Executive Summary and Platform Overview](#executive-summary-and-platform-overview)
-2. [Key Innovations and Bidirectional Energy Model](#key-innovations-and-bidirectional-energy-model)
-3. [End-to-End System Architecture](#end-to-end-system-architecture)
-4. [Technology Stack](#technology-stack)
-5. [Deep Dive: Machine Learning Forecasting Engine](#deep-dive-machine-learning-forecasting-engine)
-   - [Architectural Philosophy](#architectural-philosophy)
-   - [Online Streaming Ensemble Pipeline](#online-streaming-ensemble-pipeline)
-   - [Feature Engineering and Cyclical Encodings](#feature-engineering-and-cyclical-encodings)
-   - [Online Streaming Algorithms](#online-streaming-algorithms)
-   - [Dynamic Softmax Weighting and Loss Memory](#dynamic-softmax-weighting-and-loss-memory)
-   - [ADWIN Concept Drift Detection](#adwin-concept-drift-detection)
-   - [5-Stage Cold-Start Progressive Strategy](#5-stage-cold-start-progressive-strategy)
-   - [Non-Linear PUCSL Balance Depletion Simulation](#non-linear-pucsl-balance-depletion-simulation)
-   - [ML Microservice REST API Reference](#ml-microservice-rest-api-reference)
-6. [Deep Dive: Conversational AI and Tri-Lingual RAG Chatbot](#deep-dive-conversational-ai-and-tri-lingual-rag-chatbot)
-   - [Conversational Architecture](#conversational-architecture)
-   - [RAG Knowledge Base and TF-IDF Semantic Retriever](#rag-knowledge-base-and-tf-idf-semantic-retriever)
-   - [Prompt Positioning and Jailbreak Security Guard](#prompt-positioning-and-jailbreak-security-guard)
-   - [Dynamic Context Hydration from Live Database](#dynamic-context-hydration-from-live-database)
-   - [Dual-Engine Redundancy: Groq Cloud LLM and Offline Engine](#dual-engine-redundancy-groq-cloud-llm-and-offline-engine)
-   - [Tri-Lingual Engine (English, Sinhala, Tamil)](#tri-lingual-engine-english-sinhala-tamil)
-   - [Interactive Dashboard Actions and Value Highlighting](#interactive-dashboard-actions-and-value-highlighting)
-7. [Prepaid Billing, PUCSL Tariffs, and Financial Engine](#prepaid-billing-pucsl-tariffs-and-financial-engine)
-   - [PUCSL 2026 Domestic Block Tariff Structure](#pucsl-2026-domestic-block-tariff-structure)
-   - [PayHere Payment Gateway and Cryptographic Verification](#payhere-payment-gateway-and-cryptographic-verification)
-   - [Automated Statement and PDF Receipt Generation](#automated-statement-and-pdf-receipt-generation)
-8. [Dual-Channel Verification and Communication Gateways](#dual-channel-verification-and-communication-gateways)
-   - [Text.lk SMS Gateway](#textlk-sms-gateway)
-   - [Nodemailer Email Gateway with Google App Passwords](#nodemailer-email-gateway-with-google-app-passwords)
-   - [Dual OTP Synchronization](#dual-otp-synchronization)
-9. [Staff Operations Command and System Settings](#staff-operations-command-and-system-settings)
-   - [Fleet Operations and Telemetry Triage](#fleet-operations-and-telemetry-triage)
-   - [Remote System Settings and API Key Management](#remote-system-settings-and-api-key-management)
-   - [Customer Feature Toggles and Maintenance Mode](#customer-feature-toggles-and-maintenance-mode)
-10. [Database Schema and Data Dictionary](#database-schema-and-data-dictionary)
-11. [Security, Hardening, and Concurrency Protections](#security-hardening-and-concurrency-protections)
-12. [Installation, Local Development, and Verification](#installation-local-development-and-verification)
-13. [Future Roadmap and License](#future-roadmap-and-license)
+1. [Executive Summary and Platform Overview](#1-executive-summary-and-platform-overview)
+2. [Key Innovations and Bidirectional Energy Accounting](#2-key-innovations-and-bidirectional-energy-accounting)
+3. [Master System Topology and Architecture](#3-master-system-topology-and-architecture)
+4. [Technology Stack Matrix](#4-technology-stack-matrix)
+5. [Complete Sub-System Component Breakdown](#5-complete-sub-system-component-breakdown)
+6. [Deep Dive: Machine Learning Forecasting Engine](#6-deep-dive-machine-learning-forecasting-engine)
+   - [Architectural Philosophy](#61-architectural-philosophy)
+   - [Data Ingestion and Preprocessing Pipeline](#62-data-ingestion-and-preprocessing-pipeline)
+   - [Feature Engineering and Multi-Scale Cyclical Encodings](#63-feature-engineering-and-multi-scale-cyclical-encodings)
+   - [Hybrid Online Streaming Algorithms](#64-hybrid-online-streaming-algorithms)
+   - [Dynamic Softmax Weighting and Loss Memory](#65-dynamic-softmax-weighting-and-loss-memory)
+   - [ADWIN Concept Drift Detection and Recovery](#66-adwin-concept-drift-detection-and-recovery)
+   - [5-Stage Progressive Cold-Start Lifecycle](#67-5-stage-progressive-cold-start-lifecycle)
+   - [Non-Linear PUCSL Balance Depletion Simulation](#68-non-linear-pucsl-balance-depletion-simulation)
+   - [Solar PV Net Generation and Battery Degradation Forecasting](#69-solar-pv-net-generation-and-battery-degradation-forecasting)
+   - [ML Microservice REST API Specification](#610-ml-microservice-rest-api-specification)
+7. [Deep Dive: Conversational AI and Tri-Lingual RAG Chatbot](#7-deep-dive-conversational-ai-and-tri-lingual-rag-chatbot)
+   - [Conversational Engine Architecture](#71-conversational-engine-architecture)
+   - [TF-IDF Semantic Vector RAG Retriever](#72-tf-idf-semantic-vector-rag-retriever)
+   - [7-Layer Security Prompt Guard and Sandboxing](#73-7-layer-security-prompt-guard-and-sandboxing)
+   - [Dynamic Context Hydration from Live PostgreSQL](#74-dynamic-context-hydration-from-live-postgresql)
+   - [Dual-Engine Redundancy: Groq Cloud LLM and Offline Engine](#75-dual-engine-redundancy-groq-cloud-llm-and-offline-engine)
+   - [Tri-Lingual Engine (English, Sinhala, Tamil)](#76-tri-lingual-engine-english-sinhala-tamil)
+   - [5 Core Conversational Domains and Intent Resolution](#77-5-core-conversational-domains-and-intent-resolution)
+   - [Interactive Dashboard Actions and Special Value Highlighting](#78-interactive-dashboard-actions-and-special-value-highlighting)
+8. [Prepaid Billing, PUCSL Tariffs, and Financial Engine](#8-prepaid-billing-pucsl-tariffs-and-financial-engine)
+   - [PUCSL 2026 Domestic Block Tariff Structure](#81-pucsl-2026-domestic-block-tariff-structure)
+   - [Non-Linear Tariff Boundary Transitions](#82-non-linear-tariff-boundary-transitions)
+   - [PayHere Payment Gateway and Cryptographic IPN Verification](#83-payhere-payment-gateway-and-cryptographic-ipn-verification)
+   - [Automated Statement and PDF Receipt Generation](#84-automated-statement-and-pdf-receipt-generation)
+9. [Dual-Channel Verification and Communication Gateways](#9-dual-channel-verification-and-communication-gateways)
+   - [Text.lk SMS Gateway Integration](#91-textlk-sms-gateway-integration)
+   - [Nodemailer Email Gateway with Google App Passwords](#92-nodemailer-email-gateway-with-google-app-passwords)
+   - [Dual-Channel OTP Synchronization Engine](#93-dual-channel-otp-synchronization-engine)
+10. [Staff Operations Command and System Settings](#10-staff-operations-command-and-system-settings)
+    - [Smart Meters Fleet Management and Telemetry Triage](#101-smart-meters-fleet-management-and-telemetry-triage)
+    - [Remote Dynamic System Settings and API Key Management](#102-remote-dynamic-system-settings-and-api-key-management)
+    - [Remote Feature Control Switches and Maintenance Mode](#103-remote-feature-control-switches-and-maintenance-mode)
+11. [Database Schema and Complete Data Dictionary](#11-database-schema-and-complete-data-dictionary)
+12. [Enterprise Security, Hardening, and Concurrency Controls](#12-enterprise-security-hardening-and-concurrency-controls)
+13. [Installation, Local Development, and Verification Guide](#13-installation-local-development-and-verification-guide)
+14. [Future Roadmap and License](#14-future-roadmap-and-license)
 
 ---
 
-## Executive Summary and Platform Overview
+## 1. Executive Summary and Platform Overview
 
-Traditional electricity distribution systems rely heavily on manual meter reading, post-paid monthly billing, deferred fault discovery, and unidirectional power grids. The exponential adoption of domestic rooftop photovoltaic (PV) solar installations has transformed everyday consumers into **prosumers**—entities that both draw power from the utility grid and export excess clean energy back into the distribution network.
+Traditional utility grids operate under post-paid, manual-read paradigms characterized by delayed billing cycles, prolonged outage detection, and one-directional power flows. The rapid proliferation of domestic rooftop solar photovoltaic (PV) generation has transformed conventional electricity consumers into **prosumers**—distributed micro-generators who consume energy from the utility grid while simultaneously injecting excess clean electricity back into the distribution network.
 
-The **LECO Smart Electricity Meter Platform** is an enterprise-grade utility system engineered to deliver:
-1. **Continuous Bidirectional Telemetry**: Real-time tracking of imported energy (In) from the national grid and exported solar energy (Out) to the grid, computing net billing balances ($Net = In - Out$).
-2. **Prepaid Smart Metering and Remote Relay Control**: Instant balance recharges, automated low-balance alarms, non-linear tariff lifetime predictions, and remote relay actuation (automatic cutoff on depletion and instantaneous 10-30s reconnection on top-up).
-3. **Adaptive Online Machine Learning**: A streaming ML microservice running River, Kalman filters, and Hoeffding trees that predicts physical energy consumption without relying on pre-existing historical datasets.
-4. **Conversational AI with RAG Architecture**: A tri-lingual smart energy assistant powered by Groq LLMs and local offline rule engines that answers queries regarding consumption, savings, tariffs, account status, and complaints.
-5. **Dual-Channel Omnichannel Verification**: Simultaneous OTP dispatch across Text.lk SMS and Nodemailer SMTP (Gmail) for account registration, password resets, and email verifications.
-6. **Utility Operations Console**: A centralized staff command center for fleet telemetry inspection, dispute resolution, PayHere transaction reconciliation, and live system configuration.
+The **LECO Smart Electricity Meter Platform** is a smart utility management and analytics platform engineered to bridge consumer self-service with utility fleet operations. The system delivers:
+
+1. **High-Frequency Bidirectional Telemetry (30-45s Cadence)**: Ingests active load readings, separates imported power from exported solar generation, and maintains live net-metered balances ($Net = In - Out$).
+2. **Prepaid Smart Metering & Remote Relay Control**: Real-time balance debits, non-linear tariff burn rate forecasting, automated low-balance notifications, and remote latching relay actuation (instant automatic cutoff on credit exhaustion and rapid 10-30s reconnection upon successful top-up).
+3. **Adaptive Online Machine Learning**: An autonomous streaming ML microservice (Python / FastAPI / River) that learns household consumption patterns on-the-fly without requiring pre-existing datasets.
+4. **Conversational AI with RAG Architecture**: A tri-lingual smart energy assistant powered by Groq LLMs and a deterministic offline fallback engine, answering complex utility inquiries regarding consumption, savings, tariffs, account status, and technical complaints.
+5. **Omnichannel Dual-Channel OTP Authentication**: Simultaneous verification code dispatch across Text.lk SMS and Nodemailer Gmail SMTP for registration, password reset, and profile validation.
+6. **Centralized Staff Fleet Management**: An administrative operations portal providing real-time fleet health inspection, remote relay overrides, complaint dispatching, PayHere reconciliation, and live system settings configuration.
 
 ---
 
-## Key Innovations and Bidirectional Energy Model
+## 2. Key Innovations and Bidirectional Energy Accounting
 
-### 1. Bidirectional Energy Accounting (In / Out / Net)
-Physical smart meters equipped with bidirectional current transducers capture directional energy vectors every 30 to 45 seconds:
-- **`In` (Imported from Grid)**: Electricity drawn from the distribution grid to power household loads.
-- **`Out` (Exported to Grid)**: Surplus clean electricity generated by rooftop solar PV systems injected into the grid.
-- **`Net` ($In - Out$)**: The net chargeable consumption. If $In > Out$, net power is consumed; if $Out > In$, the prosumer earns net grid energy credits.
+### 2.1 Bidirectional Energy Accounting (In / Out / Net)
+Electricity meters deployed in the system measure two distinct directional vectors:
+- **`In` (Imported from Grid)**: Electricity drawn from the utility distribution grid to power household loads and domestic appliances.
+- **`Out` (Exported to Grid)**: Clean electricity produced by rooftop solar PV systems or microgeneration equipment injected back into the grid.
+- **`Net` ($In - Out$)**: The actual billable or creditable energy. When $In > Out$, the prosumer consumes net energy and is charged according to PUCSL domestic block rates; when $Out > In$, the prosumer generates net grid energy credits.
 
 ```
-                    +---------------------------+
-                    |    LECO Distribution Grid  |
-                    +-------------+-------------+
-                                  | ^
-            Imported Energy (In)  | |  Exported Energy (Out)
-                                  v |
-                    +-------------+-------------+
-                    |   LECO AMI Smart Meter    |
-                    |   Measures In & Out (kWh) |
-                    +-------------+-------------+
-                                  | ^
-            Delivered Power       | |  Microgeneration
-                                  v |
-                +-----------------+---+      +-----------------+
-                | Domestic Appliances |      | Solar PV Array  |
-                +---------------------+      +-----------------+
+                    +------------------------------------+
+                    |        LECO Distribution Grid      |
+                    +------------------+-----------------+
+                                       | ^
+                 Power Imported (In)   | |  Power Exported (Out)
+                                       v |
+                    +------------------+-----------------+
+                    |     LECO AMI Smart Meter (IoT)     |
+                    |     Bidirectional Pulse Engine     |
+                    +------------------+-----------------+
+                                       | ^
+                 Delivered Power       | |  Solar Generation
+                                       v |
+                    +------------------+-+       +-------------------+
+                    | Domestic Appliances|       | Rooftop Solar PV  |
+                    +--------------------+       +-------------------+
 ```
 
-### 2. Dual-Line Consumption Analytics
-The customer dashboard renders dual-channel visual curves:
-- **Red/Coral Vector (In)**: Grid import tracking across 24-hour and 7-day sliding windows.
-- **Emerald Vector (Out)**: Solar generation fed back to the grid.
-- **Net Metric Displays**: Net active power (kW), cumulative net energy (kWh), and real-time financial burn rates (LKR/day).
+### 2.2 Dual-Line Analytical Visualizations
+Rather than flattening consumption into a single number, both the Customer and Staff dashboards visualize power through dual-line metrics:
+- **Coral/Red Vector (`In`)**: Real-time kW load and historical cumulative kWh drawn from the grid.
+- **Emerald Vector (`Out`)**: Solar generation exported back to the distribution grid.
+- **Net Metric Displays**: Live net power, weekly net averages, and real-time financial burn rates (LKR/day).
 
 ---
 
-## End-to-End System Architecture
+## 3. Master System Topology and Architecture
 
 The platform follows a decoupled, multi-tier microservices architecture:
 
 ```mermaid
 graph TD
     subgraph IoT and Edge Layer
-        MTR[AMI Smart Meter Simulator / Hardware]
+        MTR[AMI Smart Meter Hardware / Simulator<br/>30-45s Ingestion Cadence]
     end
 
     subgraph Presentation Tier
@@ -110,54 +115,64 @@ graph TD
         SP[Staff Portal<br/>React 19 + Vite :5174]
     end
 
-    subgraph Application Core
-        API[Node.js + Express API :3000]
-        WS[Socket.io Real-Time Engine]
-        RAG[RAG Knowledge Engine]
-        PG[Prompt Security Guard]
-        AUTH[Auth and Dual OTP Manager]
-        TARIFF[PUCSL Tariff Engine]
-        PDF[PDFKit Document Generator]
+    subgraph Core Application Tier
+        API[Node.js + Express REST API :3000]
+        WS[Socket.io Real-Time WebSocket Hub]
+        AUTH[Auth & Dual OTP Synchronizer]
+        TARIFF[PUCSL Domestic Tariff Engine]
+        PDF[PDFKit Document Factory]
+        RAG[TF-IDF Vector RAG Engine]
+        PG[7-Layer Prompt Security Guard]
+        SETTINGS[Dynamic System Settings Service]
     end
 
     subgraph Machine Learning Microservice
         ML[Python FastAPI + Uvicorn :8000]
-        RIVER[River Online Learning Ensemble]
+        PREPROC[Telemetry Preprocessor & Validator]
+        FEAT[Cyclical Feature Engine]
         KALMAN[24-Channel Kalman Filter]
-        DRIFT[ADWIN Concept Drift Detector]
+        RIVER[River Online Linear SGD Regressor]
+        ARF[Adaptive Random Forest Regressor]
+        ENSEMBLE[Dynamic Softmax Ensemble]
+        ADWIN[ADWIN Concept Drift Monitor]
+        SIM[Non-Linear Depletion Simulator]
     end
 
-    subgraph Data Tier
-        DB[(Neon Serverless PostgreSQL)]
+    subgraph Data Persistence Tier
+        DB[(Neon Serverless PostgreSQL<br/>Connection Pooling & SSL)]
     end
 
-    subgraph External Gateways
-        GROQ[Groq Cloud LLM API]
+    subgraph External Cloud Gateways
+        GROQ[Groq Cloud LLM API<br/>Llama 3.3 / Qwen]
         SMS[Text.lk SMS Gateway]
         SMTP[Gmail SMTP / Nodemailer]
         PAYHERE[PayHere Payment Gateway]
     end
 
-    MTR -->|REST Telemetry Ingestion| API
-    CP -->|REST / JWT Cookie| API
+    MTR -->|HTTP POST Telemetry| API
+    CP -->|REST / HttpOnly Cookie| API
     CP <-->|Bidirectional WebSockets| WS
-    SP -->|REST / JWT Cookie| API
-    SP <-->|Staff WebSockets| WS
+    SP -->|REST / HttpOnly Cookie| API
+    SP <-->|Staff Operational WebSockets| WS
 
     API --> AUTH
     API --> TARIFF
     API --> PDF
     API --> RAG
-    RAG --> GROQ
     API --> PG
+    API --> SETTINGS
+    RAG --> GROQ
 
     API -->|Async Telemetry Stream| ML
-    ML --> RIVER
-    ML --> KALMAN
-    ML --> DRIFT
-    ML -->|Read Aggregates| DB
+    ML --> PREPROC --> FEAT --> ENSEMBLE
+    ENSEMBLE --> KALMAN
+    ENSEMBLE --> RIVER
+    ENSEMBLE --> ARF
+    ENSEMBLE --> ADWIN
+    ENSEMBLE --> SIM
 
     API -->|Connection Pool| DB
+    ML -->|Read Aggregates| DB
     AUTH --> SMS
     AUTH --> SMTP
     API --> PAYHERE
@@ -165,209 +180,312 @@ graph TD
 
 ---
 
-## Technology Stack
+## 4. Technology Stack Matrix
 
-### Frontend Applications (`frontend/customer` and `frontend/staff`)
-- **Core Engine**: React 19, TypeScript, Vite.
-- **Styling Architecture**: Tailwind CSS v4, custom HSL color tokens, dark mode with deep black glassmorphism.
-- **Component Primitives**: Radix UI, shadcn/ui.
-- **Icons**: Lucide React (strictly zero emojis across all interfaces).
-- **Visualizations**: Recharts (responsive dual-channel area and line charts).
-- **Internationalization (i18n)**: Native tri-lingual translation contexts (English, Sinhala, Tamil).
-- **Real-Time Client**: Socket.io Client with auto-reconnection and exponential backoff.
-
-### Backend REST API (`backend`)
-- **Runtime**: Node.js (ES6+ CommonJS), Express.js.
-- **Database Driver**: `pg` (node-postgres) with connection pooling and serverless disconnect resilience.
-- **Real-Time Transport**: Socket.io server with isolated room partitioning (`meter_{id}`, `user_{id}`).
-- **Authentication**: JWT stored in `HttpOnly`, `SameSite=Strict` secure cookies; Bcrypt salted PIN hashing.
-- **Communication Clients**: Nodemailer (SMTP), Text.lk REST API.
-- **Document Generation**: PDFKit (PUCSL-compliant bills and payment receipts).
-- **Testing**: Node.js native test runner (`node:test`, `node:assert/strict`).
-
-### Machine Learning Service (`ml`)
-- **Runtime**: Python 3.12+, FastAPI, Uvicorn.
-- **Streaming Machine Learning**: River (online regression, Hoeffding adaptive trees, prequential evaluation).
-- **Scientific Computing**: NumPy, SciPy, Pandas.
-- **Database Connector**: `asyncpg` for PostgreSQL connection pooling.
-- **Test Framework**: `pytest`, `pytest-asyncio`.
-
-### Cloud Database Tier
-- **Provider**: Neon Serverless PostgreSQL with SSL encryption (`sslmode=require`).
+| Layer | Technology | Version | Key Functionality |
+|---|---|---|---|
+| **Customer Frontend** | React / TypeScript / Vite | 19.x / 5.x | Self-care prosumer dashboard, live net charts, floating AI assistant |
+| **Staff Frontend** | React / TypeScript / Vite | 19.x / 5.x | Grid fleet command, triage queue, PayHere ledger, system settings |
+| **Styling & Design System** | Tailwind CSS v4 / Radix UI | 4.x / 1.x | Enterprise dark theme, custom HSL tokens, strictly zero emojis |
+| **Backend REST API** | Node.js / Express.js | 22.x / 4.x | Core API, session management, billing solver, PDF generator |
+| **Real-Time WebSockets** | Socket.io | 4.x | Event broadcasting (`meter_update`, `complaint_update`), zero-reload UI |
+| **Database Tier** | Neon Serverless PostgreSQL | 16.x | Relational storage, connection pooling, automated schema migrations |
+| **Machine Learning** | Python / FastAPI / Uvicorn | 3.12+ / 0.115+ | Streaming prequential inference, online ensemble, drift detection |
+| **Streaming ML Engine** | River / NumPy / SciPy | 0.21+ / 1.26+ | Hoeffding tree regressors, Kalman filters, stochastic gradient descent |
+| **Conversational AI** | Groq Cloud API | 0.11+ | Sub-second inference (`llama-3.3-70b-versatile`, `qwen/qwen3.8-27b`) |
+| **Vector Search / RAG** | In-Memory TF-IDF Engine | Native JS | Cosine similarity document ranking over PUCSL tariff and utility rules |
+| **SMS Gateway** | Text.lk REST API v3 | API v3 | Trilingual transactional SMS notifications across Sri Lankan telcos |
+| **Email Gateway** | Nodemailer (Gmail SMTP) | 6.10+ | Formatted corporate HTML email templates with 16-character App Passwords |
+| **Payment Gateway** | PayHere API | v1.0 | Hosted checkout tokens, MD5 signature verification, IPN webhooks |
+| **PDF Generation** | PDFKit | 0.15+ | PUCSL-compliant monthly statements and recharge receipts |
 
 ---
 
-## Deep Dive: Machine Learning Forecasting Engine
+## 5. Complete Sub-System Component Breakdown
 
-The LECO Machine Learning Microservice (`ml/`) is an adaptive, online streaming inference engine engineered specifically for domestic electricity consumption forecasting under Sri Lanka's non-linear PUCSL domestic block tariff structure.
+| Component ID | Sub-System Name | Directory / Path | Runtime / Port | Responsibility |
+|---|---|---|---|---|
+| **C-01** | Customer Portal | `frontend/customer` | Vite :5173 | Prosumer interface, balance monitor, payment checkout, AI assistant |
+| **C-02** | Staff Portal | `frontend/staff` | Vite :5174 | Utility management, fleet command, complaints triage, settings |
+| **C-03** | Core Express API | `backend/src/app.js` | Node :3000 | REST controllers, middleware pipeline, authentication, routing |
+| **C-04** | Real-Time WebSocket Hub | `backend/src/config/socket.js` | Port 3000 (WS) | Pub/Sub event rooms partitioned by `meter_{id}` and `user_{id}` |
+| **C-05** | Neon PostgreSQL Database | `backend/src/config/db.js` | Managed Cloud | Persistent ledger, transactional locking, connection retry engine |
+| **C-06** | Adaptive ML Microservice | `ml/main.py` | FastAPI :8000 | Online energy forecasting, 24-step trajectory, depletion modeling |
+| **C-07** | River Streaming Models | `ml/models/` | Python in-memory | Online Linear SGD, Adaptive Random Forest, 24-ch Kalman filter |
+| **C-08** | ADWIN Drift Detector | `ml/models/drift.py` | Python in-memory | Real-time residual tracking and concept drift event mitigation |
+| **C-09** | Non-Linear Prepaid Simulator | `ml/engines/prepaid_engine.py` | Python in-memory | Hour-by-hour PUCSL block tariff credit exhaustion modeling |
+| **C-10** | PUCSL Tariff Solver | `backend/src/services/tariffEngine.js` | Node in-memory | Deterministic calculation of official 2026 domestic block rates |
+| **C-11** | TF-IDF RAG Retriever | `backend/src/modules/chatbot/knowledge/` | Node in-memory | Semantic vector retrieval over indexed LECO domain guidelines |
+| **C-12** | Groq Cloud LLM Client | `backend/src/modules/chatbot/services/groqClient.js` | HTTPS (Groq) | High-throughput LLM reasoning with circuit-breaker auto-fallback |
+| **C-13** | Tri-Lingual Offline Bot | `backend/src/modules/chatbot/services/offlineEngine.js` | Node in-memory | Zero-downtime deterministic conversational engine (EN, SI, TA) |
+| **C-14** | Prompt Security Guard | `backend/src/modules/chatbot/security/promptGuard.js` | Node in-memory | XML sandboxing, jailbreak defense, zero-emoji enforcement |
+| **C-15** | Text.lk SMS Service | `backend/src/services/smsService.js` | HTTPS (Text.lk) | Trilingual transactional SMS dispatch and phone normalization |
+| **C-16** | Nodemailer Email Service | `backend/src/services/emailService.js` | SMTP :465 (TLS) | Gmail App Password SMTP dispatch, HTML template generation |
+| **C-17** | PayHere Payment Engine | `backend/src/services/payhereService.js` | HTTPS (PayHere) | Checkout tokenization, MD5 HMAC hash generation, IPN callback audit |
+| **C-18** | System Settings Controller | `backend/src/services/systemSettingsService.js` | Node + DB | Live runtime API key updates and customer feature switches |
 
-### Architectural Philosophy
-1. **Zero Cold-Start Dependency**: Operates immediately upon meter activation without requiring months of historical training data.
-2. **Prequential Evaluation (Test-Then-Train)**: Models predict the incoming metric $H+1$ first, record the prediction error, and only then update their weights with the true ground truth.
-3. **Physical Energy Prediction vs Financial Calculation**: Models predict physical units ($\text{kWh}$); the deterministic tariff engine computes financial liability ($\text{LKR}$).
-4. **Missing Telemetry Safety**: Telemetry gaps are explicitly flagged; missing pulses are never treated as zero consumption.
+---
 
-```mermaid
-graph TD
-    PULSE[Meter Telemetry Pulse 30-45s] --> INGEST[API /api/ml/telemetry/ingest]
-    INGEST --> PREPROC[Preprocessing: Deduplication & Rollover Check]
-    PREPROC --> FEAT[Feature Engine: Cyclical Time & Multi-Scale Lags]
-    FEAT --> MODELS{Online Models}
-    
-    MODELS --> M1[EWMA + 24-Channel Kalman Filter]
-    MODELS --> M2[River Online Linear SGDRegressor]
-    MODELS --> M3[Adaptive Random Forest Hoeffding Trees]
+## 6. Deep Dive: Machine Learning Forecasting Engine
 
-    M1 --> ENSEMBLE[Softmax Adaptive Ensemble]
-    M2 --> ENSEMBLE
-    M3 --> ENSEMBLE
+The LECO Machine Learning Service (`ml/`) is an adaptive, online streaming inference engine engineered specifically for domestic electricity consumption forecasting under Sri Lanka's non-linear PUCSL domestic block tariff structure.
 
-    ENSEMBLE --> ADWIN[ADWIN Concept Drift Detection]
-    ENSEMBLE --> SIM[Non-Linear PUCSL Balance Depletion Simulator]
-    
-    SIM --> PREP[Prepaid Balance Lifetime & Depletion Date]
-    SIM --> POST[Postpaid Monthly Bill Projection]
-    SIM --> DEM[Next-Month Recommended Topup]
+### 6.1 Architectural Philosophy
+1. **Zero Cold-Start Dependency**: Operates immediately upon smart meter activation without requiring months of historical baseline datasets.
+2. **Prequential Evaluation (Test-Then-Train)**: Models predict the incoming metric $H+1$ first, record the residual prediction error, and only then update their weights with the ground-truth observation.
+3. **Physical Energy Prediction vs. Financial Calculation**: Models predict physical units ($\text{kWh}$); the deterministic tariff engine computes financial liability ($\text{LKR}$).
+4. **Missing Telemetry Safety**: Telemetry gaps are explicitly flagged; missing pulses are never assumed to represent zero energy consumption.
+
+```
+Incoming Telemetry Pulse (30-45s)
+               |
+               v
+      Ingestion & Validation
+ (Deduplication, Rollover Check)
+               |
+               v
+     Feature Engineering Engine
+ (Cyclical Encodings & Lag Buffers)
+               |
+  +------------+------------+
+  |                         |
+  v                         v
+Model 1: 24-Channel       Model 2: Online SGD      Model 3: Adaptive
+Kalman Filter + EWMA      Linear Regressor         Random Forest
+  |                         |                         |
+  +------------+------------+-------------------------+
+               |
+               v
+    Dynamic Softmax Ensemble
+  (Weighted by Recent MASE Loss)
+               |
+               v
+    ADWIN Concept Drift Engine
+  (Monitors Prediction Residuals)
+               |
+               v
+  Hour-by-Hour Non-Linear PUCSL
+   Balance Depletion Simulator
 ```
 
-### Feature Engineering and Cyclical Encodings
-Incoming telemetry readings are transformed into structured feature vectors:
+### 6.2 Data Ingestion and Preprocessing Pipeline
+Incoming telemetry pulses arrive every 30 to 45 seconds from physical AMI meters or hardware simulators (`POST /api/ml/telemetry/ingest`):
+1. **Pulse Deduplication**: Suppresses redundant readings if hardware transmits duplicate timestamps.
+2. **Meter Counter Rollover Detection**: Detects register overflows or hardware resets (e.g., cumulative register jumping from $99,999.9\text{ kWh}$ to $0.0\text{ kWh}$).
+3. **Delta Calculation**: Derives true interval consumption ($\Delta \text{kWh} = \text{Reading}_t - \text{Reading}_{t-1}$) and converts it to equivalent active load ($\text{kW} = \frac{\Delta \text{kWh}}{\Delta t_{\text{hours}}}$).
+4. **Hourly Bucketing**: Aggregates readings into discrete 60-minute historical bins (`meter_hourly_aggregation` table in PostgreSQL).
+
+### 6.3 Feature Engineering and Multi-Scale Cyclical Encodings
+The feature engine (`ml/features/feature_builder.py`) converts raw timestamps and historical usage into a 16-dimensional feature vector:
 
 1. **Cyclical Temporal Encodings**:
    $$\text{hour\_sin} = \sin\left(\frac{2\pi \cdot \text{hour}}{24}\right), \quad \text{hour\_cos} = \cos\left(\frac{2\pi \cdot \text{hour}}{24}\right)$$
    $$\text{dow\_sin} = \sin\left(\frac{2\pi \cdot \text{dow}}{7}\right), \quad \text{dow\_cos} = \cos\left(\frac{2\pi \cdot \text{dow}}{7}\right)$$
+   *Mathematical Rationale*: Ensures that hour 23 (23:00) and hour 0 (00:00) have continuous Euclidean proximity rather than being separated by a distance of 23 units.
 2. **Multi-Scale Lag Buffers**:
    - Lag 1 Hour ($L_1$): Immediate momentum.
-   - Lag 2 Hours ($L_2$): Short-term rate of change.
-   - Lag 24 Hours ($L_{24}$): Diurnal cycle anchor (same hour yesterday).
-   - Lag 168 Hours ($L_{168}$): Weekly periodicity anchor (same day and hour last week).
+   - Lag 2 Hours ($L_2$): Short-term acceleration.
+   - Lag 24 Hours ($L_{24}$): Diurnal periodicity (same hour yesterday).
+   - Lag 168 Hours ($L_{168}$): Weekly periodicity (same day and hour last week).
 3. **Rolling Aggregate Statistics**:
-   - 6-Hour Rolling Mean and Standard Deviation.
-   - 24-Hour Rolling Consumption and Volatility Index.
+   - 6-Hour Rolling Mean and Standard Deviation: Captures morning/evening active blocks.
+   - 24-Hour Rolling Consumption and Volatility Index: Tracks overall daily load intensity.
 4. **Exponential Moving Averages**:
-   - Fast EWMA ($\alpha = 0.3$): High sensitivity to sudden usage shifts.
-   - Slow EWMA ($\alpha = 0.05$): Baseline consumption stability.
+   - Fast EWMA ($\alpha = 0.3$): High responsiveness to sudden load spikes.
+   - Slow EWMA ($\alpha = 0.05$): Baseline household consumption stability.
 
-### Online Streaming Algorithms
-The engine deploys a three-tiered model ensemble running concurrently:
+### 6.4 Hybrid Online Streaming Algorithms
+The engine coordinates three distinct online algorithms running concurrently:
 
-1. **24-Channel Diurnal Kalman Filter + EWMA**:
-   Maintains 24 discrete state estimates corresponding to each hour of the day. Handles newly initialized meters by tracking the time-of-day baseline with instantaneous adaptation.
-2. **Online Linear SGD Regressor (`river.linear_model.LinearRegression`)**:
-   Online gradient descent optimization with $L_2$ regularization, adapting to gradual changes in household appliances, occupancy, and daily routines.
-3. **Adaptive Random Forest (`river.forest.ARFRegressor`)**:
-   Streaming ensemble of Hoeffding Trees utilizing statistical split tests (Hoeffding bound) to capture complex non-linear consumption patterns and interaction terms without full dataset retraining.
+1. **24-Channel Diurnal Kalman Filter + EWMA (`EwmaKalmanModel`)**:
+   Maintains 24 discrete state estimates corresponding to each hour of the day. For each hour $h \in [0, 23]$:
+   - State prediction: $\hat{x}_{t|t-1} = \hat{x}_{t-1}$
+   - Covariance prediction: $P_{t|t-1} = P_{t-1} + Q$
+   - Kalman Gain calculation:
+     $$K_t = \frac{P_{t|t-1}}{P_{t|t-1} + R}$$
+   - State update:
+     $$\hat{x}_{t|t} = \hat{x}_{t|t-1} + K_t (y_t - \hat{x}_{t|t-1})$$
+   - Covariance update: $P_{t|t} = (1 - K_t) P_{t|t-1}$
+2. **Online Linear SGD Regressor (`OnlineLinearModel`)**:
+   Powered by River (`river.linear_model.LinearRegression`). Optimizes weights via Stochastic Gradient Descent with $L_2$ regularization:
+   $$\mathcal{L}(w) = \frac{1}{2} (\hat{y} - y)^2 + \frac{\alpha}{2} \|w\|_2^2$$
+   $$w_{t+1} = w_t - \eta \cdot \left((\hat{y}_t - y_t) x_t + \alpha w_t\right)$$
+   Where $\eta$ is an adaptive learning rate automatically scaled by River's gradient tracker.
+3. **Adaptive Random Forest (`AdaptiveForestModel`)**:
+   Powered by River (`river.forest.ARFRegressor`). Maintains an ensemble of streaming Hoeffding Trees. Splits on continuous features using the statistical Hoeffding Bound:
+   $$\epsilon = \sqrt{\frac{R^2 \ln(1/\delta)}{2n}}$$
+   Ensures that streaming splits made after observing $n$ samples are mathematically guaranteed to match batch splits with confidence $1 - \delta$.
 
-### Dynamic Softmax Weighting and Loss Memory
+### 6.5 Dynamic Softmax Weighting and Loss Memory
 Individual model predictions are weighted dynamically according to their recent rolling Mean Absolute Scaled Error (MASE):
 
-$$w_i = \frac{\exp(-\lambda \cdot \text{MASE}_i)}{\sum_{j=1}^M \exp(-\lambda \cdot \text{MASE}_j)}$$
+$$w_i = \frac{\exp(-\eta \cdot L_i)}{\sum_{j=1}^3 \exp(-\eta \cdot L_j)}$$
 
-$$\hat{y}_{\text{ensemble}} = \sum_{i=1}^M w_i \cdot \hat{y}_i$$
+$$\hat{y}_{\text{ensemble}} = \sum_{i=1}^3 w_i \cdot \hat{y}_i$$
 
-Models with lower recent errors automatically receive higher prediction influence.
+Where $L_i$ represents the exponentially smoothed absolute error for model $i$:
+$$L_{i, t} = \beta L_{i, t-1} + (1 - \beta) |y_t - \hat{y}_{i, t}|$$
+With smoothing factor $\beta = 0.85$ and learning rate $\eta = 0.15$. Models with lower recent errors automatically receive higher prediction weight.
 
-### ADWIN Concept Drift Detection
-Household consumption behaviors shift abruptly when new high-power appliances (air conditioners, electric vehicle chargers) are installed, or during holiday periods. The **ADWIN (Adaptive Windowing)** algorithm continuously monitors the stream of prediction residuals:
-- If a statistically significant difference between sub-windows is detected ($p < 0.001$), ADWIN flags a **Concept Drift Event**.
-- The model variance window is shrunk, learning rates are temporarily boosted, and older historical weights are rapidly decayed to adapt to the new regime.
+### 6.6 ADWIN Concept Drift Detection and Recovery
+Household consumption habits change abruptly when new appliances (e.g., air conditioners or EV chargers) are introduced, or during holiday periods. The **ADWIN (Adaptive Windowing)** algorithm (`ml/models/drift.py`) continuously tracks the stream of prediction residuals:
+- ADWIN maintains a sliding window $W$ of residuals that automatically expands during stationary periods.
+- When an abrupt shift occurs, ADWIN tests all sub-window splits ($W_0, W_1$):
+  $$|\mu_{W_0} - \mu_{W_1}| \ge \epsilon_{\text{cut}} = \sqrt{\frac{1}{2m} \ln\left(\frac{4n}{\delta}\right)}$$
+  Where $m = \frac{1}{1/n_0 + 1/n_1}$ and $\delta = 0.002$.
+- When concept drift is triggered:
+  1. Old sub-window $W_0$ is pruned.
+  2. The ensemble learning rate $\eta$ is doubled for 24 hours.
+  3. Prediction uncertainty intervals ($\sigma$) are expanded by $1.4\times$.
+  4. The model accelerates adaptation to the new consumption baseline.
 
-### 5-Stage Cold-Start Progressive Strategy
-To guarantee seamless operation from minute 1 to year 5, the ML pipeline transitions through 5 distinct cold-start tiers:
+### 6.7 5-Stage Progressive Cold-Start Lifecycle
 
-| Stage | Data Window | Active Engines | Operational Characteristics |
+```
+[Day 0: 0-2 samples]       --> Stage 1: NO_HISTORY (Population Baseline Prior)
+                                     |
+[Day 1: 3-24 samples]      --> Stage 2: FIRST_24_HOURS (EWMA + Kalman Diurnal Baseline)
+                                     |
+[Days 2-7: 25-168 samples] --> Stage 3: DAYS_2_TO_7 (Kalman + Online Linear SGD)
+                                     |
+[Days 7-30: 169-720 samples]-> Stage 4: DAYS_7_TO_30 (Full Ensemble + Hoeffding Forest)
+                                     |
+[Day 30+: >720 samples]    --> Stage 5: MATURE_STREAM (Fully Dynamic Softmax + ADWIN Drift)
+```
+
+| Cold-Start Stage | Observation Window | Active Models & Weights | Operational Characteristics |
 |---|---|---|---|
-| **NO_HISTORY** | 0 to 2 samples | Population Baseline Prior | Assigns default prior ($0.35\text{ kWh/h}$) based on domestic averages. |
-| **DAY_1_BASELINE** | 3 to 24 hours | EWMA + Diurnal Kalman | Quickly forms the 24-hour diurnal usage profile. |
-| **DAYS_2_TO_7_LINEAR** | 25 to 168 hours | Kalman + Online Linear Regression | Captures weekday vs. weekend divergence and trend lines. |
-| **DAYS_7_TO_30_FOREST** | 169 to 720 hours | Full Ensemble + Hoeffding Forest | Detects non-linear multi-appliance interactions. |
-| **MATURE_ENSEMBLE** | > 720 hours | Dynamic Ensemble with ADWIN Drift | Full autonomous streaming adaptation with active drift monitoring. |
+| **`NO_HISTORY`** | 0 to 2 samples | Population Prior ($100\%$) | Assigns default prior ($0.35\text{ kWh/h}$); uncertainty score = $1.0$. |
+| **`FIRST_24_HOURS`** | 3 to 24 samples | EWMA + Kalman ($100\%$) | Quickly learns the 24-hour diurnal usage profile. |
+| **`DAYS_2_TO_7`** | 25 to 168 samples | Kalman ($60\%$) + Linear ($40\%$) | Captures weekday vs. weekend divergence and trend momentum. |
+| **`DAYS_7_TO_30`** | 169 to 720 samples | Full Ensemble (Softmax) | Detects non-linear multi-appliance interactions. |
+| **`MATURE_STREAM`** | > 720 samples | Full Ensemble + ADWIN | Full autonomous streaming adaptation with active drift monitoring. |
 
-### Non-Linear PUCSL Balance Depletion Simulation
-Standard division ($\text{Days} = \frac{\text{Balance}}{\text{Daily Cost}}$) produces massive errors under block tariffs because marginal rates escalate when usage crosses from Group A to Group B or C.
+### 6.8 Non-Linear PUCSL Balance Depletion Simulation
+Standard linear division ($\text{Days} = \frac{\text{Balance}}{\text{Daily Cost}}$) produces errors exceeding $40\%$ under block tariffs because marginal rates jump abruptly when consumption crosses from Group A to Group B or C.
 
-The simulation pipeline executes an iterative day-by-day projection:
-1. Advance simulation step $t \in [1, 60\text{ days}]$.
-2. If billing cycle exceeds 30 days, reset cumulative $\text{cycleKWh} = 0$.
-3. Compute cumulative cycle usage: $\text{cycleKWh}_{t} = \text{cycleKWh}_{t-1} + \hat{y}_t$.
-4. Compute total PUCSL billing liability: $\text{Liability}_t = f_{\text{PUCSL}}(\text{cycleKWh}_t)$.
-5. Calculate incremental daily debit: $\Delta D_t = \text{Liability}_t - \text{Liability}_{t-1}$.
-6. Deduct from simulated balance: $B_t = B_{t-1} - \Delta D_t$.
-7. Stop when $B_t \le 0$; interpolate fractional days to yield the exact predicted depletion timestamp.
+The simulation pipeline (`ml/engines/prepaid_engine.py`) executes an hour-by-hour projection:
+1. Advances simulation hour-by-hour ($t = 1, 2, \dots, 2160\text{ hours}$).
+2. Tracks cumulative monthly cycle energy ($\text{cycleKWh}$). If a 30-day boundary is reached, resets cycle energy to 0.
+3. Retrieves baseline hourly prediction $\hat{y}_t$ from the ensemble.
+4. Computes the exact incremental PUCSL tariff liability:
+   $$\Delta \text{Cost}_t = f_{\text{PUCSL}}(\text{cycleKWh} + \hat{y}_t) - f_{\text{PUCSL}}(\text{cycleKWh})$$
+5. Deducts $\Delta \text{Cost}_t$ from the remaining simulated balance:
+   $$B_t = B_{t-1} - \Delta \text{Cost}_t$$
+6. Terminates when $B_t \le 0$; interpolates the final fractional hour to yield the exact predicted exhaustion timestamp.
 
-Multi-scenario confidence bands are simulated:
-- **Optimistic ($0.85 \times \text{Forecast}$)**: Yields Maximum Days Remaining.
-- **Normal ($1.00 \times \text{Forecast}$)**: Yields Baseline Estimated Days.
-- **Conservative ($1.15 \times \text{Forecast}$)**: Yields Minimum Days Remaining.
+Three distinct scenarios are simulated:
+- **Optimistic ($15\text{th}$ Percentile)**: Frugal energy conservation scenario $\implies$ **Maximum Days Remaining**.
+- **Expected / Median ($50\text{th}$ Percentile)**: Baseline projection $\implies$ **Estimated Days Remaining**.
+- **Conservative ($85\text{th}$ Percentile)**: High-load warning scenario $\implies$ **Early Recharging Alert Threshold**.
 
-### ML Microservice REST API Reference
+### 6.9 Solar PV Net Generation and Battery Degradation Forecasting
+For prosumers with rooftop solar installations, the engine models net grid interactions:
+1. **Solar Yield Curve**: Employs a solar insolation model parameterized by hour of day, latitude ($6.927^\circ \text{N}$ Colombo), and seasonal solar elevation angle.
+2. **Net Energy Formulation**:
+   $$\text{Net}_t = \max(0, \text{Demand}_t - \text{Solar}_t)$$
+   $$\text{Export}_t = \max(0, \text{Solar}_t - \text{Demand}_t)$$
+3. **Battery Degradation & State-of-Health (SoH)**: Projects battery capacity fade using cycle-counting and depth-of-discharge (DoD) stress formulas.
+
+### 6.10 ML Microservice REST API Specification
 - `POST /api/ml/telemetry/ingest`: High-frequency pulse ingestion (30-45s cadence).
 - `POST /api/ml/telemetry/batch`: Batch telemetry synchronization.
-- `GET /api/ml/forecast/hourly/{meter_id}`: 24-step recursive hourly forecast with confidence intervals.
+- `GET /api/ml/forecast/hourly/{meter_id}`: 24-step recursive hourly forecast with upper/lower confidence bands.
 - `GET /api/ml/forecast/prepaid/{meter_id}?balance={amount}`: Non-linear tariff balance depletion projection.
-- `GET /api/ml/forecast/postpaid/{meter_id}`: End-of-cycle bill projection.
-- `GET /api/ml/forecast/demand/{meter_id}`: Next-month total energy demand and recommended top-up.
-- `GET /api/ml/models/status/{meter_id}`: Active model weights, sample counts, and cold-start phase.
-- `GET /api/ml/models/drift/{meter_id}`: Historical concept drift log.
+- `GET /api/ml/forecast/postpaid/{meter_id}`: End-of-cycle bill projection under PUCSL tariffs.
+- `GET /api/ml/forecast/demand/{meter_id}`: Next-month total energy demand and recommended top-up amount.
+- `GET /api/ml/models/status/{meter_id}`: Active model weights, sample counts, and cold-start stage.
+- `GET /api/ml/models/drift/{meter_id}`: Historical concept drift log and timestamped drift events.
 - `GET /api/ml/health`: Microservice health check and engine telemetry.
 
 ---
 
-## Deep Dive: Conversational AI and Tri-Lingual RAG Chatbot
+## 7. Deep Dive: Conversational AI and Tri-Lingual RAG Chatbot
 
-The LECO Smart Energy Assistant (`backend/src/modules/chatbot/`) is a Retrieval-Augmented Generation (RAG) conversational agent that provides real-time customer support regarding electricity usage, savings tips, billing disputes, account management, and smart meter operations.
+The LECO Smart Energy Assistant (`backend/src/modules/chatbot/`) is a conversational agent combining Retrieval-Augmented Generation (RAG), live PostgreSQL account telemetry hydration, prompt security sandboxing, and tri-lingual operational capabilities.
 
 ```mermaid
-graph TD
-    USER[Customer Prompt] --> GUARD[Prompt Security Guard: Anti-Injection & Zero-Emoji]
-    GUARD --> LANG[Language Detector: EN / SI / TA]
-    GUARD --> CONTEXT[Context Hydrator: Live PostgreSQL Telemetry Snapshot]
-    GUARD --> RAG[TF-IDF Vector RAG Retriever: LECO Domain Knowledge Base]
-    
-    CONTEXT --> PROMPT_ASSEMBLER[Secure Prompt Assembler with XML Boundaries]
-    RAG --> PROMPT_ASSEMBLER
-    LANG --> PROMPT_ASSEMBLER
+sequenceDiagram
+    autonumber
+    actor User as Customer / Browser
+    participant PG as Prompt Security Guard
+    participant DB as PostgreSQL Database
+    participant RAG as TF-IDF RAG Retriever
+    participant LLM as Groq LLM Cloud
+    participant OFFLINE as Tri-Lingual Offline Engine
+    participant ACT as Action Detector
 
-    PROMPT_ASSEMBLER --> ENGINE_DECISION{Groq API Available?}
+    User->>PG: "How many days of electricity do I have left?"
+    PG->>PG: Step 1: Detect Language (en / si / ta)
+    PG->>PG: Step 2: Sanitize Injection & Strip Emojis
+    PG->>PG: Step 3: Wrap Query in <untrusted_user_query>
     
-    ENGINE_DECISION -->|Yes| GROQ[Groq Cloud LLM: Qwen / Llama 3.3]
-    ENGINE_DECISION -->|No / Timeout / 429| OFFLINE[Tri-Lingual Offline Knowledge Engine]
+    par Context Gathering
+        PG->>DB: Query Live Balance, Telemetry & ML Prediction
+        DB-->>PG: Return User Snapshot (Balance, kWh, Days)
+    and RAG Knowledge Retrieval
+        PG->>RAG: Retrieve Top LECO Documents (TF-IDF Cosine Similarity)
+        RAG-->>PG: Injected Chunks (Tariffs, Lifeline, Recharging)
+    end
 
-    GROQ --> SANITIZER[Output Sanitizer & Emoji Eliminator]
-    OFFLINE --> SANITIZER
-    
-    SANITIZER --> ACTIONS[Action Detector: Navigation Buttons]
-    ACTIONS --> CLIENT[Structured Response to Customer UI]
+    alt Groq Cloud LLM Available
+        PG->>LLM: Dispatch System Prompt + Hydrated Context + Sandboxed Query
+        LLM-->>PG: Generated LLM Text (Sub-second response)
+    else Groq Rate-Limited / Offline / Timeout (>8s)
+        PG->>OFFLINE: Dispatch to Local Tri-Lingual Knowledge Engine
+        OFFLINE-->>PG: Synthesized Domain Answer with Real Data
+    end
+
+    PG->>ACT: Scan Answer for Menu Mentions (Payments, History, Complaints)
+    ACT-->>User: Structured Response (Text + Action Buttons + Metadata)
 ```
 
-### Conversational Architecture
-1. **Input Reception**: Captures customer inquiries via REST (`POST /api/chat`) or WebSockets.
-2. **Security Sandboxing**: Sanitizes prompt injection patterns and wraps user queries in `<untrusted_user_query>` XML enclosures.
-3. **Context Hydration**: Queries PostgreSQL to build a live operational snapshot of the customer's account.
-4. **Domain Retrieval (RAG)**: Indexes and extracts relevant PUCSL tariff clauses, outage rules, and energy conservation techniques.
-5. **LLM Inference**: Groq high-speed cloud inference with sub-second response times.
-6. **Zero-Downtime Fallback**: Autonomous tri-lingual offline engine if external APIs are unavailable.
-7. **Action Recommendation**: Appends interactive dashboard navigation links based on customer intent.
+### 7.1 Conversational Engine Architecture
+The chatbot operates through a 9-step decoupled pipeline:
+1. **Request Ingestion**: Captures user message, active meter context, and conversation history via `POST /api/chat`.
+2. **Language Identification**: Automatically detects whether input is in English (`en`), Sinhala (`si`), or Tamil (`ta`).
+3. **Security Sandboxing**: Neutralizes prompt injection patterns and wraps text inside XML boundaries.
+4. **Account Snapshot Hydration**: Queries PostgreSQL to assemble live account facts (balance, today's kWh, monthly usage, prediction, complaints).
+5. **RAG Vector Search**: Indexes LECO domain documents and extracts the top 2-3 most relevant passages.
+6. **Prompt Assembly**: Synthesizes system instructions, context snapshot, knowledge chunks, and the sandboxed query.
+7. **Primary Cloud Inference**: Executes inference via the Groq API (`llama-3.3-70b-versatile` or `qwen/qwen3.8-27b`).
+8. **Deterministic Offline Fallback**: If Groq is unavailable, times out, or returns HTTP 429, routes to the local offline engine.
+9. **Action & Special Value Enrichment**: Attaches interactive navigation buttons and highlights currency, power, and time values.
 
-### RAG Knowledge Base and TF-IDF Semantic Retriever
-The knowledge repository (`lecoKnowledgeDocs.js`) indexes authoritative domain documentation:
-- **PUCSL Block Tariffs**: Rate tiers, boundary transitions, fixed charges, and fuel adjustment surcharges.
-- **Time-of-Use (TOU) Schedules**: Day (05:30-18:30), Peak (18:30-22:30), and Off-Peak (22:30-05:30) operational strategies.
-- **Prepaid & Lifeline Management**: Low-balance warnings, night disconnection protection, and automated debt recovery.
-- **Payment & Recharging**: PayHere instant online top-up, bank transfer clearing, and verification tokens.
-- **Hardware & Telemetry**: Smart meter LED indicator codes, relay disconnection mechanisms, and solar net-metering.
-- **Complaints & Outages**: Breakdown logging, billing disputes, and the 24/7 National Emergency Hotline (**1987**).
+### 7.2 TF-IDF Semantic Vector RAG Retriever
+The internal knowledge base (`lecoKnowledgeDocs.js`) stores curated LECO utility documentation across 6 categories:
+- `pucsl_domestic_tariffs`: Official 2026 tariff structure, block boundaries, fixed charges.
+- `tou_time_of_use`: Peak (18:30-22:30), Day (05:30-18:30), and Off-Peak (22:30-05:30) rules.
+- `lifeline_mode_emergency_credit`: Rs. 500 buffer, night disconnection protection, auto-recovery.
+- `payments_and_recharging`: PayHere checkout, bank apps, transaction verification.
+- `smart_meter_hardware`: LED status indicators, latching relay mechanics, solar net metering.
+- `complaints_and_emergency`: Breakdown ticketing, dispute resolution, 24/7 Hotline 1987.
 
-The vector retriever (`ragRetriever.js`) tokenizes queries, eliminates domain stop-words, and calculates TF-IDF cosine similarity scores to inject the top 2-3 most relevant documents directly into the LLM system context.
+The vector retriever (`ragRetriever.js`) scores documents using Term Frequency-Inverse Document Frequency (TF-IDF):
+$$\text{TF}(t, d) = \frac{f_{t, d}}{\sum_{t' \in d} f_{t', d}}, \quad \text{IDF}(t, D) = \ln\left(\frac{|D|}{1 + |\{d \in D : t \in d\}|}\right)$$
+$$\text{Similarity}(q, d) = \frac{\vec{q} \cdot \vec{d}}{\|\vec{q}\|_2 \|\vec{d}\|_2}$$
+The highest-scoring passages are extracted and injected into the LLM system prompt.
 
-### Prompt Positioning and Jailbreak Security Guard
-To protect enterprise utility infrastructure against malicious prompt injection attacks, `promptGuard.js` applies multi-stage defense-in-depth:
-- **Jailbreak Detection**: Neutralizes adversarial triggers (`"ignore all previous instructions"`, `"you are now DAN"`, `"act as an unrestricted AI"`).
-- **Prompt Positioning Sandbox**: Untrusted user text is strictly bounded inside XML tags (`<untrusted_user_query>`) alongside explicit system constraints prohibiting role drift.
-- **System Extraction Immunity**: Refuses attempts to dump internal system prompts, database connection strings, or environment tokens.
-- **Zero-Emoji Enforcement**: Strips all Unicode emojis from both user inputs and model outputs, maintaining strict professional enterprise UI compliance.
+### 7.3 7-Layer Security Prompt Guard and Sandboxing
+To protect against adversarial prompt injection, jailbreaking, and cross-session contamination, `promptGuard.js` applies 7 protective layers:
 
-### Dynamic Context Hydration from Live Database
+```
+[Layer 1] Regex Pattern Matching: Flags known jailbreak triggers ("ignore previous instructions", "DAN mode")
+    |
+[Layer 2] XML Prompt Sandboxing: Encloses user query in <untrusted_user_query> tags
+    |
+[Layer 3] Delimiter Spoofing Neutralization: Strips injected XML/markdown formatting
+    |
+[Layer 4] System Extraction Immunity: Rejects attempts to extract system prompt or API credentials
+    |
+[Layer 5] Token Length & Rate Bounding: Enforces 500-character input caps and sliding rate limits
+    |
+[Layer 6] Strict Zero-Emoji Sanitization: Strips all Unicode emoji glyphs from inputs and outputs
+    |
+[Layer 7] Post-Generation Validator: Validates model output before returning response to client
+```
+
+### 7.4 Dynamic Context Hydration from Live PostgreSQL
 Before generating answers, `contextBuilder.js` queries PostgreSQL to construct an individualized user snapshot:
 ```json
 {
@@ -386,21 +504,31 @@ Before generating answers, `contextBuilder.js` queries PostgreSQL to construct a
   ]
 }
 ```
-When a user asks *"How much power do I have left?"*, the assistant does not speak in generalities; it replies using their exact live balance and burn rate.
+When a customer asks *"How much power do I have left?"*, the assistant does not speak in generic terms; it computes an exact answer based on their live balance and burn rate.
 
-### Dual-Engine Redundancy: Groq Cloud LLM and Offline Engine
+### 7.5 Dual-Engine Redundancy: Groq Cloud LLM and Offline Engine
 - **Primary Cloud Engine (`groqClient.js`)**: Executes high-throughput inference using `qwen/qwen3.8-27b` and `llama-3.3-70b-versatile`. Configured with an 8-second circuit-breaker timeout and automatic rate-limit (HTTP 429) backoff.
 - **Tri-Lingual Offline Engine (`offlineEngine.js`)**: A deterministic rule and template engine that runs locally in Node.js. If Groq is unconfigured or offline, it synthesizes responses across all 5 core domains (Usage, Savings, Account, Complaints, General) with 100% availability.
 
-### Tri-Lingual Engine (English, Sinhala, Tamil)
+### 7.6 Tri-Lingual Engine (English, Sinhala, Tamil)
 The assistant natively supports all three official languages of Sri Lanka:
 - **English (`en`)**: Primary operational interface.
 - **Sinhala (`si`)**: Native script support (සිංහල), utilizing Sinhala energy terms (විදුලි පරිභෝජනය, ගාස්තු කාණ්ඩ, ක්ෂණික ගෙවීම්).
 - **Tamil (`ta`)**: Native script support (தமிழ்), utilizing Tamil utility terms (மின்சார பயன்பாடு, கட்டண நிலுவை, அவசர உதவி).
 
-Language is automatically inferred from customer dashboard settings or dynamically detected from input character Unicode ranges.
+Language is automatically inferred from customer dashboard settings or dynamically detected from input character Unicode ranges:
+- Sinhala Unicode range: `\u0D80` - `\u0DFF`
+- Tamil Unicode range: `\u0B80` - `\u0BFF`
 
-### Interactive Dashboard Actions and Value Highlighting
+### 7.7 5 Core Conversational Domains and Intent Resolution
+The assistant handles 5 distinct functional categories:
+1. **Electricity Usage & Live Telemetry**: Live power (kW), cumulative kWh, daily averages, and historical comparisons.
+2. **Energy Saving Tips & Suggestions**: Customized saving suggestions tailored to the customer's active consumption patterns (e.g., advising night-shifting when evening peak usage is high).
+3. **Account & Balance Management**: Available prepaid balance, run-out projections, and Lifeline overdraft buffer activation.
+4. **Billing, Tariffs & PUCSL Inquiries**: Block tariff rate schedules, slab boundaries, fixed charges, and fuel surcharges.
+5. **Complaints, Outages & Emergency Breakdown**: Technician dispatch status, breakdown filing, and direct access to Hotline **1987**.
+
+### 7.8 Interactive Dashboard Actions and Special Value Highlighting
 Responses return structured action recommendations:
 - `payments`: Navigates to the balance recharge modal.
 - `history`: Opens the payment ledger.
@@ -416,9 +544,9 @@ Special entities within chat text are automatically styled in high-contrast badg
 
 ---
 
-## Prepaid Billing, PUCSL Tariffs, and Financial Engine
+## 8. Prepaid Billing, PUCSL Tariffs, and Financial Engine
 
-### PUCSL 2026 Domestic Block Tariff Structure
+### 8.1 PUCSL 2026 Domestic Block Tariff Structure
 Electricity billing adheres to the official Public Utilities Commission of Sri Lanka (PUCSL) block tariff regulations. The tariff group is determined by **total 30-day cumulative consumption**:
 
 | Consumption Group | Billing Block | Energy Rate (LKR/kWh) | Fixed Charge (LKR/month) | Application Criteria |
@@ -432,11 +560,14 @@ Electricity billing adheres to the official Public Utilities Commission of Sri L
 | **Group C: Total > 180 kWh** | 0–180 kWh | 32.50 | — | First 180 units once total exceeds 180 |
 | **Group C: Total > 180 kWh** | Above 180 kWh | 100.00 | 2,500.00 | Total usage $> 180\text{ kWh}$ |
 
-#### Boundary Transitions
+### 8.2 Non-Linear Tariff Boundary Transitions
+At **61 kWh** and **181 kWh**, earlier units are retroactively repriced under the higher structure:
 - Crossing **60 to 61 kWh**: Bill jumps from LKR 630 to LKR 1,260 (+LKR 630).
 - Crossing **180 to 181 kWh**: Bill jumps from LKR 6,420 to LKR 8,450 (+LKR 2,030).
 
-### PayHere Payment Gateway and Cryptographic Verification
+The platform's prediction engine forecasts these boundary crossings in advance to alert consumers before they jump into higher tariff brackets.
+
+### 8.3 PayHere Payment Gateway and Cryptographic IPN Verification
 Online balance top-ups integrate with Sri Lanka's leading digital payment processor, **PayHere**:
 1. **Checkout Tokenization**: Client requests a signed checkout payload (`POST /api/payments/payhere/checkout`).
 2. **MD5 HMAC Signature**:
@@ -445,78 +576,50 @@ Online balance top-ups integrate with Sri Lanka's leading digital payment proces
 4. **Signature Verification**: Validates incoming `md5sig` against recalculation. Tampered payloads are rejected with HTTP 400.
 5. **Atomic Balance Top-up**: Credits meter balance, settles Lifeline overdraft debts, logs transaction reference, and emits real-time WebSocket updates.
 
-### Automated Statement and PDF Receipt Generation
+### 8.4 Automated Statement and PDF Receipt Generation
 The server embeds a PDF generation pipeline using `PDFKit` (`pdfService.js`):
 - **Official Monthly Statements**: Renders customer account metadata, meter number, 30-day consumption summary, block tariff rate breakdown, fixed charges, fuel surcharges, and total bill.
 - **Recharge Receipts**: Generates downloadable PDF receipts containing unique transaction identifiers (`TXN-...`), previous balance, credited amount, new balance, and digital authenticity watermarks.
 
 ---
 
-## Dual-Channel Verification and Communication Gateways
+## 9. Dual-Channel Verification and Communication Gateways
 
-Security-critical operations (Customer Registration, Password Reset, and Email Verification) execute synchronized dual-channel OTP delivery:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Customer / Browser
-    participant API as Express Auth Controller
-    participant DB as Neon PostgreSQL
-    participant SMS as Text.lk SMS API
-    participant SMTP as Gmail SMTP (Nodemailer)
-
-    User->>API: POST /api/auth/register (Phone & Email)
-    API->>API: Generate Cryptographic 6-Digit OTP
-    API->>DB: Store Hash with 10-Minute Expiration Window
-    
-    par Dual Omnichannel Dispatch
-        API->>SMS: Dispatch SMS (Trilingual Masked Template)
-        SMS-->>User: SMS Received (6-digit code)
-    and
-        API->>SMTP: Dispatch Formatted HTML Email (Zero-Emoji Template)
-        SMTP-->>User: Email Received (Letter-spaced 6-digit code)
-    end
-
-    User->>API: POST /api/auth/register/confirm (Enters OTP)
-    API->>DB: Verify Code & Mark email_verified = TRUE
-    API-->>User: Issue Session JWT & Grant Dashboard Access
-```
-
-### Text.lk SMS Gateway (`smsService.js`)
+### 9.1 Text.lk SMS Gateway Integration
 - Dispatches transactional SMS alerts to Sri Lankan mobile networks (Mobitel, Dialog, Airtel, Hutch).
 - Phone number normalization ensures local formats (`07X-XXXXXXX`) are parsed to international standard (`947XXXXXXXX`).
 - Dynamic sender ID support (defaults to `TextLKDemo` or registered utility masks).
 
-### Nodemailer Email Gateway with Google App Passwords (`emailService.js`)
+### 9.2 Nodemailer Email Gateway with Google App Passwords
 - Direct integration with Google SMTP (`smtp.gmail.com:465` SSL).
 - Supports Google 16-character App Passwords generated under 2-Step Verification.
 - Automated sanitization strips spaces from copied app passwords (`abcd efgh ijkl mnop` $\to$ `abcdefghijklmnop`).
 - Responsive, zero-emoji HTML email template featuring LECO corporate branding, high-contrast typography, and security warning notices.
 
-### Dual OTP Synchronization
-- Both SMS and Email receive the identical 6-digit verification code.
+### 9.3 Dual-Channel OTP Synchronization Engine
+- Both SMS and Email receive the identical 6-digit verification code simultaneously.
 - Users can verify using whichever communication channel reaches their device first.
 - Rate-limited generation prevents brute-force abuse (maximum 5 attempts per window).
 
 ---
 
-## Staff Operations Command and System Settings
+## 10. Staff Operations Command and System Settings
 
 The Staff Portal (`frontend/staff`) provides an administrative command center for grid engineers and support supervisors.
 
-### Fleet Operations and Telemetry Triage
+### 10.1 Smart Meters Fleet Management and Telemetry Triage
 - **Smart Meters Fleet Command**: Live monitoring of all connected meters, active balances, emergency credit states, daily kWh averages, and remote relay actuation (Cutoff / Reconnect).
 - **Complaints Queue**: Triage customer disputes, update resolution stages (Investigating, Field Dispatched, Resolved), and push resolution notices.
 - **PayHere Payment Ledger**: Review raw IPN callbacks, digital signatures, and execute manual reconciliations.
 
-### Remote System Settings and API Key Management
+### 10.2 Remote Dynamic System Settings and API Key Management
 Staff can configure production API credentials at runtime without restarting servers or editing `.env` files:
 - **Groq API Key and Model**: Update LLM tokens and switch models (`llama-3.3-70b-versatile`, `qwen/qwen3.8-27b`).
 - **Text.lk SMS Gateway**: Update SMS API bearer token and sender ID mask.
 - **PayHere Gateway**: Update Merchant ID, Secret, and toggle Sandbox vs. Live mode.
 - **Email Gateway**: Update sender Gmail address, App Password, and run live diagnostic test emails.
 
-### Customer Feature Toggles and Maintenance Mode
+### 10.3 Remote Feature Control Switches and Maintenance Mode
 Staff can remotely enable or disable features on the customer portal in real time:
 - `feature_ai_chatbot`: Toggle customer AI assistant visibility.
 - `feature_online_topup`: Enable or disable PayHere checkout.
@@ -528,7 +631,7 @@ Staff can remotely enable or disable features on the customer portal in real tim
 
 ---
 
-## Database Schema and Data Dictionary
+## 11. Database Schema and Complete Data Dictionary
 
 The Neon PostgreSQL database initializes 9 core relational tables:
 
@@ -628,7 +731,7 @@ erDiagram
 
 ---
 
-## Security, Hardening, and Concurrency Protections
+## 12. Enterprise Security, Hardening, and Concurrency Controls
 
 1. **Idempotency Control**: Payment top-ups require an `Idempotency-Key` header. Duplicate submissions are intercepted via PostgreSQL unique constraints and replayed without re-debiting.
 2. **Cryptographic PIN Protection**: Smart meter PINs are hashed with Bcrypt (10 salt rounds). Hardware verification uses constant-time comparison to prevent timing attacks.
@@ -640,7 +743,7 @@ erDiagram
 
 ---
 
-## Installation, Local Development, and Verification
+## 13. Installation, Local Development, and Verification Guide
 
 ### Prerequisites
 - [Node.js](https://nodejs.org/) v18.0.0 or higher
@@ -733,9 +836,9 @@ cd ../frontend/staff && npm run build
 
 ---
 
-## Future Roadmap and License
+## 14. Future Roadmap and License
 
-- **Hardware MQTT Broker**: Direct CoAP and MQTT protocol gateway for ESP32 hardware meters.
+- **Hardware MQTT Broker**: Direct CoAP and MQTT protocol gateway for physical ESP32 hardware meters.
 - **Dynamic Time-of-Use Auto-Scheduling**: Automatic domestic appliance scheduling during off-peak windows (22:30-05:30).
 - **Prosumer Solar P2P Energy Trading**: Blockchain-backed local energy marketplace allowing neighbors to trade surplus solar credits.
 
