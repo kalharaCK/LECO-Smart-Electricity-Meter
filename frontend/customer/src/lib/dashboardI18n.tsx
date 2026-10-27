@@ -319,6 +319,17 @@ export interface DashboardTranslations {
     passwordsDoNotMatch: string
     passwordMinLength: string
     showPasswords: string
+    dangerZone: string
+    deleteAccountTitle: string
+    deleteAccountDesc: string
+    deleteAccountBtn: string
+    deleteAccountConfirmTitle: string
+    deleteAccountConfirmDesc: string
+    deleteAccountPasswordPrompt: string
+    confirmDeleteBtn: string
+    cancelBtn: string
+    deletingAccount: string
+    accountDeletedSuccess: string
   }
   bot: {
     askAi: string
@@ -648,6 +659,17 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       passwordsDoNotMatch: "New passwords do not match",
       passwordMinLength: "Password must be at least 10 characters",
       showPasswords: "Show Passwords",
+      dangerZone: "Danger Zone",
+      deleteAccountTitle: "Delete Customer Account",
+      deleteAccountDesc: "Permanently delete your LECO customer profile, unlinking all smart meters and removing your notification preferences. This action is irreversible.",
+      deleteAccountBtn: "Delete Account",
+      deleteAccountConfirmTitle: "Confirm Account Deletion",
+      deleteAccountConfirmDesc: "This action is permanent and cannot be undone. To proceed, please enter your current account password for security verification.",
+      deleteAccountPasswordPrompt: "Account Password",
+      confirmDeleteBtn: "Permanently Delete My Account",
+      cancelBtn: "Cancel",
+      deletingAccount: "Deleting Account...",
+      accountDeletedSuccess: "Your account has been deleted successfully.",
     },
     bot: {
       askAi: "Ask LECO Energy AI",
@@ -976,6 +998,17 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       passwordsDoNotMatch: "නව මුරපද නොගැළපේ",
       passwordMinLength: "මුරපදය අවම වශයෙන් අක්ෂර 10ක් විය යුතුය",
       showPasswords: "මුරපදය පෙන්වන්න",
+      dangerZone: "අවදානම් කලාපය",
+      deleteAccountTitle: "පාරිභෝගික ගිණුම ඉවත් කරන්න",
+      deleteAccountDesc: "ඔබගේ LECO පාරිභෝගික ගිණුම ස්ථිරවම ඉවත් කර සියලු ස්මාර්ට් මීටර සම්බන්ධතා අහෝසි කරන්න. මෙම ක්‍රියාව ආපසු හැරවිය නොහැක.",
+      deleteAccountBtn: "ගිණුම ඉවත් කරන්න",
+      deleteAccountConfirmTitle: "ගිණුම ඉවත් කිරීම තහවුරු කරන්න",
+      deleteAccountConfirmDesc: "මෙම ක්‍රියාව ස්ථිර වන අතර ආපසු හැරවිය නොහැක. තහවුරු කිරීම සඳහා කරුණාකර ඔබගේ වත්මන් මුරපදය ඇතුළත් කරන්න.",
+      deleteAccountPasswordPrompt: "ගිණුමේ මුරපදය",
+      confirmDeleteBtn: "මගේ ගිණුම ස්ථිරවම ඉවත් කරන්න",
+      cancelBtn: "අවලංගු කරන්න",
+      deletingAccount: "ගිණුම ඉවත් කරමින්...",
+      accountDeletedSuccess: "ඔබගේ ගිණුම සාර්ථකව ඉවත් කරන ලදී.",
     },
     bot: {
       askAi: "LECO AI සහයක විමසන්න",
@@ -1304,6 +1337,17 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       passwordsDoNotMatch: "புதிய கடவுச்சொற்கள் பொருந்தவில்லை",
       passwordMinLength: "கடவுச்சொல் குறைந்தபட்சம் 10 எழுத்துகளாக இருக்க வேண்டும்",
       showPasswords: "கடவுச்சொற்களைக் காட்டு",
+      dangerZone: "ஆபத்து வலயம்",
+      deleteAccountTitle: "வாடிக்கையாளர் கணக்கை நீக்கு",
+      deleteAccountDesc: "உங்கள் LECO வாடிக்கையாளர் சுயவிவரத்தை நிரந்தரமாக நீக்கி, அனைத்து ஸ்மார்ட் மீட்டர்களையும் துண்டிக்கவும். இந்த செயலை மாற்ற முடியாது.",
+      deleteAccountBtn: "கணக்கை நீக்கு",
+      deleteAccountConfirmTitle: "கணக்கு நீக்கத்தை உறுதிப்படுத்தவும்",
+      deleteAccountConfirmDesc: "இந்த நடவடிக்கை நிரந்தரமானது மற்றும் மாற்ற முடியாது. தொடர, பாதுகாப்பு சரிபார்ப்பிற்காக உங்கள் கணக்கின் கடவுச்சொல்லை உள்ளிடவும்.",
+      deleteAccountPasswordPrompt: "கணக்கு கடவுச்சொல்",
+      confirmDeleteBtn: "எனது கணக்கை நிரந்தரமாக நீக்கு",
+      cancelBtn: "ரத்துசெய்",
+      deletingAccount: "கணக்கு நீக்கப்படுகிறது...",
+      accountDeletedSuccess: "உங்கள் கணக்கு வெற்றிகரமாக நீக்கப்பட்டது.",
     },
     bot: {
       askAi: "LECO AI உதவியாளரிடம் கேட்கவும்",

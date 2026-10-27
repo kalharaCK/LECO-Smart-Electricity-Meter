@@ -13,6 +13,7 @@ const {
   logout, 
   getMe
 } = require('../controllers/authController');
+const { deleteCustomerAccount } = require('../controllers/settingsController');
 const { requireAuth } = require('../middlewares/authMiddleware');
 const { authRateLimiter, otpSendRateLimiter, otpVerifyRateLimiter } = require('../middlewares/rateLimiter');
 
@@ -37,5 +38,7 @@ router.post('/staff-login', authRateLimiter, staffLogin);
 router.post('/customer-login', authRateLimiter, customerLogin);
 router.post('/logout', logout);
 router.get('/me', requireAuth, getMe);
+router.post('/delete-account', requireAuth, deleteCustomerAccount);
+router.delete('/delete-account', requireAuth, deleteCustomerAccount);
 
 module.exports = router;

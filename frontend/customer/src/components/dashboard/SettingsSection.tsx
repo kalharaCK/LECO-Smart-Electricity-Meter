@@ -22,7 +22,10 @@ import {
   LogOut,
   Building2,
   Eye,
-  EyeOff
+  EyeOff,
+  Trash2,
+  Lock,
+  X
 } from "lucide-react"
 
 interface Meter {
@@ -90,6 +93,13 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [savingPassword, setSavingPassword] = useState(false)
 
+  // Account Deletion State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [deletePassword, setDeletePassword] = useState("")
+  const [showDeletePassword, setShowDeletePassword] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
   // Feedback notifications
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null)
 
@@ -99,7 +109,11 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
   }
 
   const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
-    return { ...extraHeaders }
+    const token = localStorage.getItem("token")
+    return {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...extraHeaders
+    }
   }
 
   // Fetch all settings and user profile
@@ -217,6 +231,52 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
       showToast(t.payments.networkError, "error")
     } finally {
       setSavingPassword(false)
+    }
+  }
+
+  // Delete Customer Account
+  const handleDeleteAccount = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!deletePassword) {
+      setDeleteError("Password is required to confirm account deletion.")
+      return
+    }
+    setDeletingAccount(true)
+    setDeleteError(null)
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/settings/delete-account`, {
+        method: "POST",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({ password: deletePassword })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || data.message || "Failed to delete account.")
+      }
+
+      showToast(t.settings.accountDeletedSuccess, "success")
+      setIsDeleteModalOpen(false)
+
+      // Clear customer session data
+      localStorage.removeItem("user")
+      localStorage.removeItem("token")
+
+      // Redirect out
+      setTimeout(() => {
+        if (onLogout) {
+          onLogout()
+        } else {
+          window.location.href = "/"
+        }
+      }, 800)
+    } catch (err: any) {
+      setDeleteError(err.message || "An error occurred while deleting your account.")
+    } finally {
+      setDeletingAccount(false)
     }
   }
 
@@ -801,8 +861,163 @@ export default function SettingsSection({ onLogout }: SettingsSectionProps) {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Danger Zone: Account Deletion */}
+              <Card className="lg:col-span-2 bg-gradient-to-br from-red-950/20 via-[#140d0d] to-[#0a0a0a] border border-red-500/20 shadow-2xl text-white">
+                <CardHeader className="border-b border-red-500/20 pb-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg font-bold flex items-center gap-2 text-red-400">
+                      <AlertTriangle className="h-5 w-5 text-red-400" />
+                      {t.settings.dangerZone}
+                    </CardTitle>
+                    <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30 text-[10px] uppercase font-bold">
+                      Permanent Action
+                    </Badge>
+                  </div>
+                  <p className="text-white/60 text-xs mt-1">
+                    {t.settings.deleteAccountDesc}
+                  </p>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-xl bg-red-950/30 border border-red-500/20">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-white">
+                        {t.settings.deleteAccountTitle}
+                      </p>
+                      <p className="text-xs text-white/60">
+                        {t.settings.deleteAccountConfirmDesc}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setDeleteError(null);
+                        setDeletePassword("");
+                        setIsDeleteModalOpen(true);
+                      }}
+                      className="bg-red-600 hover:bg-red-700 text-white font-bold h-10 px-5 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-red-900/40 cursor-pointer shrink-0 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {t.settings.deleteAccountBtn}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Account Deletion Password-Verification Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#141414] border border-red-500/30 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden text-white animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-white/10 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    {t.settings.deleteAccountConfirmTitle}
+                  </h3>
+                  <p className="text-xs text-red-300/80">
+                    {t.settings.dangerZone}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!deletingAccount) {
+                    setIsDeleteModalOpen(false);
+                    setDeletePassword("");
+                    setDeleteError(null);
+                  }
+                }}
+                disabled={deletingAccount}
+                className="text-white/40 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleDeleteAccount} className="p-6 space-y-4">
+              <p className="text-xs text-white/70 leading-relaxed">
+                {t.settings.deleteAccountConfirmDesc}
+              </p>
+
+              {deleteError && (
+                <div className="p-3 bg-red-500/15 border border-red-500/30 rounded-xl text-red-300 text-xs flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>{deleteError}</span>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="delete-pw" className="text-xs text-white font-medium flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5 text-yellow-400" />
+                  {t.settings.deleteAccountPasswordPrompt}
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="delete-pw"
+                    type={showDeletePassword ? "text" : "password"}
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    placeholder="••••••••"
+                    disabled={deletingAccount}
+                    className="bg-black/40 border-white/15 text-white text-xs h-10 rounded-xl pr-10 focus:border-red-400"
+                    autoFocus
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDeletePassword(!showDeletePassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                    aria-label={showDeletePassword ? "Hide password" : "Show password"}
+                    tabIndex={-1}
+                  >
+                    {showDeletePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsDeleteModalOpen(false);
+                    setDeletePassword("");
+                    setDeleteError(null);
+                  }}
+                  disabled={deletingAccount}
+                  className="flex-1 bg-white/5 border-white/10 hover:bg-white/10 text-white font-semibold h-10 rounded-xl text-xs cursor-pointer"
+                >
+                  {t.settings.cancelBtn}
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={deletingAccount || !deletePassword}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold h-10 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-900/50 cursor-pointer disabled:opacity-50"
+                >
+                  {deletingAccount ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t.settings.deletingAccount}
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4" />
+                      {t.settings.confirmDeleteBtn}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

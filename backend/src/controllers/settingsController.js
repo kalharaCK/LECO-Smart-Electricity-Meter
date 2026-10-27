@@ -319,10 +319,128 @@ const updateMeterAlias = async (req, res) => {
   }
 };
 
+/**
+ * Delete Customer Account
+ * Requires password verification for permanent deletion
+ * DELETE /api/settings/account OR POST /api/settings/delete-account
+ */
+const deleteCustomerAccount = async (req, res) => {
+  let client;
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required to delete account.'
+      });
+    }
+
+    const userId = req.user.id;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password is required to confirm account deletion.'
+      });
+    }
+
+    client = await pool.connect();
+
+    // 1. Fetch user to verify password and role
+    const userRes = await client.query(
+      'SELECT id, email, password, role, mobile_number FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'User account not found.' });
+    }
+
+    const user = userRes.rows[0];
+
+    // Prevent staff or admin account accidental deletion through customer deletion endpoint
+    if (user.role === 'staff' || user.role === 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Staff and administrator accounts cannot be deleted through this endpoint.'
+      });
+    }
+
+    // 2. Verify password with bcrypt
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        error: 'Incorrect password. Account deletion aborted.'
+      });
+    }
+
+    // 3. Perform clean cascading transaction
+    await client.query('BEGIN');
+
+    // Remove user notifications
+    await client.query('DELETE FROM notifications WHERE user_id = $1', [userId]);
+
+    // Unlink meters (meter hardware records remain in database with user_id = NULL)
+    await client.query('UPDATE meters SET user_id = NULL WHERE user_id = $1', [userId]);
+
+    // Disassociate payments (preserve financial records for utility audit compliance)
+    await client.query('UPDATE payments SET user_id = NULL WHERE user_id = $1', [userId]);
+
+    // Delete complaints submitted by user
+    await client.query('DELETE FROM complaints WHERE user_id = $1', [userId]);
+
+    // Delete user settings
+    await client.query('DELETE FROM user_settings WHERE user_id = $1', [userId]);
+
+    // Delete any pending verification OTPs
+    await client.query(
+      'DELETE FROM verification_otps WHERE identifier = $1 OR identifier = $2',
+      [user.email, user.mobile_number || '']
+    );
+
+    // Finally delete user record
+    await client.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    await client.query('COMMIT');
+
+    // 4. Clear auth cookie
+    const isProd = process.env.NODE_ENV === 'production';
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? 'strict' : 'lax'
+    });
+
+    console.log(`[Account Deletion] Customer account deleted successfully: ID ${userId} (${user.email})`);
+
+    return res.json({
+      success: true,
+      message: 'Your account has been deleted successfully.'
+    });
+  } catch (error) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (_) {}
+    }
+    console.error('[Account Deletion Error]:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'An error occurred while deleting your account. Please try again.'
+    });
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+};
+
 module.exports = {
   getUserSettings,
   updateUserSettings,
   changePassword,
   updateMeterPin,
-  updateMeterAlias
+  updateMeterAlias,
+  deleteCustomerAccount
 };
