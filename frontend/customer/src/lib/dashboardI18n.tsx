@@ -130,6 +130,14 @@ export interface DashboardTranslations {
     savingTipTitle: string
     savingTipDesc: string
     quickActions: string
+    easyMode: string
+    activeAndSafe: string
+    moneyLeft: string
+    daysLeft: string
+    dailySpending: string
+    dailyChartTitle: string
+    dailyChartDesc: string
+    callHelpdesk: string
   }
   addMeter: {
     title: string
@@ -443,6 +451,14 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       savingTipTitle: "Energy Saving Tip",
       savingTipDesc: "Reduce high-power appliances (iron, oven, water heater) during peak hours (6:30 PM - 10:30 PM) to minimize your monthly bill.",
       quickActions: "Quick Actions",
+      easyMode: "Easy Mode",
+      activeAndSafe: "Power Active & Normal",
+      moneyLeft: "Available Balance",
+      daysLeft: "Estimated Days Remaining",
+      dailySpending: "Estimated Cost Per Day",
+      dailyChartTitle: "Daily Electricity Usage",
+      dailyChartDesc: "Compare what you used each day with predicted forecast",
+      callHelpdesk: "Call LECO 1910",
     },
     addMeter: {
       title: "Add Existing Smart Meter",
@@ -755,6 +771,14 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       savingTipTitle: "විදුලි ඉතිරි කිරීමේ උපදෙසක්",
       savingTipDesc: "රාත්‍රී 6:30 සිට 10:30 දක්වා උපරිම විදුලි ගාස්තු අයවන බැවින්, වැඩි විදුලියක් වැයවන උපකරණ භාවිතය සීමා කිරීමෙන් බිල්පත අඩු කරගත හැක.",
       quickActions: "ක්ෂණික සේවා",
+      easyMode: "පහසු ක්‍රමය",
+      activeAndSafe: "විදුලි සැපයුම සාමාන්‍යයි",
+      moneyLeft: "පවතින මුදල",
+      daysLeft: "විදුලිය පවතින දින ගණන",
+      dailySpending: "දිනක ඇස්තමේන්තුගත වියදම",
+      dailyChartTitle: "දෛනික විදුලි භාවිතය",
+      dailyChartDesc: "සෑම දිනකම සැබෑ භාවිතය සහ පුරෝකථනය සංසන්දනය කරන්න",
+      callHelpdesk: "ලෙකෝ 1910 අමතන්න",
     },
     addMeter: {
       title: "නව ස්මාර්ට් මීටරයක් එක් කරන්න",
@@ -1067,6 +1091,14 @@ export const dashboardTranslations: Record<DashboardLanguage, DashboardTranslati
       savingTipTitle: "மின் சேமிப்பு குறிப்பு",
       savingTipDesc: "இரவு 6:30 முதல் 10:30 வரையிலான உச்ச கட்டண நேரங்களில் அதிக மின்சாரம் பயன்படுத்தும் சாதனங்களைக் குறைப்பதன் மூலம் மாதாந்திரக் கட்டணத்தைக் குறைக்கலாம்.",
       quickActions: "விரைவு சேவைகள்",
+      easyMode: "எளிய பயன்முறை",
+      activeAndSafe: "மின்சாரம் செயல்படுகிறது",
+      moneyLeft: "மீதமுள்ள பணம்",
+      daysLeft: "மீதமுள்ள மின் நாட்கள்",
+      dailySpending: "மதிப்பிடப்பட்ட தினசரி செலவு",
+      dailyChartTitle: "தினசரி மின் பயன்பாடு",
+      dailyChartDesc: "ஒவ்வொரு நாளும் உண்மையான பயன்பாட்டையும் கணிப்பையும் ஒப்பிடுக",
+      callHelpdesk: "லெகோ 1910 அழைக்கவும்",
     },
     addMeter: {
       title: "புதிய ஸ்மார்ட் மீட்டரைச் சேர்க்கவும்",

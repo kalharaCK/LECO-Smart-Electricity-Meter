@@ -568,60 +568,64 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
 
           {/* Primary Action Buttons & View Mode Switch */}
           <div className="flex items-center gap-2.5 shrink-0 self-start lg:self-auto flex-wrap sm:flex-nowrap">
-            {/* View Mode Switcher: Simplified (Non-technical) vs Detailed */}
-            <div className="inline-flex p-1 rounded-2xl bg-black/50 border border-white/10 shrink-0 shadow-inner">
+            {/* Real View Mode Switch Toggle: Simplified (Non-technical) vs Detailed */}
+            <div className="flex items-center gap-3 px-3.5 py-1.5 rounded-2xl bg-black/60 border border-yellow-400/30 shadow-lg shrink-0">
+              <div className="flex flex-col text-left">
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5 text-yellow-400" />
+                  {viewMode === "simplified" ? t.overview.simplifiedView : t.overview.detailedView}
+                </span>
+                <span className="text-[10px] text-white/50">
+                  {viewMode === "simplified" ? t.overview.easyMode : "Technical Mode"}
+                </span>
+              </div>
               <button
                 type="button"
-                onClick={() => handleToggleViewMode("simplified")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === "simplified"
-                    ? "bg-yellow-400 text-black shadow-md shadow-yellow-400/20"
-                    : "text-white/60 hover:text-white"
+                role="switch"
+                aria-checked={viewMode === "simplified"}
+                onClick={() => handleToggleViewMode(viewMode === "simplified" ? "detailed" : "simplified")}
+                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                  viewMode === "simplified" ? "bg-yellow-400" : "bg-white/20"
                 }`}
-                title={t.overview.simplifiedViewDesc}
+                title={viewMode === "simplified" ? "Switch to Detailed Engineering View" : "Switch to Simplified View"}
               >
-                <Eye className="h-3.5 w-3.5" />
-                <span>{t.overview.simplifiedView}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleToggleViewMode("detailed")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === "detailed"
-                    ? "bg-white/20 text-white shadow-md border border-white/20"
-                    : "text-white/60 hover:text-white"
-                }`}
-                title="Detailed technical view with diagnostics & specs"
-              >
-                <Sliders className="h-3.5 w-3.5" />
-                <span>{t.overview.detailedView}</span>
+                <span
+                  className={`pointer-events-none inline-block h-6 w-6 transform rounded-full shadow-md ring-0 transition duration-200 ease-in-out ${
+                    viewMode === "simplified" ? "translate-x-5 bg-black" : "translate-x-0 bg-white"
+                  }`}
+                />
               </button>
             </div>
 
-            <Button
-              type="button"
-              onClick={handleDownloadStatementPdf}
-              disabled={downloadingStatement}
-              variant="outline"
-              className="bg-white/5 hover:bg-white/10 text-white border-white/15 text-xs font-semibold h-11 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-all hover:border-white/30"
-              title="Download Official LECO Monthly Statement PDF"
-            >
-              {downloadingStatement ? (
-                <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
-              ) : (
-                <FileText className="h-4 w-4 text-yellow-400" />
-              )}
-              <span>Statement PDF</span>
-            </Button>
-            <Button
-              type="button"
-              onClick={handleOpenBudgetModal}
-              variant="outline"
-              className="bg-white/5 hover:bg-white/10 text-white border-white/15 text-xs font-semibold h-11 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-all hover:border-white/30"
-            >
-              <Sliders className="h-4 w-4 text-yellow-400" />
-              <span>Budget & Alerts</span>
-            </Button>
+            {viewMode === "detailed" && (
+              <>
+                <Button
+                  type="button"
+                  onClick={handleDownloadStatementPdf}
+                  disabled={downloadingStatement}
+                  variant="outline"
+                  className="bg-white/5 hover:bg-white/10 text-white border-white/15 text-xs font-semibold h-11 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-all hover:border-white/30"
+                  title="Download Official LECO Monthly Statement PDF"
+                >
+                  {downloadingStatement ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
+                  ) : (
+                    <FileText className="h-4 w-4 text-yellow-400" />
+                  )}
+                  <span>Statement PDF</span>
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleOpenBudgetModal}
+                  variant="outline"
+                  className="bg-white/5 hover:bg-white/10 text-white border-white/15 text-xs font-semibold h-11 px-4 rounded-xl cursor-pointer flex items-center gap-2 transition-all hover:border-white/30"
+                >
+                  <Sliders className="h-4 w-4 text-yellow-400" />
+                  <span>Budget & Alerts</span>
+                </Button>
+              </>
+            )}
+
             <Button
               onClick={() => onNavigate?.("payments")}
               className="bg-yellow-400 hover:bg-yellow-300 text-black font-black h-11 px-6 rounded-xl shadow-lg shadow-yellow-400/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2 text-sm"
@@ -632,23 +636,6 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
           </div>
         </div>
       </div>
-
-      {/* Simplified View Helper Banner */}
-      {viewMode === "simplified" && (
-        <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-yellow-400/[0.05] border border-yellow-400/20 text-xs text-yellow-300">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-yellow-400 shrink-0" />
-            <span>{t.overview.simplifiedViewDesc}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => handleToggleViewMode("detailed")}
-            className="underline hover:text-yellow-200 cursor-pointer font-semibold ml-2 text-[11px]"
-          >
-            {t.overview.detailedView}
-          </button>
-        </div>
-      )}
 
       {/* 2. Contextual Notification Banners (Only displayed when events occur) */}
       {emergencySuccessMsg && (
@@ -759,8 +746,355 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
         </div>
       )}
 
-      {/* 3. Core 4-Card Hero Grid: Estimated Supply Days & Daily Estimation Prominently Featured */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Dynamic View Router: Simplified Mode vs Detailed Engineering Mode */}
+      {viewMode === "simplified" ? (
+        <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          {/* Simplified View Helper Banner */}
+          <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-yellow-400/[0.06] border border-yellow-400/20 text-xs text-yellow-300">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-yellow-400 shrink-0" />
+              <span>{t.overview.simplifiedViewDesc}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleToggleViewMode("detailed")}
+              className="underline hover:text-yellow-200 cursor-pointer font-semibold ml-2 text-[11px]"
+            >
+              {t.overview.detailedView} &rarr;
+            </button>
+          </div>
+
+          {/* 1. Core 3 Simplified Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Card 1: Available Balance */}
+            <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                    <Wallet className="h-4 w-4 text-yellow-400" />
+                    {t.overview.moneyLeft}
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-white font-mono">
+                    PREPAID
+                  </span>
+                </div>
+
+                <div className="flex items-baseline gap-2 mt-2">
+                  <span className={`text-4xl font-black tracking-tight ${balanceNumber < 0 ? "text-amber-300" : "text-white"}`}>
+                    Rs. {Math.abs(balanceNumber).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </span>
+                  {balanceNumber < 0 && (
+                    <span className="text-xs font-bold text-amber-300 uppercase px-2 py-0.5 rounded bg-amber-400/20">
+                      Debt
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-white/60 mt-3 leading-relaxed">
+                  {balanceNumber < 0
+                    ? "Your balance is negative. Please recharge to avoid disconnection."
+                    : "Available electricity credit in your smart meter."}
+                </p>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between">
+                <span className="text-xs text-white/40 font-mono">A/C: {meter.account_number || meter.meter_number}</span>
+                <Button
+                  size="sm"
+                  onClick={() => onNavigate?.("payments")}
+                  className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold h-9 px-4 rounded-xl text-xs cursor-pointer shadow-md"
+                >
+                  {t.overview.rechargeNow}
+                </Button>
+              </div>
+            </Card>
+
+            {/* Card 2: Days Left (Supply Horizon) */}
+            <Card className="bg-gradient-to-b from-[#18181c] to-[#141416] border border-yellow-400/40 shadow-xl shadow-yellow-400/5 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <CalendarClock className="h-4 w-4 text-yellow-400" />
+                    {t.overview.daysLeft}
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-400/10 border border-yellow-400/25 text-yellow-300 font-semibold">
+                    LECO Smart Forecast
+                  </span>
+                </div>
+
+                <div className="flex items-baseline gap-2 mt-2">
+                  {isMlAvailable && mlDaysRemaining != null ? (
+                    <span className="text-4xl font-black tracking-tight text-yellow-300 font-mono">
+                      ~{mlDaysRemaining.toFixed(0)} <span className="text-base font-semibold text-white/70">{t.overview.daysUnit}</span>
+                    </span>
+                  ) : (
+                    <span className="text-4xl font-black tracking-tight text-white/30 font-mono">
+                      N/A
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-white/60 mt-3 leading-relaxed">
+                  {isMlAvailable && mlExhaustionTimestamp ? (
+                    <>
+                      {t.overview.supplyDaysSubtext}:{" "}
+                      <strong className="text-white">
+                        {new Date(mlExhaustionTimestamp).toLocaleDateString(language === "si" ? "si-LK" : language === "ta" ? "ta-LK" : "en-US", { month: "short", day: "numeric" })}
+                      </strong>
+                    </>
+                  ) : (
+                    "Calculated continuously from your daily usage."
+                  )}
+                </p>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-xs text-white/40">
+                <span>Household Supply</span>
+                <span className="text-yellow-400 font-medium">{meter.meter_number}</span>
+              </div>
+            </Card>
+
+            {/* Card 3: Today's Estimated Cost */}
+            <Card className="bg-gradient-to-b from-[#18181c] to-[#141416] border border-sky-400/40 shadow-xl shadow-sky-400/5 rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-sky-400/10 rounded-full blur-3xl pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <TrendingUp className="h-4 w-4 text-sky-400" />
+                    {t.overview.dailySpending}
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-400/10 border border-sky-400/25 text-sky-300 font-semibold">
+                    Daily Average
+                  </span>
+                </div>
+
+                <div className="flex items-baseline gap-2 mt-2">
+                  {isMlAvailable && mlDailyBurnRate != null ? (
+                    <span className="text-4xl font-black tracking-tight text-white font-mono">
+                      Rs. {mlDailyBurnRate.toFixed(2)}
+                      <span className="text-sm font-normal text-white/50 ml-1.5">{t.overview.perDayUnit}</span>
+                    </span>
+                  ) : (
+                    <span className="text-4xl font-black tracking-tight text-white/30 font-mono">
+                      N/A
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-white/60 mt-3 leading-relaxed">
+                  {t.overview.todayUsageTitle}: <strong className="text-white">{consumption ? Number(consumption.today || 0).toFixed(1) : "0.0"} kWh</strong> used today.
+                </p>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-xs text-white/40">
+                <span>Tariff Schedule</span>
+                <span className="text-sky-400 font-medium">{meter.tariff_type || "Domestic D-1"}</span>
+              </div>
+            </Card>
+          </div>
+
+          {/* 2. Simplified Consumption Chart (Clean, 7-Day View, Dual Colors) */}
+          <Card className="bg-[#141416] border border-white/10 shadow-xl text-white rounded-3xl overflow-hidden p-5 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/5">
+              <div>
+                <h3 className="text-lg font-bold flex items-center gap-2 text-white">
+                  <TrendingUp className="h-5 w-5 text-yellow-400" />
+                  {t.overview.dailyChartTitle}
+                </h3>
+                <p className="text-xs text-white/50 mt-1">
+                  {t.overview.dailyChartDesc}
+                </p>
+              </div>
+
+              {/* Dual Color Indicators Legend */}
+              <div className="flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full bg-yellow-400 shadow-sm shadow-yellow-400/50" />
+                  <span className="text-white/80 font-semibold">{t.overview.actualUsage}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full bg-sky-400 shadow-sm shadow-sky-400/50" />
+                  <span className="text-white/80 font-semibold">{t.overview.predictedUsage}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-[260px] sm:h-[300px] mt-4">
+              {activeChartData && activeChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={activeChartData} margin={{ top: 15, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="realUsageGradientSimp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#facc15" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#facc15" stopOpacity={0.0} />
+                      </linearGradient>
+                      <linearGradient id="predictedUsageGradientSimp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                    <XAxis dataKey="date" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}k`} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#18181b", borderColor: "#333", borderRadius: "12px", color: "#fff" }}
+                      labelStyle={{ color: "#aaa", fontSize: "12px", marginBottom: "4px" }}
+                      formatter={((value: any, name: any) => [`${Number(value || 0).toFixed(2)} kWh`, name]) as any}
+                    />
+                    {/* Real Usage - Gold */}
+                    <Area
+                      type="monotone"
+                      dataKey="real"
+                      name={t.overview.actualUsage}
+                      stroke="#facc15"
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#realUsageGradientSimp)"
+                      dot={{ fill: "#facc15", r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                    {/* Predicted Usage - Sky Blue Dashed */}
+                    <Area
+                      type="monotone"
+                      dataKey="predicted"
+                      name={t.overview.predictedUsage}
+                      stroke="#38bdf8"
+                      strokeWidth={2.5}
+                      strokeDasharray="4 4"
+                      fillOpacity={1}
+                      fill="url(#predictedUsageGradientSimp)"
+                      dot={{ fill: "#38bdf8", r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-white/40 text-xs">
+                  Loading electricity readings...
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* 3. Helpful Home Tip & Support Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Energy Saving Tip */}
+            <Card className="bg-gradient-to-br from-yellow-950/20 via-[#141416] to-[#141416] border border-yellow-400/20 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 rounded-xl bg-yellow-400/10 text-yellow-400 border border-yellow-400/20">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-bold text-yellow-400 uppercase tracking-wider">
+                    {t.overview.savingTipTitle}
+                  </span>
+                </div>
+                <p className="text-sm text-white/80 leading-relaxed">
+                  {t.overview.savingTipDesc}
+                </p>
+              </div>
+              <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs text-white/40">
+                <span>Peak Hours: 18:30 – 22:30</span>
+                <span className="text-yellow-400">Save up to 30%</span>
+              </div>
+            </Card>
+
+            {/* LECO 24/7 Helpline Card */}
+            <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <PhoneCall className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                    {t.overview.callHelpdesk}
+                  </span>
+                </div>
+                <p className="text-sm text-white/80 leading-relaxed">
+                  For power interruptions, emergency credit support, or meter inquiries, contact the LECO 24/7 National Call Centre.
+                </p>
+              </div>
+              <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between">
+                <a
+                  href="tel:1910"
+                  className="text-lg font-black text-white hover:text-yellow-400 transition-colors flex items-center gap-2"
+                >
+                  <PhoneCall className="h-4 w-4 text-yellow-400" />
+                  1910
+                </a>
+                <Button
+                  size="sm"
+                  onClick={() => onNavigate?.("complaints")}
+                  variant="outline"
+                  className="bg-white/5 hover:bg-white/10 text-white border-white/15 text-xs font-semibold h-9 px-3 rounded-xl cursor-pointer"
+                >
+                  Report Outage
+                </Button>
+              </div>
+            </Card>
+          </div>
+
+          {/* 4. Simple Quick Actions (3 Big Friendly Buttons) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <button
+              type="button"
+              onClick={() => onNavigate?.("payments")}
+              className="p-4 rounded-2xl bg-[#141416] border border-white/10 hover:border-yellow-400/50 hover:bg-white/[0.02] text-left transition-all cursor-pointer group flex items-center justify-between min-h-[80px]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-yellow-400/10 text-yellow-400">
+                  <CreditCard className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">{t.overview.rechargeNow}</span>
+                  <span className="text-xs text-white/40">PayHere / Cards</span>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-white/30 group-hover:text-yellow-400 transition-colors" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate?.("history")}
+              className="p-4 rounded-2xl bg-[#141416] border border-white/10 hover:border-yellow-400/50 hover:bg-white/[0.02] text-left transition-all cursor-pointer group flex items-center justify-between min-h-[80px]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">Payment Receipts</span>
+                  <span className="text-xs text-white/40">View past bills</span>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-white/30 group-hover:text-emerald-400 transition-colors" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate?.("complaints")}
+              className="p-4 rounded-2xl bg-[#141416] border border-white/10 hover:border-yellow-400/50 hover:bg-white/[0.02] text-left transition-all cursor-pointer group flex items-center justify-between min-h-[80px]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400">
+                  <AlertCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block">Report Issue</span>
+                  <span className="text-xs text-white/40">24/7 Breakdown</span>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-white/30 group-hover:text-amber-400 transition-colors" />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+          {/* 3. Core 4-Card Hero Grid: Estimated Supply Days & Daily Estimation Prominently Featured */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI Card 1: Available Balance */}
         <Card className="glass-card bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
@@ -963,98 +1297,8 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
         </Card>
       </div>
 
-      {/* 4. Tier: Monthly Budget Tracker + Friendly Energy Saving Tip (or Full Specs in Detailed View) */}
-      {viewMode === "simplified" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Card: Monthly Electricity Bill & Budget Tracker */}
-          <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
-                  <Target className="h-4 w-4 text-emerald-400" />
-                  {t.overview.currentMonthAccruedBill}
-                </span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                  budgetSpentPercent > 90 ? "bg-red-500/10 border-red-500/30 text-red-400" :
-                  budgetSpentPercent > 70 ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
-                  "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                }`}>
-                  {budgetSpentPercent}% {t.overview.spentOf}
-                </span>
-              </div>
-
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-3xl font-black tracking-tight text-white">
-                  Rs. {currentAccruedBill.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                </span>
-                <span className="text-xs text-white/50">
-                  ({consumption?.prediction?.billingCycleConsumptionKwh || "0"} kWh)
-                </span>
-              </div>
-
-              <div className="mt-4 space-y-1.5">
-                <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
-                      budgetSpentPercent > 90
-                        ? "from-amber-500 to-red-500"
-                        : budgetSpentPercent > 70
-                        ? "from-yellow-400 to-amber-500"
-                        : "from-emerald-400 to-teal-400"
-                    }`}
-                    style={{ width: `${Math.max(4, Math.min(100, budgetSpentPercent))}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-[11px] text-white/50">
-                  <span>{t.overview.monthlyBudgetTitle}: Rs. {monthlyBudget.toLocaleString()}</span>
-                  <span className="text-white/80 font-semibold">Rs. {remainingBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })} {t.overview.remainingOf}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
-              <span className="text-white/40">{meter.tariff_type || "Domestic D-1 (PUCSL)"}</span>
-              <button
-                type="button"
-                onClick={handleOpenBudgetModal}
-                className="text-yellow-400 hover:text-yellow-300 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
-              >
-                {t.overview.adjustBudgetBtn}
-              </button>
-            </div>
-          </Card>
-
-          {/* Friendly Energy Saving Tip Card */}
-          <Card className="bg-gradient-to-br from-yellow-950/20 via-[#141416] to-[#141416] border border-yellow-400/20 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="p-2 rounded-xl bg-yellow-400/10 text-yellow-400 border border-yellow-400/20">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <span className="text-xs font-bold text-yellow-400 uppercase tracking-wider">
-                  {t.overview.savingTipTitle}
-                </span>
-              </div>
-              <p className="text-sm text-white/80 leading-relaxed">
-                {t.overview.savingTipDesc}
-              </p>
-            </div>
-            <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
-              <span className="text-white/40">Peak: 18:30 – 22:30 (Rs. 54.00/unit)</span>
-              <button
-                type="button"
-                onClick={() => handleToggleViewMode("detailed")}
-                className="text-yellow-400 hover:text-yellow-300 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
-              >
-                {t.overview.detailedView}
-              </button>
-            </div>
-          </Card>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* 4. Tier: Engineering Specs Grid (Detailed Mode) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {/* Card: Monthly Electricity Bill & Budget Tracker */}
           <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between">
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
@@ -1130,7 +1374,6 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
             powerFactor={Number(consumption?.power_factor || 0.96)}
           />
         </div>
-      )}
 
       {/* 5. Lower Tier: Chart & Analytics Summary (Left 2/3) + Recent Activity (Right 1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1405,6 +1648,8 @@ export default function OverviewSection({ refreshKey, onNavigate }: OverviewSect
           </div>
         </button>
       </div>
+    </div>
+  )}
 
       {/* 7. Quick Adjust Budget & Alerts Modal */}
       {budgetModalOpen && (
