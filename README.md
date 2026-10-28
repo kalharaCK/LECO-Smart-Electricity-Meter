@@ -977,6 +977,17 @@ cd ../frontend/customer && npm run build
 cd ../frontend/staff && npm run build
 ```
 
+### 13.6 Troubleshooting and Common Gotchas
+
+| Issue / Symptom | Root Cause | Solution |
+|---|---|---|
+| `DATABASE_URL must be configured before starting the backend` | `.env` file missing in `backend/` | Copy `.env.example` to `backend/.env` and supply valid Neon PostgreSQL credentials. |
+| `SSL connection has been closed unexpectedly` | Serverless pooler timeout on cold standby | Ensure `?sslmode=require` is present in connection string; the built-in auto-retry engine will absorb transient drops. |
+| `CORS Error: Header 'Origin' not allowed` | Browser origin differs from backend whitelist | Update `FRONTEND_URL` or `STAFF_FRONTEND_URL` in `.env` to match your local IP/port. |
+| `Invalid login: 535-5.7.8 Username and Password not accepted` | Standard Gmail password used instead of App Password | Generate a 16-character App Password under Google Account Security (requires 2FA enabled) and assign to `SMTP_PASS`. |
+| `Groq rate limit (429) or connection timeout` | Upstream cloud provider quota reached | No action needed; the system automatically switches to the Tri-Lingual Offline Knowledge Engine with zero downtime. |
+| `ImportError: attempted relative import with no known parent package` | Running uvicorn directly inside `ml/` subfolder | Launch Uvicorn from the workspace root via `python -m uvicorn ml.main:app --host 127.0.0.1 --port 8000` or export `PYTHONPATH=.`. |
+
 ---
 
 ## 14. Future Roadmap and License
