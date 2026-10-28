@@ -707,6 +707,23 @@ const login = async (req, res) => {
       }).catch(e => console.error('[Login SMS Alert Error]:', e.message));
     }
 
+    // Dispatch Login Attempt Alert via Email if email exists (Security notice only - no OTP/reset code)
+    if (user.email) {
+      const timeStr = new Date().toLocaleString('en-GB', {
+        timeZone: 'Asia/Colombo',
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      });
+      const clientIp = (req.headers && req.headers['x-forwarded-for'])?.split(',')[0]?.trim() || req.ip || req.socket?.remoteAddress || '127.0.0.1';
+      emailService.sendLoginAttemptAlertEmail({
+        to: user.email,
+        recipientName: user.full_name || '',
+        loginTime: timeStr,
+        ipAddress: clientIp,
+        userAgent: (req.headers && req.headers['user-agent']) || 'Web Browser'
+      }).catch(e => console.error('[Login Email Alert Error]:', e.message));
+    }
+
     res.json({
       success: true,
       message: 'Login successful',
@@ -755,6 +772,23 @@ const staffLogin = async (req, res) => {
     );
 
     res.cookie('token', token, getCookieOptions());
+
+    // Dispatch Login Attempt Alert via Email if email exists (Security notice only - no OTP/reset code)
+    if (user.email) {
+      const timeStr = new Date().toLocaleString('en-GB', {
+        timeZone: 'Asia/Colombo',
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      });
+      const clientIp = (req.headers && req.headers['x-forwarded-for'])?.split(',')[0]?.trim() || req.ip || req.socket?.remoteAddress || '127.0.0.1';
+      emailService.sendLoginAttemptAlertEmail({
+        to: user.email,
+        recipientName: user.full_name || '',
+        loginTime: timeStr,
+        ipAddress: clientIp,
+        userAgent: (req.headers && req.headers['user-agent']) || 'Staff Operations Portal'
+      }).catch(e => console.error('[Staff Login Email Alert Error]:', e.message));
+    }
 
     res.json({
       success: true,
@@ -814,6 +848,23 @@ const customerLogin = async (req, res) => {
         language: req.body.language || 'en',
         data: { time: timeStr }
       }).catch(e => console.error('[Customer Login SMS Alert Error]:', e.message));
+    }
+
+    // Dispatch Login Attempt Alert via Email if email exists (Security notice only - no OTP/reset code)
+    if (user.email) {
+      const timeStr = new Date().toLocaleString('en-GB', {
+        timeZone: 'Asia/Colombo',
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      });
+      const clientIp = (req.headers && req.headers['x-forwarded-for'])?.split(',')[0]?.trim() || req.ip || req.socket?.remoteAddress || '127.0.0.1';
+      emailService.sendLoginAttemptAlertEmail({
+        to: user.email,
+        recipientName: user.full_name || '',
+        loginTime: timeStr,
+        ipAddress: clientIp,
+        userAgent: (req.headers && req.headers['user-agent']) || 'Customer Portal'
+      }).catch(e => console.error('[Customer Login Email Alert Error]:', e.message));
     }
 
     res.json({

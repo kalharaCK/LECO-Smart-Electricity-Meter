@@ -9,9 +9,10 @@ const {
   resetPasswordWithOtp,
   customerLogin 
 } = require('../src/controllers/authController');
+const emailService = require('../src/services/emailService');
 
 function createMockReqRes({ body = {}, params = {}, query = {}, user = null } = {}) {
-  const req = { body, params, query, user, cookies: {} };
+  const req = { body, params, query, user, cookies: {}, headers: { 'user-agent': 'Automated Test Agent' }, ip: '127.0.0.1' };
   const res = {
     statusCode: 200,
     headers: {},
@@ -41,7 +42,26 @@ describe('Forgot Password Email OTP & Password Reset Suite', () => {
   const testMobile = '+94770001122';
   let createdUserId = null;
 
+  let originalSendOtpEmail;
+  let originalSendLoginAlert;
+  const capturedOtpEmails = [];
+  const capturedLoginAlerts = [];
+
   before(async () => {
+    // Mock emailService methods to prevent sending real live SMTP emails and prevent bounce-backs
+    originalSendOtpEmail = emailService.sendOtpEmail;
+    originalSendLoginAlert = emailService.sendLoginAttemptAlertEmail;
+
+    emailService.sendOtpEmail = async (params) => {
+      capturedOtpEmails.push(params);
+      return { success: true, messageId: 'mock-fp-otp-message-id' };
+    };
+
+    emailService.sendLoginAttemptAlertEmail = async (params) => {
+      capturedLoginAlerts.push(params);
+      return { success: true, messageId: 'mock-login-alert-message-id' };
+    };
+
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(initialPassword, salt);
     const ins = await pool.query(
@@ -54,6 +74,10 @@ describe('Forgot Password Email OTP & Password Reset Suite', () => {
   });
 
   after(async () => {
+    // Restore mocked emailService methods
+    if (originalSendOtpEmail) emailService.sendOtpEmail = originalSendOtpEmail;
+    if (originalSendLoginAlert) emailService.sendLoginAttemptAlertEmail = originalSendLoginAlert;
+
     if (createdUserId) {
       await pool.query('DELETE FROM verification_otps WHERE identifier IN ($1, $2)', [testEmail, testNic]);
       await pool.query('DELETE FROM users WHERE id = $1', [createdUserId]);
@@ -70,6 +94,11 @@ describe('Forgot Password Email OTP & Password Reset Suite', () => {
     assert.equal(res.data.success, true);
     assert.equal(res.data.email, testEmail);
     assert.ok(res.data.message.includes('Verification code sent'));
+
+    // Verify OTP email was intercepted by mock and not sent out via live SMTP
+    assert.equal(capturedOtpEmails.length, 1);
+    assert.equal(capturedOtpEmails[0].to, testEmail);
+    assert.equal(capturedOtpEmails[0].purpose, 'forgot_password');
 
     // Verify OTP record exists in DB for this email
     const otps = await pool.query(
@@ -160,7 +189,10 @@ describe('Forgot Password Email OTP & Password Reset Suite', () => {
     assert.equal(checkOtp.rows.length, 0);
   });
 
-  test('6. customerLogin succeeds with newly entered password and fails with old password', async () => {
+  test('6. customerLogin succeeds with newly entered password and dispatches login security alert without reset code', async () => {
+    const initialAlertCount = capturedLoginAlerts.length;
+    const initialOtpCount = capturedOtpEmails.length;
+
     // Attempt with old password -> must fail
     const oldAttempt = createMockReqRes({
       body: { email: testEmail, password: initialPassword }
@@ -177,5 +209,30 @@ describe('Forgot Password Email OTP & Password Reset Suite', () => {
     assert.equal(newAttempt.res.statusCode, 200);
     assert.equal(newAttempt.res.data.success, true);
     assert.equal(newAttempt.res.data.user.email, testEmail);
+
+    // Verify that login triggered a login security alert email, NOT a password reset OTP
+    assert.ok(capturedLoginAlerts.length > initialAlertCount, 'Login must dispatch a login security alert email');
+    assert.equal(capturedLoginAlerts[capturedLoginAlerts.length - 1].to, testEmail);
+    assert.equal(capturedOtpEmails.length, initialOtpCount, 'Login must NEVER trigger an OTP or password reset email');
+  });
+
+  test('7. Login attempt alert email template conforms to security rules and contains zero emojis', () => {
+    const html = emailService.buildLoginAttemptEmailHtml({
+      recipientName: 'FP Test Customer',
+      accountEmail: testEmail,
+      loginTime: '28/10/2026, 10:15',
+      ipAddress: '192.168.1.100',
+      userAgent: 'LECO Customer Portal / Mozilla 5.0'
+    });
+
+    assert.ok(html.includes(testEmail), 'Must contain user email');
+    assert.ok(html.includes('192.168.1.100'), 'Must contain IP address');
+    assert.ok(html.includes('1987'), 'Must contain hotline 1987');
+    assert.ok(html.includes('Security Alert: Account Sign-in'), 'Must contain security badge');
+    assert.ok(!html.includes('Password Reset Code'), 'Login alert must NOT ask for password reset code');
+
+    // Rule: 1.Dont use imojies in UI designs
+    const emojiRegex = /[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+    assert.equal(emojiRegex.test(html), false, 'Login attempt alert email must contain zero emojis');
   });
 });

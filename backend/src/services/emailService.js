@@ -867,6 +867,272 @@ function buildCustomerWelcomeEmailHtml({ fullName, email, nic, meter, logoSrc = 
 }
 
 /**
+ * Builds Security Login Alert Email Template (Zero emojis, official LECO branding)
+ */
+function buildLoginAttemptEmailHtml({
+  recipientName = '',
+  accountEmail = '',
+  loginTime = '',
+  ipAddress = '127.0.0.1',
+  userAgent = 'Web Browser',
+  logoSrc = `cid:${LOGO_CID}`
+}) {
+  const greeting = recipientName ? `Dear ${recipientName},` : 'Valued Customer,';
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LECO Security Alert: Successful Account Login</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f4f6f8;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #1e293b;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      background-color: #f4f6f8;
+      padding: 32px 12px;
+      box-sizing: border-box;
+    }
+    .container {
+      max-width: 580px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+    }
+    .gold-accent-bar {
+      height: 4px;
+      background: linear-gradient(90deg, #eab308 0%, #facc15 50%, #eab308 100%);
+      width: 100%;
+    }
+    .header {
+      background-color: #ffffff;
+      padding: 32px 28px 20px 28px;
+      text-align: center;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .logo-img {
+      width: 70px;
+      height: 70px;
+      border-radius: 12px;
+      display: inline-block;
+      object-fit: contain;
+      vertical-align: middle;
+    }
+    .header-logo-text {
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #0f172a;
+      margin: 12px 0 0 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    }
+    .header-subtext {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 500;
+      margin: 4px 0 0 0;
+    }
+    .content {
+      padding: 32px 28px;
+      background-color: #ffffff;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background-color: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 16px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 18px;
+    }
+    .greeting {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+    .description {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #334155;
+      margin: 0 0 20px 0;
+    }
+    .info-card {
+      background-color: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+    .info-row {
+      padding: 8px 0;
+      font-size: 13px;
+    }
+    .info-label {
+      color: #64748b;
+      font-weight: 600;
+      width: 35%;
+    }
+    .info-value {
+      color: #0f172a;
+      font-weight: 700;
+      text-align: right;
+    }
+    .border-top {
+      border-top: 1px solid #e2e8f0;
+    }
+    .security-notice {
+      background-color: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 14px 16px;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 24px;
+    }
+    .security-notice p {
+      margin: 0;
+      font-size: 12px;
+      color: #92400e;
+      line-height: 1.55;
+    }
+    .footer {
+      background-color: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      padding: 24px 28px;
+      text-align: center;
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.6;
+    }
+    .footer-title {
+      font-weight: 700;
+      color: #0f172a;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .footer-hotline {
+      color: #475569;
+      margin-bottom: 8px;
+    }
+    .footer-hotline strong {
+      color: #0f172a;
+    }
+    .footer-legal {
+      color: #94a3b8;
+      font-size: 10px;
+      margin-top: 6px;
+    }
+    @media only screen and (max-width: 600px) {
+      .wrapper {
+        padding: 12px 8px !important;
+      }
+      .container {
+        width: 100% !important;
+        border-radius: 8px !important;
+      }
+      .content {
+        padding: 24px 16px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr>
+        <td align="center">
+          <div class="container">
+            <div class="gold-accent-bar"></div>
+            <div class="header">
+              <div style="text-align: center;">
+                <img src="${logoSrc}" alt="LECO Logo" class="logo-img" width="70" height="70" />
+              </div>
+              <p class="header-logo-text">LECO Smart Electricity</p>
+              <p class="header-subtext">Lanka Electricity Company (Pvt) Ltd &bull; Customer Security</p>
+            </div>
+
+            <div class="content">
+              <span class="badge">Security Alert: Account Sign-in</span>
+              <div class="greeting">${greeting}</div>
+              <p class="description">
+                A new sign-in was detected for your LECO Smart Electricity account. We provide this notification to assist you in keeping your account safe and monitored.
+              </p>
+
+              <div class="info-card">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td class="info-label info-row">Account Email</td>
+                    <td class="info-value info-row">${accountEmail}</td>
+                  </tr>
+                  <tr>
+                    <td class="info-label info-row border-top">Date and Time</td>
+                    <td class="info-value info-row border-top">${loginTime}</td>
+                  </tr>
+                  <tr>
+                    <td class="info-label info-row border-top">IP Address</td>
+                    <td class="info-value info-row border-top">${ipAddress}</td>
+                  </tr>
+                  ${userAgent ? `
+                  <tr>
+                    <td class="info-label info-row border-top">Device / Client</td>
+                    <td class="info-value info-row border-top">${userAgent}</td>
+                  </tr>` : ''}
+                  <tr>
+                    <td class="info-label info-row border-top">Status</td>
+                    <td class="info-value info-row border-top" style="color: #15803d;">Successful Sign-in</td>
+                  </tr>
+                </table>
+              </div>
+
+              <div class="security-notice">
+                <p>
+                  <strong>Did you sign in?</strong> If this was you, you can safely ignore this alert. No password reset code was requested or issued for this login.
+                </p>
+                <p style="margin-top: 8px;">
+                  <strong>Not you?</strong> If you did not perform this login, please secure your account immediately by changing your password on the LECO portal and contacting our 24/7 Security Hotline at <strong>1987</strong>.
+                </p>
+              </div>
+
+              <div style="border-top: 1px solid #f1f5f9; padding-top: 18px; font-size: 12px; color: #64748b; line-height: 1.6;">
+                Need assistance? Our 24/7 technical operations team is available at hotline <strong style="color: #0f172a;">1987</strong> or customer support at <strong style="color: #0f172a;">1910</strong>.
+              </div>
+            </div>
+
+            <div class="footer">
+              <div class="footer-title">Lanka Electricity Company (Private) Limited</div>
+              <div class="footer-hotline">
+                24/7 Breakdown Hotline: <strong>1987</strong> &bull; Customer Care: <strong>1910</strong> &bull; Portal: <a href="https://leco.lk" style="color: #0284c7; text-decoration: none; font-weight: 600;">www.leco.lk</a>
+              </div>
+              <div class="footer-legal">
+                Head Office: No. 411, Galle Road, Colombo 03, Sri Lanka<br>
+                This is an automated system security notification from LECO AMI Smart Infrastructure. Please do not reply directly to this email.
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+
+/**
  * Dispatches an OTP verification email to recipient
  *
  * @param {object} params
@@ -959,6 +1225,102 @@ async function sendOtpEmail({ to, otp, purpose = 'registration', recipientName =
           `INSERT INTO email_logs (recipient, subject, purpose, status, error_message)
            VALUES ($1, $2, $3, 'failed', $4)`,
           [cleanTo, subject, purpose, err.message]
+        );
+      }
+    } catch (_) {}
+
+    return {
+      success: false,
+      error: err.message
+    };
+  }
+}
+
+/**
+ * Dispatches an account sign-in alert email to recipient (Zero emojis, official security alert)
+ *
+ * @param {object} params
+ * @param {string} params.to - Recipient email address
+ * @param {string} [params.recipientName] - Customer or staff name
+ * @param {string} [params.loginTime] - Formatted timestamp
+ * @param {string} [params.ipAddress] - Client IP address
+ * @param {string} [params.userAgent] - Browser or portal client
+ * @returns {Promise<{ success: boolean, messageId?: string, error?: string }>}
+ */
+async function sendLoginAttemptAlertEmail({
+  to,
+  recipientName = '',
+  loginTime,
+  ipAddress = '127.0.0.1',
+  userAgent = 'Web Browser'
+}) {
+  if (!to || !to.includes('@')) {
+    return { success: false, error: 'Valid recipient email address is required' };
+  }
+
+  const cleanTo = to.trim().toLowerCase();
+  const timeFormatted = loginTime || new Date().toLocaleString('en-GB', {
+    timeZone: 'Asia/Colombo',
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+
+  const subject = 'LECO Security Alert: Successful Account Login';
+  const htmlContent = buildLoginAttemptEmailHtml({
+    recipientName,
+    accountEmail: cleanTo,
+    loginTime: timeFormatted,
+    ipAddress,
+    userAgent
+  });
+
+  const textContent = `LECO Security Alert: Successful Account Login\n\nDear ${recipientName || 'Customer'},\n\nA successful sign-in was recorded for your LECO Smart Electricity account (${cleanTo}).\n\nDate and Time: ${timeFormatted}\nIP Address: ${ipAddress}\nDevice / Client: ${userAgent}\nStatus: Successful Sign-in\n\nIf this was you, you may safely ignore this email. Note that password reset codes are never sent on login and are only issued when requested via Forgot Password.\n\nIf this was not you, please immediately secure your account and call LECO Hotline at 1987.\n\nLanka Electricity Company (Pvt) Ltd`;
+
+  const { transporter, creds } = await getTransporter();
+
+  if (!transporter || !creds.isConfigured) {
+    console.warn(`[EmailService] SMTP not configured. Login alert for ${cleanTo} skipped.`);
+    return { success: false, error: 'SMTP credentials not configured' };
+  }
+
+  const fromAddress = process.env.EMAIL_FROM || `"LECO Smart Electricity" <${creds.user}>`;
+  const logoAtt = getLogoAttachment();
+  const mailAttachments = logoAtt ? [logoAtt] : [];
+
+  try {
+    const info = await transporter.sendMail({
+      from: fromAddress,
+      to: cleanTo,
+      subject,
+      text: textContent,
+      html: htmlContent,
+      attachments: mailAttachments
+    });
+
+    try {
+      const pool = getPool();
+      if (pool) {
+        await pool.query(
+          `INSERT INTO email_logs (recipient, subject, purpose, status, message_id)
+           VALUES ($1, $2, 'login_alert', 'sent', $3)`,
+          [cleanTo, subject, info.messageId]
+        );
+      }
+    } catch (_) {}
+
+    return {
+      success: true,
+      messageId: info.messageId
+    };
+  } catch (err) {
+    console.error(`[EmailService] Error sending login alert email to ${cleanTo}:`, err.message);
+    try {
+      const pool = getPool();
+      if (pool) {
+        await pool.query(
+          `INSERT INTO email_logs (recipient, subject, purpose, status, error_message)
+           VALUES ($1, $2, 'login_alert', 'failed', $3)`,
+          [cleanTo, subject, err.message]
         );
       }
     } catch (_) {}
@@ -1271,9 +1633,11 @@ module.exports = {
   buildOtpEmailHtml,
   buildTestDiagnosticEmailHtml,
   buildCustomerWelcomeEmailHtml,
+  buildLoginAttemptEmailHtml,
   getLogoAttachment,
   LOGO_CID,
   sendOtpEmail,
+  sendLoginAttemptAlertEmail,
   sendHtmlEmail,
   sendTestEmail,
   getEmailConfigStatus,
