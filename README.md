@@ -258,6 +258,33 @@ sequenceDiagram
 | **C-17** | PayHere Payment Engine | `backend/src/services/payhereService.js` | HTTPS (PayHere) | Checkout tokenization, MD5 HMAC hash generation, IPN callback audit |
 | **C-18** | System Settings Controller | `backend/src/services/systemSettingsService.js` | Node + DB | Live runtime API key updates and customer feature switches |
 
+### 5.1 Core REST API Specification Matrix
+
+The following specification details the primary REST endpoints exposed by the Core Express Application Tier:
+
+| Domain | Method | Endpoint Path | Authentication Scope | Description |
+|---|---|---|---|---|
+| **Auth** | `POST` | `/api/auth/register/request-otp` | Public | Initiates dual-channel SMS/Email OTP verification |
+| **Auth** | `POST` | `/api/auth/register/verify-otp` | Public | Validates OTP and registers customer profile |
+| **Auth** | `POST` | `/api/auth/login` | Public | Authenticates credentials and sets `HttpOnly` cookie |
+| **Auth** | `POST` | `/api/auth/logout` | Authenticated | Clears session cookie and invalidates token |
+| **Meter** | `GET` | `/api/meters/my-meter` | Customer | Fetches linked smart meter info, balance, and status |
+| **Meter** | `POST` | `/api/meters/link` | Customer | Cryptographically links physical meter via Serial & PIN |
+| **Telemetry** | `POST` | `/api/telemetry` | Meter Device / Secret | Ingests 30-45s telemetry pulse (active in/out, V, I, PF) |
+| **Telemetry** | `GET` | `/api/telemetry/history` | Customer / Staff | Fetches historical intervals with aggregation filters |
+| **Billing** | `POST` | `/api/payments/payhere/initiate` | Customer | Generates PayHere checkout token and cryptographic hash |
+| **Billing** | `POST` | `/api/payments/payhere/notify` | PayHere IPN | Verifies PayHere MD5 signature and credits wallet balance |
+| **Billing** | `GET` | `/api/payments/receipt/:id/pdf` | Customer | Generates printable PDF payment receipt via PDFKit |
+| **Chatbot** | `POST` | `/api/chatbot/message` | Customer / Staff | Sends prompt to Groq RAG / offline tri-lingual assistant |
+| **Chatbot** | `GET` | `/api/chatbot/status` | Public | Returns engine availability and active LLM configuration |
+| **Staff** | `GET` | `/api/staff/meters` | Staff Role | Queries all smart meters with fleet connectivity status |
+| **Staff** | `POST` | `/api/staff/meters/:id/relay` | Staff Role | Remotely overrides physical relay (connect / disconnect) |
+| **Staff** | `GET` | `/api/staff/settings` | Staff Admin | Inspects dynamically stored runtime system configuration |
+| **Staff** | `PUT` | `/api/staff/settings` | Staff Admin | Live updates API keys, thresholds, and feature flags |
+| **ML Engine** | `GET` | `/api/ml/health` | Service / Public | Reports ML model status, drift metrics, and memory pool |
+| **ML Engine** | `POST` | `/api/ml/forecast/24h` | Backend Inter-service | Computes 24-hour progressive load forecast trajectory |
+| **ML Engine** | `POST` | `/api/ml/balance/depletion` | Backend Inter-service | Simulates non-linear PUCSL tariff wallet credit exhaustion |
+
 ---
 
 ## 6. Deep Dive: Machine Learning Forecasting Engine
