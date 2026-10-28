@@ -56,8 +56,8 @@ const initDb = async () => {
         meter_id INTEGER REFERENCES meters(id),
         reading_date DATE NOT NULL,
         reading_hour INTEGER NOT NULL,
-        consumption DECIMAL(10, 2) NOT NULL,
-        energy_export DECIMAL(10, 2) DEFAULT 0.00,
+        consumption DECIMAL(12, 4) NOT NULL,
+        energy_export DECIMAL(12, 4) DEFAULT 0.0000,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
       CREATE TABLE IF NOT EXISTS notifications (
@@ -209,6 +209,10 @@ const initDb = async () => {
       ALTER TABLE meters ADD COLUMN IF NOT EXISTS registered_nic VARCHAR(50);
       ALTER TABLE meters ADD COLUMN IF NOT EXISTS staff_passcode VARCHAR(50);
       CREATE INDEX IF NOT EXISTS idx_meters_registered_nic ON meters(registered_nic);
+
+      -- High Precision Telemetry Support (allowing down to 0.0001 kWh / Wh-scale readings)
+      ALTER TABLE consumption_logs ALTER COLUMN consumption TYPE DECIMAL(12, 4);
+      ALTER TABLE consumption_logs ALTER COLUMN energy_export TYPE DECIMAL(12, 4);
 
       -- Backfill registered_nic for already claimed meters from the owner's profile
       UPDATE meters m

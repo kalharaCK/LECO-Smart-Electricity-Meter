@@ -30,7 +30,9 @@ export interface StaffMeter {
   hardware_voltage?: string | number
   hardware_current?: string | number
   hardware_power?: string | number
+  hardware_power_w?: string | number
   hardware_energy?: string | number
+  hardware_energy_wh?: string | number
   hardware_meter_timestamp?: string
   hardware_last_seen?: string
   telemetry_readings_count?: number
@@ -52,7 +54,9 @@ export interface HardwareTelemetryMeter {
   latest_voltage: string | number
   latest_current: string | number
   latest_power: string | number
+  latest_power_w?: string | number
   latest_energy: string | number
+  latest_energy_wh?: string | number
   latest_timestamp?: string
 }
 

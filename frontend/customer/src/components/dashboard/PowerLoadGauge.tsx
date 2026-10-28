@@ -11,6 +11,7 @@ import {
 
 interface PowerLoadGaugeProps {
   currentPowerKw?: number
+  currentPowerW?: number
   contractedDemandKw?: number
   voltage?: number
   frequency?: number
@@ -19,6 +20,7 @@ interface PowerLoadGaugeProps {
 
 export default function PowerLoadGauge({
   currentPowerKw = 0.00,
+  currentPowerW,
   contractedDemandKw = 5.0,
   voltage = 230.4,
   frequency = 50.0,
@@ -27,6 +29,10 @@ export default function PowerLoadGauge({
   const activeKw = Math.max(0, currentPowerKw)
   const maxKw = Math.max(1, contractedDemandKw)
   const loadPercentage = Math.min(100, Math.round((activeKw / maxKw) * 100))
+  const isMicroLoad = activeKw > 0 && activeKw < 0.05
+  const displayWatts = currentPowerW != null && currentPowerW > 0 ? currentPowerW : (activeKw * 1000)
+  const loadDisplayVal = isMicroLoad ? displayWatts.toFixed(1) : activeKw.toFixed(2)
+  const loadUnit = isMicroLoad ? "W" : "kW"
 
   // Voltage PUCSL compliance: 230V +/- 6% (216.2V - 243.8V)
   const isVoltageNormal = voltage >= 216 && voltage <= 244
@@ -113,9 +119,9 @@ export default function PowerLoadGauge({
           <div className="text-center -mt-8">
             <div className="flex items-baseline justify-center gap-1">
               <span className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                {activeKw.toFixed(2)}
+                {loadDisplayVal}
               </span>
-              <span className="text-xs font-semibold text-white/50">kW</span>
+              <span className="text-xs font-semibold text-white/50">{loadUnit}</span>
             </div>
             <span className="text-[10px] text-white/40 block">
               {loadPercentage}% of {maxKw.toFixed(1)} kW Contracted Cap

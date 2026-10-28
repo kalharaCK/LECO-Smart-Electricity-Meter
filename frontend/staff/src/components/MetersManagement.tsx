@@ -1222,14 +1222,47 @@ export default function MetersManagement({
                 </div>
 
                 {activeMeterDetail.has_hardware_telemetry && (
-                  <div className="bg-black/40 border border-emerald-500/20 rounded-2xl p-4 col-span-2 space-y-2">
-                    <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                      <Radio className="h-4 w-4 animate-pulse" />
-                      Live Physical Hardware Telemetry
+                  <div className="bg-black/40 border border-emerald-500/20 rounded-2xl p-4 col-span-2 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-emerald-400 font-bold">
+                        <Radio className="h-4 w-4 animate-pulse" />
+                        <span>Live Physical Hardware Telemetry</span>
+                      </div>
+                      {activeMeterDetail.hardware_last_seen && (
+                        <span className="text-[10px] text-white/40 font-mono">
+                          {new Date(activeMeterDetail.hardware_last_seen).toLocaleTimeString()}
+                        </span>
+                      )}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-white/70">
-                      <div>Voltage: <strong className="text-white font-mono">{activeMeterDetail.hardware_voltage || "230.0"} V</strong></div>
-                      <div>Energy: <strong className="text-white font-mono">{activeMeterDetail.hardware_energy || "0.000"} kWh</strong></div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      <div className="bg-white/5 border border-white/5 rounded-xl p-2.5">
+                        <span className="text-[10px] text-white/40 uppercase font-semibold block">Voltage</span>
+                        <div className="text-sm font-bold text-white font-mono mt-0.5">
+                          {activeMeterDetail.hardware_voltage || "230.0"} V
+                        </div>
+                      </div>
+                      <div className="bg-white/5 border border-white/5 rounded-xl p-2.5">
+                        <span className="text-[10px] text-white/40 uppercase font-semibold block">Current</span>
+                        <div className="text-sm font-bold text-white font-mono mt-0.5">
+                          {activeMeterDetail.hardware_current != null ? `${activeMeterDetail.hardware_current} A` : "0.000 A"}
+                        </div>
+                      </div>
+                      <div className="bg-white/5 border border-white/5 rounded-xl p-2.5">
+                        <span className="text-[10px] text-white/40 uppercase font-semibold block">Power</span>
+                        <div className="text-sm font-bold text-white font-mono mt-0.5">
+                          {activeMeterDetail.hardware_power_w != null && Number(activeMeterDetail.hardware_power_w) > 0
+                            ? `${activeMeterDetail.hardware_power_w} W`
+                            : `${activeMeterDetail.hardware_power || "0.0000"} kW`}
+                        </div>
+                      </div>
+                      <div className="bg-white/5 border border-white/5 rounded-xl p-2.5">
+                        <span className="text-[10px] text-white/40 uppercase font-semibold block">Energy</span>
+                        <div className="text-sm font-bold text-white font-mono mt-0.5">
+                          {activeMeterDetail.hardware_energy_wh != null && Number(activeMeterDetail.hardware_energy_wh) > 0
+                            ? `${activeMeterDetail.hardware_energy_wh} Wh`
+                            : `${activeMeterDetail.hardware_energy || "0.0000"} kWh`}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}

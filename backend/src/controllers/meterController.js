@@ -24,10 +24,15 @@ async function syncMeterTelemetryAndLogs(meterId, meterNum, dailyAvg) {
     if (baseDaily <= 0) baseDaily = 5.0;
 
     // 1. Inspect live hardware telemetry from meter_readings
-    let latestHwEnergy = 0;
-    let latestHwPower = 0;
-    let latestHwVoltage = 0;
-    let latestHwCurrent = 0;
+    let latestHwEnergy = 0;    // in kWh
+    let latestHwEnergyWh = 0;  // in Wh
+    let latestHwEnergyMwh = 0; // in mWhr
+    let latestHwPower = 0;     // in kW
+    let latestHwPowerW = 0;    // in Watts
+    let latestHwPowerMw = 0;   // in mW
+    let latestHwVoltage = 0;   // in Volts (V)
+    let latestHwCurrent = 0;   // in Amperes (A)
+    let latestHwCurrentMa = 0; // in mA
     let hwTimestamp = null;
     let hwReceivedAt = null;
 
@@ -41,14 +46,29 @@ async function syncMeterTelemetryAndLogs(meterId, meterNum, dailyAvg) {
       );
       if (hwRes.rows.length > 0) {
         const hw = hwRes.rows[0];
-        const rawE = parseFloat(hw.energy || 0);
-        latestHwEnergy = rawE > 1000 ? +(rawE / 1000).toFixed(3) : rawE;
         const rawV = parseFloat(hw.voltage || 0);
-        latestHwVoltage = rawV > 1000 ? +(rawV / 10).toFixed(1) : rawV;
-        const rawP = parseFloat(hw.power || 0);
-        latestHwPower = rawP > 50 ? +(rawP / 1000).toFixed(2) : rawP;
-        const rawC = parseFloat(hw.current || 0);
-        latestHwCurrent = rawC > 100 ? +(rawC / 100).toFixed(2) : rawC;
+        const rawC = parseFloat(hw.current || 0); // comes in mA
+        const rawP = parseFloat(hw.power || 0);   // comes in mW
+        const rawE = parseFloat(hw.energy || 0);  // comes in mWhr
+
+        // Conversions requested by user:
+        // 1. Voltage: divide by 10 to get real value (V)
+        latestHwVoltage = +(rawV / 10.0).toFixed(1);
+
+        // 2. Current: comes in mA -> convert to Amperes (A)
+        latestHwCurrent = +(rawC / 1000.0).toFixed(3);
+        latestHwCurrentMa = rawC;
+
+        // 3. Power: comes in as mW -> convert to Watts (W) and Kilowatts (kW)
+        latestHwPowerW = +(rawP / 1000.0).toFixed(2);
+        latestHwPower = +(rawP / 1000000.0).toFixed(4);
+        latestHwPowerMw = rawP;
+
+        // 4. Energy: comes in as mWhr -> convert to Wh and kWh
+        latestHwEnergyWh = +(rawE / 1000.0).toFixed(2);
+        latestHwEnergy = +(rawE / 1000000.0).toFixed(4);
+        latestHwEnergyMwh = rawE;
+
         hwTimestamp = hw.meter_timestamp;
         hwReceivedAt = hw.received_at;
       }
@@ -60,13 +80,19 @@ async function syncMeterTelemetryAndLogs(meterId, meterNum, dailyAvg) {
       [meterId]
     );
     const logCount = parseInt(countRes.rows[0]?.count || 0, 10);
+    const isMicroScale = latestHwEnergy > 0 && latestHwEnergy < 0.1;
 
     if (logCount === 0) {
       // Seed 7 days of realistic baseline data ending today
       const currentHour = new Date().getHours();
       for (let i = 6; i >= 1; i--) {
         const variance = Math.sin((7 - i) * 0.8) * 0.6;
-        const val = +(Math.max(1.5, baseDaily + variance)).toFixed(2);
+        let val;
+        if (isMicroScale) {
+          val = +(Math.max(0.001, latestHwEnergy * (0.85 + Math.sin(i) * 0.15))).toFixed(4);
+        } else {
+          val = +(Math.max(1.5, baseDaily + variance)).toFixed(2);
+        }
         await pool.query(
           `INSERT INTO consumption_logs (meter_id, reading_date, reading_hour, consumption, energy_export)
            VALUES ($1, CURRENT_DATE - ($2 || ' days')::INTERVAL, 12, $3, 0)`,
@@ -74,7 +100,7 @@ async function syncMeterTelemetryAndLogs(meterId, meterNum, dailyAvg) {
         );
       }
       // Today (i = 0): use live hardware reading if available, or day baseline
-      const todayVal = latestHwEnergy > 0 ? latestHwEnergy : +(baseDaily * 0.45).toFixed(2);
+      const todayVal = latestHwEnergy > 0 ? latestHwEnergy : (isMicroScale ? 0.002 : +(baseDaily * 0.45).toFixed(2));
       await pool.query(
         `INSERT INTO consumption_logs (meter_id, reading_date, reading_hour, consumption, energy_export)
          VALUES ($1, CURRENT_DATE, $2, $3, 0)`,
@@ -97,7 +123,7 @@ async function syncMeterTelemetryAndLogs(meterId, meterNum, dailyAvg) {
         );
       } else {
         const currentLogged = parseFloat(todayCheck.rows[0].consumption || 0);
-        if (latestHwEnergy > currentLogged) {
+        if (latestHwEnergy > 0 && Math.abs(currentLogged - latestHwEnergy) > 0.0001) {
           await pool.query(
             `UPDATE consumption_logs SET consumption = $1 WHERE id = $2`,
             [latestHwEnergy, todayCheck.rows[0].id]
@@ -109,8 +135,13 @@ async function syncMeterTelemetryAndLogs(meterId, meterNum, dailyAvg) {
     return {
       voltage: latestHwVoltage || 230.0,
       current: latestHwCurrent || 0.0,
-      power: latestHwPower || 0.0,
-      energy: latestHwEnergy || 0.0,
+      currentMa: latestHwCurrentMa || 0.0,
+      power: latestHwPower || 0.0,        // in kW
+      powerW: latestHwPowerW || 0.0,      // in Watts
+      powerMw: latestHwPowerMw || 0.0,    // in mW
+      energy: latestHwEnergy || 0.0,      // in kWh
+      energyWh: latestHwEnergyWh || 0.0,  // in Wh
+      energyMwh: latestHwEnergyMwh || 0.0,// in mWhr
       meterTimestamp: hwTimestamp,
       receivedAt: hwReceivedAt
     };
@@ -446,9 +477,13 @@ const getMeterConsumption = async (req, res) => {
     ]);
 
     const agg = aggregatesRes.rows[0] || {};
-    let currentPower = (isMeterActive && latestLogRes.rows.length > 0) ? parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2) : '0.00';
-    if ((currentPower === '0.00' || parseFloat(currentPower) === 0) && liveTelemetry && liveTelemetry.power > 0) {
-      currentPower = liveTelemetry.power.toFixed(2);
+    let currentPower = '0.00';
+    if (isMeterActive && liveTelemetry && liveTelemetry.power > 0) {
+      currentPower = liveTelemetry.power < 0.01 
+        ? liveTelemetry.power.toFixed(4) 
+        : liveTelemetry.power.toFixed(2);
+    } else if (isMeterActive && latestLogRes.rows.length > 0) {
+      currentPower = parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2);
     }
     const currentExport = (isMeterActive && latestLogRes.rows.length > 0) ? parseFloat(latestLogRes.rows[0].energy_export || 0).toFixed(2) : '0.00';
 
@@ -518,7 +553,8 @@ const getMeterConsumption = async (req, res) => {
       }
     }
 
-    const todayVal = parseFloat(agg.today_import || (liveTelemetry?.energy || 0)).toFixed(1);
+    const rawToday = parseFloat(agg.today_import != null ? agg.today_import : (liveTelemetry?.energy || 0));
+    const todayVal = (rawToday > 0 && rawToday < 0.1) ? rawToday.toFixed(4) : rawToday.toFixed(1);
     const thisWeekVal = parseFloat(agg.week_import || todayVal).toFixed(1);
     const thisMonthVal = parseFloat(agg.month_import || todayVal).toFixed(1);
 
@@ -1313,7 +1349,9 @@ const getAllMetersForStaff = async (req, res) => {
         hw.hardware_voltage,
         hw.hardware_current,
         hw.hardware_power,
+        hw.hardware_power_w,
         hw.hardware_energy,
+        hw.hardware_energy_wh,
         hw.hardware_meter_timestamp,
         hw.hardware_last_seen,
         COALESCE(hw.telemetry_readings_count, 0) AS telemetry_readings_count,
@@ -1325,10 +1363,12 @@ const getAllMetersForStaff = async (req, res) => {
       LEFT JOIN (
         SELECT 
           r.meter_id,
-          r.voltage AS hardware_voltage,
-          r.current AS hardware_current,
-          r.power AS hardware_power,
-          r.energy AS hardware_energy,
+          ROUND((r.voltage / 10.0)::numeric, 1) AS hardware_voltage,
+          ROUND((r.current / 1000.0)::numeric, 3) AS hardware_current,
+          ROUND((r.power / 1000000.0)::numeric, 4) AS hardware_power,
+          ROUND((r.power / 1000.0)::numeric, 2) AS hardware_power_w,
+          ROUND((r.energy / 1000000.0)::numeric, 4) AS hardware_energy,
+          ROUND((r.energy / 1000.0)::numeric, 2) AS hardware_energy_wh,
           r.meter_timestamp AS hardware_meter_timestamp,
           r.received_at AS hardware_last_seen,
           rc.readings_count AS telemetry_readings_count
@@ -1982,10 +2022,13 @@ const getUnregisteredHardwareMetersForStaff = async (req, res) => {
         (m.user_id IS NOT NULL) AS is_claimed,
         COUNT(mr.id)::int AS total_telemetry_records,
         MAX(mr.received_at) AS last_seen,
-        latest.voltage AS latest_voltage,
-        latest.current AS latest_current,
-        latest.power AS latest_power,
-        latest.energy AS latest_energy,
+        latest.voltage,
+        ROUND((latest.voltage / 10.0)::numeric, 1) AS latest_voltage,
+        ROUND((latest.current / 1000.0)::numeric, 3) AS latest_current,
+        ROUND((latest.power / 1000000.0)::numeric, 4) AS latest_power,
+        ROUND((latest.power / 1000.0)::numeric, 2) AS latest_power_w,
+        ROUND((latest.energy / 1000000.0)::numeric, 4) AS latest_energy,
+        ROUND((latest.energy / 1000.0)::numeric, 2) AS latest_energy_wh,
         latest.meter_timestamp AS latest_timestamp
       FROM meter_readings mr
       LEFT JOIN meters m ON UPPER(m.meter_number) = UPPER(mr.meter_id)

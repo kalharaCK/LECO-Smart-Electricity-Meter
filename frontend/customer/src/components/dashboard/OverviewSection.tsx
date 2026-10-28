@@ -527,10 +527,28 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
     ? Number(mlPrediction.confidenceScore) 
     : null
 
-  // Active load strictly formatted: 0.00 kW if disconnected or no live reading today
-  const activeLoadDisplay = (isDisconnected || !consumption || Number(consumption.currentPower || 0) <= 0)
+  // Active load handling: adapt between Watts (W) and Kilowatts (kW) for precision
+  const livePowerW = consumption?.liveTelemetry?.powerW != null ? Number(consumption.liveTelemetry.powerW) : null
+  const currentPowerNum = consumption?.currentPower ? Number(consumption.currentPower) : 0
+  const isMicroLoad = !isDisconnected && (
+    (livePowerW != null && livePowerW > 0 && livePowerW < 100) ||
+    (currentPowerNum > 0 && currentPowerNum < 0.05)
+  )
+  const activeLoadDisplay = isDisconnected || (!consumption && livePowerW == null) || (currentPowerNum <= 0 && (!livePowerW || livePowerW <= 0))
     ? "0.00"
-    : Number(consumption.currentPower).toFixed(2)
+    : isMicroLoad
+      ? (livePowerW != null && livePowerW > 0 ? livePowerW.toFixed(1) : (currentPowerNum * 1000).toFixed(1))
+      : currentPowerNum.toFixed(2)
+  const activeLoadUnit = isMicroLoad ? "W" : "kW"
+
+  // Today's consumption handling: adapt between Watt-hours (Wh) and Kilowatt-hours (kWh)
+  const liveEnergyWh = consumption?.liveTelemetry?.energyWh != null ? Number(consumption.liveTelemetry.energyWh) : null
+  const todayRawKwh = consumption ? Number(consumption.today || 0) : 0
+  const isMicroEnergy = todayRawKwh > 0 && todayRawKwh < 0.1
+  const todayEnergyDisplay = isMicroEnergy
+    ? (liveEnergyWh != null && liveEnergyWh > 0 ? liveEnergyWh.toFixed(1) : (todayRawKwh * 1000).toFixed(1))
+    : todayRawKwh.toFixed(1)
+  const todayEnergyUnit = isMicroEnergy ? "Wh" : "kWh"
 
   // Budget calculations for everyday consumer
   const monthlyBudget = userSettings.monthly_budget_lkr || 3000
@@ -914,7 +932,7 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
                 </div>
 
                 <p className="text-xs text-white/60 mt-3 leading-relaxed">
-                  {t.overview.todayUsageTitle}: <strong className="text-white">{consumption ? Number(consumption.today || 0).toFixed(1) : "0.0"} kWh</strong> used today.
+                  {t.overview.todayUsageTitle}: <strong className="text-white">{todayEnergyDisplay} {todayEnergyUnit}</strong> used today.
                 </p>
               </div>
 
@@ -1332,9 +1350,9 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
                 <span className="text-[11px] text-white/50 block">{t.overview.todayUsageTitle}</span>
                 <div className="flex items-baseline gap-1 mt-0.5">
                   <span className="text-2xl font-black text-white">
-                    {consumption ? Number(consumption.today || 0).toFixed(1) : "0.0"}
+                    {todayEnergyDisplay}
                   </span>
-                  <span className="text-xs font-semibold text-white/50">kWh</span>
+                  <span className="text-xs font-semibold text-white/50">{todayEnergyUnit}</span>
                 </div>
               </div>
 
@@ -1344,7 +1362,7 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
                   <span className="text-2xl font-black text-blue-400">
                     {activeLoadDisplay}
                   </span>
-                  <span className="text-xs font-semibold text-blue-400/60">kW</span>
+                  <span className="text-xs font-semibold text-blue-400/60">{activeLoadUnit}</span>
                 </div>
               </div>
             </div>
@@ -1467,6 +1485,7 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
           <PeakHoursAdvisoryWidget />
           <PowerLoadGauge 
             currentPowerKw={Number(consumption?.currentPower ?? 0)}
+            currentPowerW={consumption?.liveTelemetry?.powerW != null ? Number(consumption.liveTelemetry.powerW) : undefined}
             contractedDemandKw={Number(meter?.contracted_demand || 5.0)}
             voltage={Number(consumption?.liveTelemetry?.voltage || consumption?.voltage || 230.4)}
             frequency={Number(consumption?.frequency || 50.0)}
