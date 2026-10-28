@@ -174,113 +174,105 @@ function buildOtpEmailHtml({ otp, purpose, recipientName, expiresMinutes = 10, l
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>${info.title}</title>
   <style>
     body {
       margin: 0;
       padding: 0;
-      background-color: #0b132b;
+      background-color: #f4f6f8;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: #1e293b;
       -webkit-font-smoothing: antialiased;
+      -webkit-text-size-adjust: 100%;
+    }
+    table {
+      border-collapse: collapse;
     }
     .wrapper {
       width: 100%;
-      background-color: #0b132b;
-      padding: 40px 15px;
+      background-color: #f4f6f8;
+      padding: 36px 12px;
       box-sizing: border-box;
     }
     .container {
-      max-width: 580px;
+      max-width: 560px;
       margin: 0 auto;
-      background: #ffffff;
-      border-radius: 16px;
+      background-color: #ffffff;
+      border-radius: 12px;
       overflow: hidden;
-      border: 1px solid #1e293b;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
     }
     .gold-accent-bar {
-      height: 5px;
-      background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%);
+      height: 4px;
+      background: linear-gradient(90deg, #eab308 0%, #facc15 50%, #eab308 100%);
       width: 100%;
     }
     .header {
-      background: linear-gradient(135deg, #071527 0%, #0d2545 60%, #071527 100%);
-      padding: 32px 24px 28px 24px;
+      background-color: #ffffff;
+      padding: 32px 28px 20px 28px;
       text-align: center;
-      color: #ffffff;
-    }
-    .logo-container {
-      width: 72px;
-      height: 72px;
-      margin: 0 auto 14px auto;
-      background: #ffffff;
-      border-radius: 50%;
-      padding: 3px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-      display: inline-block;
+      border-bottom: 1px solid #f1f5f9;
     }
     .logo-img {
-      width: 72px;
-      height: 72px;
-      border-radius: 50%;
-      display: block;
+      width: 70px;
+      height: 70px;
+      border-radius: 12px;
+      display: inline-block;
       object-fit: contain;
+      vertical-align: middle;
     }
     .header-logo-text {
-      font-size: 21px;
+      font-size: 19px;
       font-weight: 800;
-      letter-spacing: 2px;
-      color: #ffffff;
-      margin: 0;
-      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #0f172a;
+      margin: 12px 0 0 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
     }
     .header-subtext {
-      font-size: 11px;
-      color: #fbbf24;
-      font-weight: 700;
-      margin-top: 6px;
-      letter-spacing: 1.2px;
-      text-transform: uppercase;
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 500;
+      margin: 4px 0 0 0;
     }
     .content {
-      padding: 36px 32px;
-      background: #ffffff;
+      padding: 32px 28px;
+      background-color: #ffffff;
     }
     .badge {
       display: inline-block;
-      padding: 5px 14px;
+      padding: 4px 12px;
       background-color: #eff6ff;
       color: #1d4ed8;
       border: 1px solid #bfdbfe;
-      border-radius: 20px;
+      border-radius: 16px;
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 20px;
+      letter-spacing: 0.5px;
+      margin-bottom: 18px;
     }
     .greeting {
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 700;
       color: #0f172a;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
     }
     .description {
       font-size: 14px;
-      line-height: 1.65;
+      line-height: 1.6;
       color: #334155;
       margin: 0 0 24px 0;
     }
     .otp-card {
-      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-      border: 1.5px solid #cbd5e1;
+      background-color: #f8fafc;
+      border: 1.5px solid #e2e8f0;
       border-radius: 12px;
-      padding: 24px 20px;
+      padding: 24px 16px;
       text-align: center;
       margin-bottom: 24px;
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
     }
     .otp-label {
       font-size: 11px;
@@ -288,32 +280,32 @@ function buildOtpEmailHtml({ otp, purpose, recipientName, expiresMinutes = 10, l
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 1.5px;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
     .otp-code {
-      font-family: 'Courier New', Courier, Consolas, monospace;
-      font-size: 38px;
+      font-family: 'SF Pro Mono', Menlo, Consolas, Monaco, monospace;
+      font-size: 36px;
       font-weight: 800;
-      letter-spacing: 10px;
-      color: #0c2340;
+      letter-spacing: 8px;
+      color: #0f172a;
       background-color: #ffffff;
-      padding: 14px 24px 14px 34px;
-      border: 2px dashed #f59e0b;
+      padding: 12px 28px;
+      border: 2px solid #eab308;
       border-radius: 10px;
       display: inline-block;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-      margin: 4px 0;
+      margin: 2px 0;
     }
     .otp-expiry {
       font-size: 12px;
       color: #b91c1c;
-      font-weight: 700;
+      font-weight: 600;
       margin-top: 12px;
     }
     .security-notice {
       background-color: #fffbeb;
       border-left: 4px solid #f59e0b;
-      padding: 14px 18px;
+      padding: 14px 16px;
       border-radius: 0 8px 8px 0;
       margin-bottom: 24px;
     }
@@ -324,86 +316,116 @@ function buildOtpEmailHtml({ otp, purpose, recipientName, expiresMinutes = 10, l
       line-height: 1.55;
     }
     .help-section {
-      border-top: 1px solid #e2e8f0;
-      padding-top: 20px;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 18px;
       font-size: 12px;
       color: #64748b;
       line-height: 1.6;
     }
     .footer {
-      background: #06111f;
-      border-top: 3px solid #f59e0b;
+      background-color: #f8fafc;
+      border-top: 1px solid #e2e8f0;
       padding: 24px 28px;
       text-align: center;
       font-size: 11px;
-      color: #94a3b8;
+      color: #64748b;
       line-height: 1.6;
     }
     .footer-title {
-      font-weight: 800;
-      color: #f8fafc;
+      font-weight: 700;
+      color: #0f172a;
       font-size: 12px;
       margin-bottom: 6px;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
     }
     .footer-hotline {
-      color: #cbd5e1;
-      margin-bottom: 10px;
+      color: #475569;
+      margin-bottom: 8px;
     }
     .footer-hotline strong {
-      color: #fbbf24;
+      color: #0f172a;
     }
     .footer-legal {
-      color: #64748b;
+      color: #94a3b8;
       font-size: 10px;
-      margin-top: 8px;
+      margin-top: 6px;
+    }
+    @media only screen and (max-width: 600px) {
+      .wrapper {
+        padding: 12px 8px !important;
+      }
+      .container {
+        width: 100% !important;
+        border-radius: 8px !important;
+      }
+      .header {
+        padding: 24px 16px 16px 16px !important;
+      }
+      .content {
+        padding: 24px 16px !important;
+      }
+      .otp-card {
+        padding: 20px 12px !important;
+      }
+      .otp-code {
+        font-size: 28px !important;
+        letter-spacing: 6px !important;
+        padding: 10px 16px !important;
+      }
+      .footer {
+        padding: 20px 16px !important;
+      }
     }
   </style>
 </head>
 <body>
   <div class="wrapper">
-    <div class="container">
-      <div class="gold-accent-bar"></div>
-      <div class="header">
-        <div class="logo-container">
-          <img src="${logoSrc}" alt="LECO Logo" class="logo-img" width="72" height="72" />
-        </div>
-        <p class="header-logo-text">LECO Smart Electricity</p>
-        <p class="header-subtext">Lanka Electricity Company (Pvt) Ltd &bull; AMI Prepayment Portal</p>
-      </div>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr>
+        <td align="center">
+          <div class="container">
+            <div class="gold-accent-bar"></div>
+            <div class="header">
+              <div style="text-align: center;">
+                <img src="${logoSrc}" alt="LECO Logo" class="logo-img" width="70" height="70" />
+              </div>
+              <p class="header-logo-text">LECO Smart Electricity</p>
+              <p class="header-subtext">Lanka Electricity Company (Pvt) Ltd &bull; Customer Self Care</p>
+            </div>
 
-      <div class="content">
-        <span class="badge">${info.badge}</span>
-        <div class="greeting">${greeting}</div>
-        <p class="description">${info.description}</p>
+            <div class="content">
+              <span class="badge">${info.badge}</span>
+              <div class="greeting">${greeting}</div>
+              <p class="description">${info.description}</p>
 
-        <div class="otp-card">
-          <div class="otp-label">One-Time Verification Code</div>
-          <div class="otp-code">${otp}</div>
-          <div class="otp-expiry">Expires in ${expiresMinutes} minutes &bull; Single-use security code</div>
-        </div>
+              <div class="otp-card">
+                <div class="otp-label">One-Time Verification Code</div>
+                <div class="otp-code">${otp}</div>
+                <div class="otp-expiry">Expires in ${expiresMinutes} minutes &bull; Single-use security code</div>
+              </div>
 
-        <div class="security-notice">
-          <p><strong style="color: #78350f;">Security Warning:</strong> Never share this code with anyone. LECO officers, customer care representatives, and field technicians will never ask for your verification code or account password.</p>
-        </div>
+              <div class="security-notice">
+                <p><strong style="color: #78350f;">Security Notice:</strong> Never share this code with anyone. LECO staff or customer support will never ask for your verification code or account password.</p>
+              </div>
 
-        <div class="help-section">
-          If you did not initiate this request, someone may have entered your email address by mistake. Please disregard this message or contact LECO 24/7 Helpline at <strong style="color: #0c2340;">1987</strong> immediately.
-        </div>
-      </div>
+              <div class="help-section">
+                If you did not initiate this request, someone may have entered your email address by mistake. Please disregard this message or contact LECO 24/7 Helpline at <strong style="color: #0f172a;">1987</strong>.
+              </div>
+            </div>
 
-      <div class="footer">
-        <div class="footer-title">Lanka Electricity Company (Private) Limited</div>
-        <div class="footer-hotline">
-          24/7 Breakdown Hotline: <strong>1987</strong> &bull; Customer Care: <strong>1910</strong> &bull; Portal: <a href="https://leco.lk" style="color: #38bdf8; text-decoration: none; font-weight: 600;">www.leco.lk</a>
-        </div>
-        <div class="footer-legal">
-          Head Office: No. 411, Galle Road, Colombo 03, Sri Lanka<br>
-          This is an automated system notification from LECO AMI Smart Infrastructure. Please do not reply directly to this email.
-        </div>
-      </div>
-    </div>
+            <div class="footer">
+              <div class="footer-title">Lanka Electricity Company (Private) Limited</div>
+              <div class="footer-hotline">
+                24/7 Breakdown Hotline: <strong>1987</strong> &bull; Customer Care: <strong>1910</strong> &bull; Portal: <a href="https://leco.lk" style="color: #0284c7; text-decoration: none; font-weight: 600;">www.leco.lk</a>
+              </div>
+              <div class="footer-legal">
+                Head Office: No. 411, Galle Road, Colombo 03, Sri Lanka<br>
+                This is an automated system notification from LECO AMI Smart Infrastructure. Please do not reply directly to this email.
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
   </div>
 </body>
 </html>
@@ -425,156 +447,199 @@ function buildTestDiagnosticEmailHtml({ creds, timestamp, logoSrc = `cid:${LOGO_
     body {
       margin: 0;
       padding: 0;
-      background-color: #0b132b;
+      background-color: #f4f6f8;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: #1e293b;
       -webkit-font-smoothing: antialiased;
     }
     .wrapper {
       width: 100%;
-      background-color: #0b132b;
-      padding: 40px 15px;
+      background-color: #f4f6f8;
+      padding: 32px 12px;
       box-sizing: border-box;
     }
     .container {
       max-width: 580px;
       margin: 0 auto;
-      background: #ffffff;
-      border-radius: 16px;
+      background-color: #ffffff;
+      border-radius: 12px;
       overflow: hidden;
-      border: 1px solid #1e293b;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
     }
     .gold-accent-bar {
-      height: 5px;
-      background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%);
+      height: 4px;
+      background: linear-gradient(90deg, #eab308 0%, #facc15 50%, #eab308 100%);
       width: 100%;
     }
     .header {
-      background: linear-gradient(135deg, #071527 0%, #0d2545 60%, #071527 100%);
-      padding: 32px 24px 28px 24px;
+      background-color: #ffffff;
+      padding: 32px 28px 20px 28px;
       text-align: center;
-      color: #ffffff;
-    }
-    .logo-container {
-      width: 72px;
-      height: 72px;
-      margin: 0 auto 14px auto;
-      background: #ffffff;
-      border-radius: 50%;
-      padding: 3px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-      display: inline-block;
+      border-bottom: 1px solid #f1f5f9;
     }
     .logo-img {
-      width: 72px;
-      height: 72px;
-      border-radius: 50%;
-      display: block;
+      width: 70px;
+      height: 70px;
+      border-radius: 12px;
+      display: inline-block;
       object-fit: contain;
+      vertical-align: middle;
     }
     .header-logo-text {
-      font-size: 21px;
+      font-size: 19px;
       font-weight: 800;
-      letter-spacing: 2px;
-      color: #ffffff;
-      margin: 0;
-      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #0f172a;
+      margin: 12px 0 0 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
     }
     .header-subtext {
-      font-size: 11px;
-      color: #fbbf24;
-      font-weight: 700;
-      margin-top: 6px;
-      letter-spacing: 1.2px;
-      text-transform: uppercase;
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 500;
+      margin: 4px 0 0 0;
     }
     .content {
-      padding: 36px 32px;
-      background: #ffffff;
+      padding: 32px 28px;
+      background-color: #ffffff;
     }
     .badge {
       display: inline-block;
-      padding: 5px 14px;
+      padding: 4px 12px;
       background-color: #f0fdf4;
       color: #15803d;
       border: 1px solid #bbf7d0;
-      border-radius: 20px;
+      border-radius: 16px;
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 20px;
+      letter-spacing: 0.5px;
+      margin-bottom: 18px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+    .description {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #334155;
+      margin: 0 0 20px 0;
     }
     .table-card {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background-color: #f8fafc;
+      border: 1.5px solid #e2e8f0;
       border-radius: 12px;
       padding: 16px 20px;
       margin: 20px 0;
     }
     .footer {
-      background: #06111f;
-      border-top: 3px solid #f59e0b;
+      background-color: #f8fafc;
+      border-top: 1px solid #e2e8f0;
       padding: 24px 28px;
       text-align: center;
       font-size: 11px;
-      color: #94a3b8;
+      color: #64748b;
       line-height: 1.6;
+    }
+    .footer-title {
+      font-weight: 700;
+      color: #0f172a;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .footer-sub {
+      color: #475569;
+      margin-bottom: 8px;
+    }
+    .footer-legal {
+      color: #94a3b8;
+      font-size: 10px;
+      margin-top: 6px;
+    }
+    @media only screen and (max-width: 600px) {
+      .wrapper {
+        padding: 12px 8px !important;
+      }
+      .container {
+        width: 100% !important;
+        border-radius: 8px !important;
+      }
+      .header {
+        padding: 24px 16px 16px 16px !important;
+      }
+      .content {
+        padding: 24px 16px !important;
+      }
+      .table-card {
+        padding: 14px 12px !important;
+      }
+      .footer {
+        padding: 20px 16px !important;
+      }
     }
   </style>
 </head>
 <body>
   <div class="wrapper">
-    <div class="container">
-      <div class="gold-accent-bar"></div>
-      <div class="header">
-        <div class="logo-container">
-          <img src="${logoSrc}" alt="LECO Logo" class="logo-img" width="72" height="72" />
-        </div>
-        <p class="header-logo-text">LECO Smart Electricity</p>
-        <p class="header-subtext">Lanka Electricity Company (Pvt) Ltd &bull; Operations Console</p>
-      </div>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr>
+        <td align="center">
+          <div class="container">
+            <div class="gold-accent-bar"></div>
+            <div class="header">
+              <div style="text-align: center;">
+                <img src="${logoSrc}" alt="LECO Logo" class="logo-img" width="70" height="70" />
+              </div>
+              <p class="header-logo-text">LECO Smart Electricity</p>
+              <p class="header-subtext">Lanka Electricity Company (Pvt) Ltd &bull; Operations Console</p>
+            </div>
 
-      <div class="content">
-        <span class="badge">SMTP Connectivity Verified</span>
-        <div style="font-size: 17px; font-weight: 700; color: #0f172a; margin-bottom: 10px;">System Diagnostic Verification Email</div>
-        <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 16px 0;">
-          This live diagnostic email was successfully dispatched from the LECO Staff Operations Management Console. Your SMTP email gateway credentials and secure transmission channels are functioning as expected.
-        </p>
+            <div class="content">
+              <span class="badge">SMTP Connectivity Verified</span>
+              <div class="section-title">System Diagnostic Verification Email</div>
+              <p class="description">
+                This live diagnostic email was successfully dispatched from the LECO Staff Operations Management Console. Your SMTP email gateway credentials and secure transmission channels are functioning as expected.
+              </p>
 
-        <div class="table-card">
-          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-            <tr>
-              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600;">Diagnostic Status</td>
-              <td align="right" style="padding: 8px 0;"><span style="color: #16a34a; background: #dcfce7; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Connected</span></td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #f1f5f9;">Sender Account</td>
-              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #f1f5f9;">${creds.user}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #f1f5f9;">SMTP Host</td>
-              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #f1f5f9;">${creds.host}:${creds.port}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #f1f5f9;">Credential Source</td>
-              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #f1f5f9; text-transform: capitalize;">${creds.source}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #f1f5f9;">Dispatched At</td>
-              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #f1f5f9;">${timestamp}</td>
-            </tr>
-          </table>
-        </div>
-      </div>
+              <div class="table-card">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600;">Diagnostic Status</td>
+                    <td align="right" style="padding: 8px 0;"><span style="color: #15803d; background: #dcfce7; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Connected</span></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #e2e8f0;">Sender Account</td>
+                    <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0;">${creds.user}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #e2e8f0;">SMTP Host</td>
+                    <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0;">${creds.host}:${creds.port}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #e2e8f0;">Credential Source</td>
+                    <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0; text-transform: capitalize;">${creds.source}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #e2e8f0;">Dispatched At</td>
+                    <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0;">${timestamp}</td>
+                  </tr>
+                </table>
+              </div>
+            </div>
 
-      <div class="footer">
-        <div style="font-weight: 800; color: #f8fafc; font-size: 12px; margin-bottom: 6px; letter-spacing: 0.8px; text-transform: uppercase;">Lanka Electricity Company (Private) Limited</div>
-        <div style="color: #cbd5e1; margin-bottom: 8px;">Staff Operations &bull; Central Telemetry Management</div>
-        <div style="color: #64748b; font-size: 10px;">Automated internal diagnostics. Confidential.</div>
-      </div>
-    </div>
+            <div class="footer">
+              <div class="footer-title">Lanka Electricity Company (Private) Limited</div>
+              <div class="footer-sub">Staff Operations &bull; Central Telemetry Management</div>
+              <div class="footer-legal">Automated internal diagnostics. Confidential.</div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
   </div>
 </body>
 </html>
@@ -596,171 +661,205 @@ function buildCustomerWelcomeEmailHtml({ fullName, email, nic, meter, logoSrc = 
     body {
       margin: 0;
       padding: 0;
-      background-color: #0b132b;
+      background-color: #f4f6f8;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: #1e293b;
       -webkit-font-smoothing: antialiased;
     }
     .wrapper {
       width: 100%;
-      background-color: #0b132b;
-      padding: 40px 15px;
+      background-color: #f4f6f8;
+      padding: 32px 12px;
       box-sizing: border-box;
     }
     .container {
       max-width: 580px;
       margin: 0 auto;
-      background: #ffffff;
-      border-radius: 16px;
+      background-color: #ffffff;
+      border-radius: 12px;
       overflow: hidden;
-      border: 1px solid #1e293b;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
     }
     .gold-accent-bar {
-      height: 5px;
-      background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%);
+      height: 4px;
+      background: linear-gradient(90deg, #eab308 0%, #facc15 50%, #eab308 100%);
       width: 100%;
     }
     .header {
-      background: linear-gradient(135deg, #071527 0%, #0d2545 60%, #071527 100%);
-      padding: 32px 24px 28px 24px;
+      background-color: #ffffff;
+      padding: 32px 28px 20px 28px;
       text-align: center;
-      color: #ffffff;
-    }
-    .logo-container {
-      width: 72px;
-      height: 72px;
-      margin: 0 auto 14px auto;
-      background: #ffffff;
-      border-radius: 50%;
-      padding: 3px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-      display: inline-block;
+      border-bottom: 1px solid #f1f5f9;
     }
     .logo-img {
-      width: 72px;
-      height: 72px;
-      border-radius: 50%;
-      display: block;
+      width: 70px;
+      height: 70px;
+      border-radius: 12px;
+      display: inline-block;
       object-fit: contain;
+      vertical-align: middle;
     }
     .header-logo-text {
-      font-size: 21px;
+      font-size: 19px;
       font-weight: 800;
-      letter-spacing: 2px;
-      color: #ffffff;
-      margin: 0;
-      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #0f172a;
+      margin: 12px 0 0 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
     }
     .header-subtext {
-      font-size: 11px;
-      color: #fbbf24;
-      font-weight: 700;
-      margin-top: 6px;
-      letter-spacing: 1.2px;
-      text-transform: uppercase;
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 500;
+      margin: 4px 0 0 0;
     }
     .content {
-      padding: 36px 32px;
-      background: #ffffff;
+      padding: 32px 28px;
+      background-color: #ffffff;
     }
     .badge {
       display: inline-block;
-      padding: 5px 14px;
+      padding: 4px 12px;
       background-color: #eff6ff;
       color: #1d4ed8;
       border: 1px solid #bfdbfe;
-      border-radius: 20px;
+      border-radius: 16px;
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 20px;
+      letter-spacing: 0.5px;
+      margin-bottom: 18px;
     }
     .greeting {
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 700;
       color: #0f172a;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
     }
     .description {
       font-size: 14px;
-      line-height: 1.65;
+      line-height: 1.6;
       color: #334155;
       margin: 0 0 24px 0;
     }
     .info-card {
-      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-      border: 1.5px solid #cbd5e1;
+      background-color: #f8fafc;
+      border: 1.5px solid #e2e8f0;
       border-radius: 12px;
       padding: 16px 20px;
       margin-bottom: 24px;
     }
     .footer {
-      background: #06111f;
-      border-top: 3px solid #f59e0b;
+      background-color: #f8fafc;
+      border-top: 1px solid #e2e8f0;
       padding: 24px 28px;
       text-align: center;
       font-size: 11px;
-      color: #94a3b8;
+      color: #64748b;
       line-height: 1.6;
+    }
+    .footer-title {
+      font-weight: 700;
+      color: #0f172a;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .footer-hotline {
+      color: #475569;
+      margin-bottom: 8px;
+    }
+    .footer-hotline strong {
+      color: #0f172a;
+    }
+    .footer-legal {
+      color: #94a3b8;
+      font-size: 10px;
+      margin-top: 6px;
+    }
+    @media only screen and (max-width: 600px) {
+      .wrapper {
+        padding: 12px 8px !important;
+      }
+      .container {
+        width: 100% !important;
+        border-radius: 8px !important;
+      }
+      .header {
+        padding: 24px 16px 16px 16px !important;
+      }
+      .content {
+        padding: 24px 16px !important;
+      }
+      .info-card {
+        padding: 14px 12px !important;
+      }
+      .footer {
+        padding: 20px 16px !important;
+      }
     }
   </style>
 </head>
 <body>
   <div class="wrapper">
-    <div class="container">
-      <div class="gold-accent-bar"></div>
-      <div class="header">
-        <div class="logo-container">
-          <img src="${logoSrc}" alt="LECO Logo" class="logo-img" width="72" height="72" />
-        </div>
-        <p class="header-logo-text">LECO Smart Electricity</p>
-        <p class="header-subtext">Lanka Electricity Company (Pvt) Ltd &bull; AMI Prepayment Portal</p>
-      </div>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr>
+        <td align="center">
+          <div class="container">
+            <div class="gold-accent-bar"></div>
+            <div class="header">
+              <div style="text-align: center;">
+                <img src="${logoSrc}" alt="LECO Logo" class="logo-img" width="70" height="70" />
+              </div>
+              <p class="header-logo-text">LECO Smart Electricity</p>
+              <p class="header-subtext">Lanka Electricity Company (Pvt) Ltd &bull; Customer Self Care</p>
+            </div>
 
-      <div class="content">
-        <span class="badge">Customer Account Activated</span>
-        <div class="greeting">Dear ${fullName || 'Customer'},</div>
-        <p class="description">
-          Welcome to Lanka Electricity Company Smart Prepayment. Your customer profile has been registered in the LECO AMI Smart Metering Platform. You can now access your dashboard to view real-time energy usage, manage balances, and receive instant tariff alerts.
-        </p>
+            <div class="content">
+              <span class="badge">Customer Account Activated</span>
+              <div class="greeting">Dear ${fullName || 'Customer'},</div>
+              <p class="description">
+                Welcome to Lanka Electricity Company Smart Prepayment. Your customer profile has been registered in the LECO AMI Smart Metering Platform. You can now access your dashboard to view real-time energy usage, manage balances, and receive instant tariff alerts.
+              </p>
 
-        <div class="info-card">
-          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-            <tr>
-              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600;">Account Email</td>
-              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700;">${email}</td>
-            </tr>
-            ${nic ? `
-            <tr>
-              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #e2e8f0;">National Identity Card</td>
-              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0;">${nic}</td>
-            </tr>` : ''}
-            ${meter ? `
-            <tr>
-              <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #e2e8f0;">Assigned Smart Meter</td>
-              <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0;">${meter.meter_number} (${meter.account_number})</td>
-            </tr>` : ''}
-          </table>
-        </div>
+              <div class="info-card">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600;">Account Email</td>
+                    <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700;">${email}</td>
+                  </tr>
+                  ${nic ? `
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #e2e8f0;">National Identity Card</td>
+                    <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0;">${nic}</td>
+                  </tr>` : ''}
+                  ${meter ? `
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b; font-size: 13px; font-weight: 600; border-top: 1px solid #e2e8f0;">Assigned Smart Meter</td>
+                    <td align="right" style="padding: 8px 0; color: #0f172a; font-size: 13px; font-weight: 700; border-top: 1px solid #e2e8f0;">${meter.meter_number} (${meter.account_number})</td>
+                  </tr>` : ''}
+                </table>
+              </div>
 
-        <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; font-size: 12px; color: #64748b; line-height: 1.6;">
-          For security, please sign in to the LECO Customer Portal and customize your password and notification preferences. If you have any questions, our 24/7 team is available at <strong style="color: #0c2340;">1987</strong>.
-        </div>
-      </div>
+              <div style="border-top: 1px solid #f1f5f9; padding-top: 18px; font-size: 12px; color: #64748b; line-height: 1.6;">
+                For security, please sign in to the LECO Customer Portal and customize your password and notification preferences. If you have any questions, our 24/7 team is available at <strong style="color: #0f172a;">1987</strong>.
+              </div>
+            </div>
 
-      <div class="footer">
-        <div style="font-weight: 800; color: #f8fafc; font-size: 12px; margin-bottom: 6px; letter-spacing: 0.8px; text-transform: uppercase;">Lanka Electricity Company (Private) Limited</div>
-        <div style="color: #cbd5e1; margin-bottom: 10px;">
-          24/7 Breakdown Hotline: <strong style="color: #fbbf24;">1987</strong> &bull; Customer Care: <strong style="color: #fbbf24;">1910</strong> &bull; Portal: <a href="https://leco.lk" style="color: #38bdf8; text-decoration: none; font-weight: 600;">www.leco.lk</a>
-        </div>
-        <div style="color: #64748b; font-size: 10px; margin-top: 8px;">
-          Head Office: No. 411, Galle Road, Colombo 03, Sri Lanka<br>
-          This is an automated system notification from LECO AMI Smart Infrastructure. Please do not reply directly to this email.
-        </div>
-      </div>
-    </div>
+            <div class="footer">
+              <div class="footer-title">Lanka Electricity Company (Private) Limited</div>
+              <div class="footer-hotline">
+                24/7 Breakdown Hotline: <strong>1987</strong> &bull; Customer Care: <strong>1910</strong> &bull; Portal: <a href="https://leco.lk" style="color: #0284c7; text-decoration: none; font-weight: 600;">www.leco.lk</a>
+              </div>
+              <div class="footer-legal">
+                Head Office: No. 411, Galle Road, Colombo 03, Sri Lanka<br>
+                This is an automated system notification from LECO AMI Smart Infrastructure. Please do not reply directly to this email.
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
   </div>
 </body>
 </html>
