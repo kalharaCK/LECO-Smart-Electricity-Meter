@@ -1,5 +1,13 @@
 # LECO Smart Electricity Metering & Bidirectional Grid Analytics Platform
 
+[![Node.js](https://img.shields.io/badge/Node.js-v20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-19.0-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon%20Serverless-4169E1?logo=postgresql&logoColor=white)](https://neon.tech/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Build Status](https://img.shields.io/badge/Tests-158%2F158%20Passing-brightgreen)]()
+
 > An enterprise-grade, end-to-end Smart Prepaid Electricity Metering, Bidirectional Net-Metering, Adaptive Streaming Machine Learning, and Conversational AI Platform engineered for modern utility providers (Lanka Electricity Company - LECO) and domestic prosumers.
 
 ---
