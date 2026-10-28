@@ -182,8 +182,34 @@ graph TD
     API -->|Connection Pool| DB
     ML -->|Read Aggregates| DB
     AUTH --> SMS
-    AUTH --> SMTP
     API --> PAYHERE
+```
+
+### 3.1 Real-Time Telemetry and Ingestion Sequence Flow
+
+The following sequence details how high-cadence meter telemetry flows from smart IoT edge hardware through the core ingestion pipeline to live dashboards:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Meter as Smart AMI Meter (IoT)
+    participant Backend as Express REST API (:3000)
+    participant DB as Neon PostgreSQL
+    participant ML as ML Microservice (:8000)
+    participant WS as Socket.io Gateway
+    participant Portal as Customer & Staff Dashboards
+
+    Meter->>Backend: POST /api/telemetry (Active In/Out, V, I, PF)
+    Backend->>Backend: Verify PIN & Sanitize Payload
+    Backend->>DB: Atomic INSERT into telemetry table
+    par Real-Time Broadcast
+        Backend->>WS: Emit meter_telemetry_event
+        WS->>Portal: Push Live Pulse to Subscribed Rooms
+    and Adaptive ML Ingestion
+        Backend->>ML: POST /api/ml/telemetry/stream (Async)
+        ML->>ML: Kalman Filter Update & Dynamic Softmax Adjustment
+    end
+    Backend-->>Meter: 200 OK (Relay State, Tariff Group, Synced Clock)
 ```
 
 ---
