@@ -123,17 +123,44 @@ Built with **Python 3.15**, **FastAPI**, **River** (streaming machine learning),
 
 ---
 
-## Local Development & Testing
+## How to Run the ML Service Easily
+
+Choose any of the following convenient options:
+
+### Option 1: Quick Double-Click (Windows)
+Double-click `start-ml.bat` in the repository root or in the `ml/` folder.
+
+### Option 2: NPM Command
+From either the repository root or the `backend/` folder:
+```bash
+npm run ml
+```
+
+### Option 3: Python Launcher (Auto-detects .venv and packages)
+From repo root or `ml/` folder:
+```bash
+python run-ml.py
+# or
+python ml/main.py
+# or (inside ml folder)
+python main.py
+```
+
+### Option 4: PowerShell Script
+```powershell
+.\start-ml.ps1
+```
+
+---
+
+## Testing & Feed Tools
 
 ```bash
-# 1. Activate virtual environment
-cd ml
-.venv\Scripts\activate   # Windows
-source .venv/bin/activate # Linux/macOS
+# Run all 24 ML unit tests:
+npm run test:backend   # in backend
+.venv\Scripts\python.exe -m pytest -o pythonpath=. test   # in ml
 
-# 2. Run unit tests (24/24 tests)
-pytest -o pythonpath=. test
-
-# 3. Start development server
-uvicorn ml.main:app --host 0.0.0.0 --port 8000 --reload
+# Feed continuous 30-second live telemetry for a meter:
+npm run ml:feed -- --meter-id 19 --mode stream --interval 30
 ```
+

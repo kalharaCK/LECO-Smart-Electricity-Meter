@@ -1,0 +1,14 @@
+{
+  "name": "leco-smart-electricity-meter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LECO Smart Electricity Meter Portal & ML Forecasting Platform",
+  "scripts": {
+    "ml": "node scripts/run-ml.js",
+    "ml:feed": "node scripts/run-ml.js ml/feed_telemetry.py",
+    "backend": "npm --prefix backend run dev",
+    "customer": "npm --prefix frontend/customer run dev",
+    "staff": "npm --prefix frontend/staff run dev",
+    "test:backend": "npm --prefix backend test"
+  }
+}
