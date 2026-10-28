@@ -48,8 +48,8 @@ async function syncMeterTelemetryAndLogs(meterId, meterNum, dailyAvg) {
         const hw = hwRes.rows[0];
         const rawV = parseFloat(hw.voltage || 0);
         const rawC = parseFloat(hw.current || 0); // comes in mA
-        const rawP = parseFloat(hw.power || 0);   // comes in mW
-        const rawE = parseFloat(hw.energy || 0);  // comes in mWhr
+        const rawP = parseFloat(hw.power || 0);   // comes in W with one decimal point (e.g. 1408 = 140.8 W)
+        const rawE = parseFloat(hw.energy || 0);  // comes in Whr (Watt-hours)
 
         // Conversions requested by user:
         // 1. Voltage: divide by 10 to get real value (V)
@@ -59,15 +59,15 @@ async function syncMeterTelemetryAndLogs(meterId, meterNum, dailyAvg) {
         latestHwCurrent = +(rawC / 1000.0).toFixed(3);
         latestHwCurrentMa = rawC;
 
-        // 3. Power: comes in as mW -> convert to Watts (W) and Kilowatts (kW)
-        latestHwPowerW = +(rawP / 1000.0).toFixed(2);
-        latestHwPower = +(rawP / 1000000.0).toFixed(4);
-        latestHwPowerMw = rawP;
+        // 3. Power: comes in W with one decimal point -> divide by 10 to get Watts (W), and in Kilowatts (kW)
+        latestHwPowerW = +(rawP / 10.0).toFixed(1);
+        latestHwPower = +(latestHwPowerW / 1000.0).toFixed(4);
+        latestHwPowerMw = +(latestHwPowerW * 1000.0).toFixed(0);
 
-        // 4. Energy: comes in as mWhr -> convert to Wh and kWh
-        latestHwEnergyWh = +(rawE / 1000.0).toFixed(2);
-        latestHwEnergy = +(rawE / 1000000.0).toFixed(4);
-        latestHwEnergyMwh = rawE;
+        // 4. Energy: comes in Whr -> in Wh and convert to Kilowatt-hours (kWh)
+        latestHwEnergyWh = +rawE.toFixed(1);
+        latestHwEnergy = +(rawE / 1000.0).toFixed(3);
+        latestHwEnergyMwh = +(rawE * 1000.0).toFixed(0);
 
         hwTimestamp = hw.meter_timestamp;
         hwReceivedAt = hw.received_at;
@@ -164,7 +164,7 @@ async function broadcastMeterState(meterId) {
     );
     if (meterRow.rows.length === 0) return null;
     const meter = meterRow.rows[0];
-    await syncMeterTelemetryAndLogs(meterId, meter.meter_number, meter.daily_average);
+    const liveTelemetry = await syncMeterTelemetryAndLogs(meterId, meter.meter_number, meter.daily_average);
     const balance = parseFloat(meter.balance);
     const limit = parseFloat(meter.emergency_credit_limit || 500);
 
@@ -254,7 +254,12 @@ async function broadcastMeterState(meterId) {
        ORDER BY reading_hour DESC LIMIT 1`,
       [meterId]
     );
-    const livePower = (isMeterActive && latestLogRes.rows.length > 0) ? parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2) : '0.00';
+    let livePower = '0.00';
+    if (isMeterActive && liveTelemetry && liveTelemetry.power > 0) {
+      livePower = liveTelemetry.power < 0.01 ? liveTelemetry.power.toFixed(4) : liveTelemetry.power.toFixed(2);
+    } else if (isMeterActive && latestLogRes.rows.length > 0) {
+      livePower = parseFloat(latestLogRes.rows[0].consumption || 0).toFixed(2);
+    }
     const liveExport = (isMeterActive && latestLogRes.rows.length > 0) ? parseFloat(latestLogRes.rows[0].energy_export || 0).toFixed(2) : '0.00';
 
     const payload = {
@@ -271,13 +276,14 @@ async function broadcastMeterState(meterId) {
       exportThisWeek: parseFloat(weekResult.rows[0]?.total_export || 0).toFixed(1),
       currentPower: livePower,
       currentExport: liveExport,
+      liveTelemetry: liveTelemetry,
       chartData: chartResult.rows.map(r => ({
         date: r.date,
         import: parseFloat(r.import || 0),
         export: parseFloat(r.export || 0)
       })),
       prediction,
-      timestamp: new Date().toISOString()
+      timestamp: liveTelemetry?.receivedAt || new Date().toISOString()
     };
 
     emitMeterUpdate(meterId, payload);
@@ -554,7 +560,7 @@ const getMeterConsumption = async (req, res) => {
     }
 
     const rawToday = parseFloat(agg.today_import != null ? agg.today_import : (liveTelemetry?.energy || 0));
-    const todayVal = (rawToday > 0 && rawToday < 0.1) ? rawToday.toFixed(4) : rawToday.toFixed(1);
+    const todayVal = (rawToday > 0 && rawToday < 0.1) ? rawToday.toFixed(4) : (rawToday < 10 ? rawToday.toFixed(2) : rawToday.toFixed(1));
     const thisWeekVal = parseFloat(agg.week_import || todayVal).toFixed(1);
     const thisMonthVal = parseFloat(agg.month_import || todayVal).toFixed(1);
 
@@ -1365,10 +1371,10 @@ const getAllMetersForStaff = async (req, res) => {
           r.meter_id,
           ROUND((r.voltage / 10.0)::numeric, 1) AS hardware_voltage,
           ROUND((r.current / 1000.0)::numeric, 3) AS hardware_current,
-          ROUND((r.power / 1000000.0)::numeric, 4) AS hardware_power,
-          ROUND((r.power / 1000.0)::numeric, 2) AS hardware_power_w,
-          ROUND((r.energy / 1000000.0)::numeric, 4) AS hardware_energy,
-          ROUND((r.energy / 1000.0)::numeric, 2) AS hardware_energy_wh,
+          ROUND((r.power / 10000.0)::numeric, 4) AS hardware_power,
+          ROUND((r.power / 10.0)::numeric, 1) AS hardware_power_w,
+          ROUND((r.energy / 1000.0)::numeric, 3) AS hardware_energy,
+          ROUND((r.energy)::numeric, 1) AS hardware_energy_wh,
           r.meter_timestamp AS hardware_meter_timestamp,
           r.received_at AS hardware_last_seen,
           rc.readings_count AS telemetry_readings_count
@@ -2025,10 +2031,10 @@ const getUnregisteredHardwareMetersForStaff = async (req, res) => {
         latest.voltage,
         ROUND((latest.voltage / 10.0)::numeric, 1) AS latest_voltage,
         ROUND((latest.current / 1000.0)::numeric, 3) AS latest_current,
-        ROUND((latest.power / 1000000.0)::numeric, 4) AS latest_power,
-        ROUND((latest.power / 1000.0)::numeric, 2) AS latest_power_w,
-        ROUND((latest.energy / 1000000.0)::numeric, 4) AS latest_energy,
-        ROUND((latest.energy / 1000.0)::numeric, 2) AS latest_energy_wh,
+        ROUND((latest.power / 10000.0)::numeric, 4) AS latest_power,
+        ROUND((latest.power / 10.0)::numeric, 1) AS latest_power_w,
+        ROUND((latest.energy / 1000.0)::numeric, 3) AS latest_energy,
+        ROUND((latest.energy)::numeric, 1) AS latest_energy_wh,
         latest.meter_timestamp AS latest_timestamp
       FROM meter_readings mr
       LEFT JOIN meters m ON UPPER(m.meter_number) = UPPER(mr.meter_id)
