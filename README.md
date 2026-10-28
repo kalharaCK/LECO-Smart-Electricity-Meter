@@ -285,6 +285,19 @@ The following specification details the primary REST endpoints exposed by the Co
 | **ML Engine** | `POST` | `/api/ml/forecast/24h` | Backend Inter-service | Computes 24-hour progressive load forecast trajectory |
 | **ML Engine** | `POST` | `/api/ml/balance/depletion` | Backend Inter-service | Simulates non-linear PUCSL tariff wallet credit exhaustion |
 
+### 5.2 WebSocket Real-Time Events Catalog
+
+The Socket.io gateway establishes low-latency bidirectional pub/sub channels partitioned by cryptographically authenticated user sessions and meter rooms:
+
+| Event Name | Direction | Room Scope | Payload Attributes | Description |
+|---|---|---|---|---|
+| `join_meter` | Client $\to$ Server | `meter_{id}` | `{ meterId: number }` | Subscribes client session to real-time meter pulse events |
+| `leave_meter` | Client $\to$ Server | `meter_{id}` | `{ meterId: number }` | Unsubscribes client session when navigating away from dashboard |
+| `meter_update` | Server $\to$ Client | `meter_{id}`, `all_meters` | `balance, kwLoad, voltage, status` | Broadcasts immediate 30-45s telemetry and balance debits |
+| `notification` | Server $\to$ Client | `user_{id}` | `title, message, type, timestamp` | Pushes instant low-balance alerts, top-up receipts, and warnings |
+| `complaint_update` | Server $\to$ Client | `user_{id}`, `staff_room` | `ticketId, status, notes, updated_at` | Synchronizes complaint resolution stages between staff & consumer |
+| `settings_updated` | Server $\to$ Client | `staff_room` | `category, key, timestamp` | Live-notifies staff consoles when system API keys are modified |
+
 ---
 
 ## 6. Deep Dive: Machine Learning Forecasting Engine
