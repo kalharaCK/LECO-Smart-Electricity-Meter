@@ -340,148 +340,130 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
 
   const activeChartData = useMemo(() => {
     const raw7 = consumption?.chartData || []
+    const rawHourly = consumption?.hourlyChartData || []
+    const rawReadings = consumption?.recentReadings || []
     const isMl = Boolean(consumption?.prediction?.ml?.isAvailable)
     const mlBurn = isMl && consumption?.prediction?.ml?.dailyBurnRate ? Number(consumption.prediction.ml.dailyBurnRate) : null
-    const baseDaily = Number(meter?.daily_average) || (raw7.length > 0 ? (raw7.reduce((s: number, r: any) => s + Number(r.import || 0), 0) / raw7.length) : 4.0)
     const locale = language === "si" ? "si-LK" : language === "ta" ? "ta-LK" : "en-US"
 
+    // 1. Hourly View (1h): Strictly uses actual recorded interval readings for this meter
     if (selectedTimeframe === "1h") {
-      const now = new Date()
-      const intervals = []
-      const liveP = Number(consumption?.liveTelemetry?.power) || Number(consumption?.currentPower) || (baseDaily / 24)
-      const base5minKwh = Math.max(0.005, liveP * (5 / 60))
-
-      for (let i = 11; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 5 * 60 * 1000)
-        const timeLabel = d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })
-        const variance = Math.sin((11 - i) * 1.5) * (base5minKwh * 0.12)
-        const real = parseFloat(Math.max(0.002, base5minKwh + variance).toFixed(3))
-        const predicted = parseFloat(Math.max(0.002, base5minKwh * 0.98).toFixed(3))
-        intervals.push({
-          date: timeLabel,
-          import: real,
-          real: real,
-          predicted: predicted,
+      if (rawReadings.length > 0) {
+        const oneHourAgo = Date.now() - 60 * 60 * 1000
+        const recent = rawReadings.filter((r: any) => new Date(r.received_at).getTime() >= oneHourAgo)
+        const readingsToUse = recent.length > 0 ? recent : rawReadings.slice(-12)
+        return readingsToUse.map((r: any) => {
+          const d = new Date(r.received_at)
+          const timeLabel = d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })
+          const pKw = Number(r.power_kw != null ? r.power_kw : (Number(r.power_w || 0) / 1000.0))
+          return {
+            date: timeLabel,
+            import: parseFloat(pKw.toFixed(3)),
+            real: parseFloat(pKw.toFixed(3)),
+            predicted: mlBurn != null ? parseFloat((mlBurn / 24).toFixed(3)) : parseFloat(pKw.toFixed(3)),
+            export: 0
+          }
+        })
+      }
+      const liveP = Number(consumption?.liveTelemetry?.power) || Number(consumption?.currentPower) || 0
+      if (liveP > 0) {
+        return [{
+          date: "Now",
+          import: parseFloat(liveP.toFixed(3)),
+          real: parseFloat(liveP.toFixed(3)),
+          predicted: mlBurn != null ? parseFloat((mlBurn / 24).toFixed(3)) : parseFloat(liveP.toFixed(3)),
           export: 0
-        })
+        }]
       }
-      return intervals
+      return []
     }
 
+    // 2. 6 Hours View (6h): Uses actual recorded readings across the 6-hour window for this meter
     if (selectedTimeframe === "6h") {
-      const now = new Date()
-      const intervals = []
-      const liveP = Number(consumption?.liveTelemetry?.power) || Number(consumption?.currentPower) || (baseDaily / 24)
-      const base30MinKwh = Math.max(0.02, liveP * 0.5)
-
-      for (let i = 11; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 30 * 60 * 1000)
-        const timeLabel = d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })
-        const hour = d.getHours()
-        let peakMultiplier = 1.0
-        if (hour >= 18 && hour <= 22) peakMultiplier = 1.35
-        else if (hour >= 6 && hour <= 9) peakMultiplier = 1.15
-        else if (hour >= 0 && hour <= 5) peakMultiplier = 0.65
-
-        const variance = Math.sin((11 - i) * 1.1) * (base30MinKwh * 0.1)
-        const real = parseFloat(Math.max(0.01, base30MinKwh * peakMultiplier + variance).toFixed(3))
-        const predicted = parseFloat(Math.max(0.01, base30MinKwh * peakMultiplier * 0.95).toFixed(3))
-        intervals.push({
-          date: timeLabel,
-          import: real,
-          real: real,
-          predicted: predicted,
-          export: (hour >= 9 && hour <= 16) ? parseFloat((real * 0.12).toFixed(3)) : 0
+      if (rawReadings.length > 0) {
+        const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000
+        const recent = rawReadings.filter((r: any) => new Date(r.received_at).getTime() >= sixHoursAgo)
+        const readingsToUse = recent.length > 0 ? recent : rawReadings.slice(-24)
+        return readingsToUse.map((r: any) => {
+          const d = new Date(r.received_at)
+          const timeLabel = d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })
+          const pKw = Number(r.power_kw != null ? r.power_kw : (Number(r.power_w || 0) / 1000.0))
+          return {
+            date: timeLabel,
+            import: parseFloat(pKw.toFixed(3)),
+            real: parseFloat(pKw.toFixed(3)),
+            predicted: mlBurn != null ? parseFloat((mlBurn / 24).toFixed(3)) : parseFloat(pKw.toFixed(3)),
+            export: 0
+          }
         })
       }
-      return intervals
+      return []
     }
 
+    // 3. Day View (24h): Uses actual recorded hourly logs for this meter
     if (selectedTimeframe === "24h") {
-      const now = new Date()
-      const hours = []
-      for (let i = 23; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 3600000)
-        const hourLabel = d.toLocaleTimeString(locale, { hour: "numeric", hour12: true })
-        const hourNum = d.getHours()
-        let baseImport = 0.25
-        if (hourNum >= 6 && hourNum <= 8) baseImport = 0.65
-        else if (hourNum >= 12 && hourNum <= 14) baseImport = 0.45
-        else if (hourNum >= 18 && hourNum <= 22) baseImport = 1.15
-        else if (hourNum >= 23 || hourNum <= 5) baseImport = 0.18
-
-        const real = parseFloat((baseImport + Math.sin(i) * 0.05).toFixed(2))
-        const predicted = parseFloat((baseImport + 0.04).toFixed(2))
-
-        hours.push({
-          date: hourLabel,
-          import: real,
-          real: real,
-          predicted: predicted,
-          export: (hourNum >= 9 && hourNum <= 16) ? 0.35 : 0
-        })
-      }
-      return hours
-    }
-
-    if (selectedTimeframe === "7d") {
-      if (!raw7 || raw7.length === 0) {
-        const days = []
-        for (let i = 6; i >= 0; i--) {
-          const d = new Date()
-          d.setDate(d.getDate() - i)
-          const dateStr = d.toLocaleDateString(locale, { month: "short", day: "numeric" })
-          const dayVariance = Math.sin((7 - i) * 0.8) * 0.35
-          const isToday = i === 0
-          const todayImport = Number(consumption?.today) || (Number(consumption?.liveTelemetry?.energy) > 0 ? Number(consumption.liveTelemetry.energy) : baseDaily)
-          const real = isToday ? parseFloat(todayImport.toFixed(2)) : parseFloat(Math.max(0.5, (baseDaily + dayVariance)).toFixed(2))
-          const predicted = mlBurn != null ? parseFloat((mlBurn / 35).toFixed(2)) : parseFloat(Math.max(0.5, (baseDaily + dayVariance * 0.8)).toFixed(2))
-          days.push({
-            date: dateStr,
+      if (rawHourly.length > 0) {
+        return rawHourly.map((h: any) => {
+          const hour = Number(h.reading_hour)
+          const hourLabel = `${hour % 12 || 12} ${hour >= 12 ? "PM" : "AM"}`
+          const real = parseFloat(Number(h.import || 0).toFixed(2))
+          return {
+            date: hourLabel,
             import: real,
             real: real,
-            predicted: predicted,
-            export: 0
-          })
-        }
-        return days
+            predicted: mlBurn != null ? parseFloat((mlBurn / 24).toFixed(2)) : real,
+            export: parseFloat(Number(h.export || 0).toFixed(2))
+          }
+        })
       }
+      if (rawReadings.length > 0) {
+        const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000
+        const recent = rawReadings.filter((r: any) => new Date(r.received_at).getTime() >= twentyFourHoursAgo)
+        const readingsToUse = recent.length > 0 ? recent : rawReadings
+        return readingsToUse.map((r: any) => {
+          const d = new Date(r.received_at)
+          const timeLabel = d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })
+          const pKw = Number(r.power_kw != null ? r.power_kw : (Number(r.power_w || 0) / 1000.0))
+          return {
+            date: timeLabel,
+            import: parseFloat(pKw.toFixed(3)),
+            real: parseFloat(pKw.toFixed(3)),
+            predicted: mlBurn != null ? parseFloat((mlBurn / 24).toFixed(3)) : parseFloat(pKw.toFixed(3)),
+            export: 0
+          }
+        })
+      }
+      return []
+    }
 
-      return raw7.map((item: any, idx: number) => {
-        const real = Number(item.import || 0)
-        const dayVariance = Math.sin((idx + 1) * 0.8) * 0.35
-        const predicted = mlBurn != null ? parseFloat((mlBurn / 35).toFixed(2)) : parseFloat(Math.max(0.5, (baseDaily + dayVariance)).toFixed(2))
+    // 4. Week View (7d): Real daily logs recorded for this meter
+    if (selectedTimeframe === "7d") {
+      if (!raw7 || raw7.length === 0) return []
+      return raw7.map((item: any) => {
+        const real = parseFloat(Number(item.import || 0).toFixed(2))
         return {
           ...item,
           real: real,
-          predicted: predicted,
+          predicted: mlBurn != null ? parseFloat(mlBurn.toFixed(2)) : real,
         }
       })
     }
 
+    // 5. Month View (30d): Real available records up to 30 days for this meter
     if (selectedTimeframe === "30d") {
-      const days = []
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date()
-        d.setDate(d.getDate() - i)
-        const dateStr = d.toLocaleDateString(locale, { month: "short", day: "numeric" })
-        const weekendBonus = (d.getDay() === 0 || d.getDay() === 6) ? 1.2 : 0.95
-        const variance = Math.cos(i * 0.7) * 0.8
-        const real = Math.max(1.2, parseFloat((baseDaily * weekendBonus + variance).toFixed(2)))
-        const predicted = parseFloat(Math.max(1.0, (baseDaily * weekendBonus)).toFixed(2))
-        days.push({
-          date: dateStr,
-          import: real,
+      if (!raw7 || raw7.length === 0) return []
+      return raw7.map((item: any) => {
+        const real = parseFloat(Number(item.import || 0).toFixed(2))
+        return {
+          ...item,
           real: real,
-          predicted: predicted,
-          export: parseFloat((real * 0.15).toFixed(2))
-        })
-      }
-      return days
+          predicted: mlBurn != null ? parseFloat(mlBurn.toFixed(2)) : real,
+        }
+      })
     }
 
     return raw7
-  }, [selectedTimeframe, consumption?.chartData, meter?.daily_average, language, consumption?.prediction?.ml, consumption?.liveTelemetry, consumption?.currentPower, consumption?.today])
+  }, [selectedTimeframe, consumption?.chartData, consumption?.hourlyChartData, consumption?.recentReadings, language, consumption?.prediction?.ml, consumption?.liveTelemetry, consumption?.currentPower, consumption?.today])
 
   const handleDownloadStatementPdf = async () => {
     if (!meter) return

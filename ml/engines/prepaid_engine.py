@@ -62,8 +62,27 @@ class PrepaidLifetimeEngine:
                 "cold_start_stage": ensemble.cold_start_stage
             }
 
-        history = recent_hourly_kwh or [0.35]
-        # Step 1: Pre-generate next 24-hour profile
+        history = list(recent_hourly_kwh) if (recent_hourly_kwh and len(recent_hourly_kwh) > 0) else ([ensemble.default_kwh] if ensemble.default_kwh > 0 else [])
+        if not history:
+            return {
+                "meter_id": ensemble.meter_id,
+                "current_balance": round(balance, 2),
+                "expected_remaining_hours": None,
+                "expected_remaining_days": None,
+                "predicted_exhaustion_time": None,
+                "conservative_warning_time": None,
+                "conservative_remaining_days": None,
+                "optimistic_remaining_days": None,
+                "status": "AWAITING_METER_DATA",
+                "is_emergency_lifeline_recommended": False,
+                "uncertainty_score": 1.0,
+                "cold_start_stage": ensemble.cold_start_stage,
+                "daily_burn_rate_lkr": None,
+                "daily_burn_rate_kwh": None,
+                "isAvailable": False
+            }
+
+        # Step 1: Pre-generate next 24-hour profile based on actual meter history
         h24_res = self.forecast_engine.forecast_next_24h(
             ensemble=ensemble,
             current_timestamp=now,
@@ -142,6 +161,7 @@ class PrepaidLifetimeEngine:
             "current_balance": round(balance, 2),
             "expected_remaining_hours": median_hours,
             "expected_remaining_days": expected_days,
+            "daily_burn_rate_kwh": round(h24_res["total_predicted_24h_kwh"], 3),
             "predicted_exhaustion_time": median_exhaustion_time.isoformat(),
             "conservative_warning_time": conservative_warning_time.isoformat(),
             "conservative_remaining_days": conservative_days,

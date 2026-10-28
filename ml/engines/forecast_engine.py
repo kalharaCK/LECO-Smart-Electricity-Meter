@@ -115,12 +115,13 @@ class ForecastEngine:
         cycle_day = max(1, min(30, int(current_cycle_day)))
         remaining_days = max(0, 30 - cycle_day)
 
-        if remaining_days == 0:
+        if remaining_days == 0 or (daily_kwh_average <= 0.0 and next_24h_kwh <= 0.0):
             return {
-                "remaining_days": 0,
+                "remaining_days": remaining_days,
                 "predicted_remaining_kwh": 0.0,
                 "lower_bound_kwh": 0.0,
-                "upper_bound_kwh": 0.0
+                "upper_bound_kwh": 0.0,
+                "subsequent_daily_rate": 0.0
             }
 
         # Day 1 of remaining uses high-confidence 24h forecast
@@ -129,7 +130,7 @@ class ForecastEngine:
         subsequent_daily_rate = 0.50 * daily_kwh_average + 0.50 * next_24h_kwh
 
         predicted_remaining = day_1_energy + ((remaining_days - 1) * subsequent_daily_rate) if remaining_days > 1 else day_1_energy
-        predicted_remaining = max(0.5, round(predicted_remaining, 2))
+        predicted_remaining = max(0.01, round(predicted_remaining, 2))
 
         uncertainty_factor = 0.15 if ensemble.cold_start_stage in ("DAYS_7_TO_30", "MATURE_STREAM") else 0.30
         lower_bound = max(0.0, round(predicted_remaining * (1.0 - uncertainty_factor), 2))

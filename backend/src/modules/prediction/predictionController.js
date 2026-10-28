@@ -49,11 +49,64 @@ const getMeterPrediction = async (req, res) => {
       [meterId]
     );
 
+    let historyRows = historyRes.rows;
+    let cycleNet = parseFloat(cycleRes.rows[0]?.cycle_net || 0);
+
+    // If no daily consumption_logs yet, fallback to real hardware telemetry readings
+    if (historyRows.length === 0) {
+      const hwHistoryRes = await pool.query(
+        `SELECT 
+           DATE(timestamp)::text as date,
+           ROUND(GREATEST(0, (MAX(energy) - MIN(energy)) / 1000.0), 3) as consumption,
+           EXTRACT(DOW FROM DATE(timestamp))::int as day_of_week
+         FROM meter_readings
+         WHERE (UPPER(meter_id) = UPPER($1) OR meter_id = $2::text) AND energy > 0
+         GROUP BY DATE(timestamp)
+         ORDER BY DATE(timestamp) DESC
+         LIMIT 60`,
+        [meter.meter_number, meterId]
+      );
+      if (hwHistoryRes.rows.length > 0) {
+        historyRows = hwHistoryRes.rows;
+      } else {
+        const hwPowerAvg = await pool.query(
+          `SELECT AVG(power) as avg_p FROM (
+             SELECT power FROM meter_readings 
+             WHERE (UPPER(meter_id) = UPPER($1) OR meter_id = $2::text) AND power > 0 
+             ORDER BY timestamp DESC LIMIT 60
+           ) sub`,
+          [meter.meter_number, meterId]
+        );
+        if (hwPowerAvg.rows.length > 0 && parseFloat(hwPowerAvg.rows[0].avg_p || 0) > 0) {
+          const estimatedDailyKWh = parseFloat(((parseFloat(hwPowerAvg.rows[0].avg_p) / 10.0 / 1000.0) * 24.0).toFixed(3));
+          if (estimatedDailyKWh > 0) {
+            historyRows = [{
+              date: new Date().toISOString().split('T')[0],
+              consumption: estimatedDailyKWh,
+              day_of_week: new Date().getDay()
+            }];
+          }
+        }
+      }
+    }
+
+    if (cycleNet <= 0) {
+      const hwCycleRes = await pool.query(
+        `SELECT ROUND(GREATEST(0, (MAX(energy) - MIN(energy)) / 1000.0), 3) as cycle_hw
+         FROM meter_readings
+         WHERE (UPPER(meter_id) = UPPER($1) OR meter_id = $2::text) AND energy > 0 AND timestamp >= date_trunc('month', CURRENT_DATE)`,
+        [meter.meter_number, meterId]
+      );
+      if (hwCycleRes.rows.length > 0 && parseFloat(hwCycleRes.rows[0].cycle_hw || 0) > 0) {
+        cycleNet = parseFloat(hwCycleRes.rows[0].cycle_hw);
+      }
+    }
+
     const prediction = getWalletLifetimePrediction({
       walletBalance: balance,
-      currentCycleKWh: parseFloat(cycleRes.rows[0]?.cycle_net || 0),
+      currentCycleKWh: cycleNet,
       currentCycleDay: new Date().getDate(),
-      dailyHistory: historyRes.rows.map(r => ({
+      dailyHistory: historyRows.map(r => ({
         date: r.date,
         consumption: parseFloat(r.consumption || 0),
         dayOfWeek: r.day_of_week
@@ -72,10 +125,12 @@ const getMeterPrediction = async (req, res) => {
 
       if (mlPrepaid) {
         prediction.ml = {
-          isAvailable: true,
+          isAvailable: mlPrepaid.status !== 'AWAITING_METER_DATA' && mlPrepaid.isAvailable !== false,
+          status: mlPrepaid.status || 'ACTIVE',
           coldStartStage: mlPrepaid.cold_start_stage,
           expectedRemainingHours: mlPrepaid.expected_remaining_hours,
           expectedRemainingDays: mlPrepaid.expected_remaining_days,
+          dailyBurnRate: mlPrepaid.daily_burn_rate_kwh || prediction.averageDailyUsageKwh || null,
           predictedExhaustionTime: mlPrepaid.predicted_exhaustion_time,
           conservativeWarningTime: mlPrepaid.conservative_warning_time,
           trajectories: mlPrepaid.trajectories,

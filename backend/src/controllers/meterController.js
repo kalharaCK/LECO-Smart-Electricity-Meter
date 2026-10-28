@@ -74,40 +74,8 @@ async function syncMeterTelemetryAndLogs(meterId, meterNum, dailyAvg) {
       }
     }
 
-    // 2. Check existing count in consumption_logs for this meter
-    const countRes = await pool.query(
-      `SELECT COUNT(*) as count FROM consumption_logs WHERE meter_id = $1`,
-      [meterId]
-    );
-    const logCount = parseInt(countRes.rows[0]?.count || 0, 10);
-    const isMicroScale = latestHwEnergy > 0 && latestHwEnergy < 0.1;
-
-    if (logCount === 0) {
-      // Seed 7 days of realistic baseline data ending today
-      const currentHour = new Date().getHours();
-      for (let i = 6; i >= 1; i--) {
-        const variance = Math.sin((7 - i) * 0.8) * 0.6;
-        let val;
-        if (isMicroScale) {
-          val = +(Math.max(0.001, latestHwEnergy * (0.85 + Math.sin(i) * 0.15))).toFixed(4);
-        } else {
-          val = +(Math.max(1.5, baseDaily + variance)).toFixed(2);
-        }
-        await pool.query(
-          `INSERT INTO consumption_logs (meter_id, reading_date, reading_hour, consumption, energy_export)
-           VALUES ($1, CURRENT_DATE - ($2 || ' days')::INTERVAL, 12, $3, 0)`,
-          [meterId, i, val]
-        );
-      }
-      // Today (i = 0): use live hardware reading if available, or day baseline
-      const todayVal = latestHwEnergy > 0 ? latestHwEnergy : (isMicroScale ? 0.002 : +(baseDaily * 0.45).toFixed(2));
-      await pool.query(
-        `INSERT INTO consumption_logs (meter_id, reading_date, reading_hour, consumption, energy_export)
-         VALUES ($1, CURRENT_DATE, $2, $3, 0)`,
-        [meterId, currentHour, todayVal]
-      );
-    } else if (latestHwEnergy > 0) {
-      // Meter has historical logs; synchronize today's row with live hardware energy
+    // 2. Synchronize real hardware reading into today's consumption log if telemetry exists
+    if (latestHwEnergy > 0) {
       const todayCheck = await pool.query(
         `SELECT id, consumption FROM consumption_logs 
          WHERE meter_id = $1 AND reading_date = CURRENT_DATE 
@@ -123,7 +91,7 @@ async function syncMeterTelemetryAndLogs(meterId, meterNum, dailyAvg) {
         );
       } else {
         const currentLogged = parseFloat(todayCheck.rows[0].consumption || 0);
-        if (latestHwEnergy > 0 && Math.abs(currentLogged - latestHwEnergy) > 0.0001) {
+        if (Math.abs(currentLogged - latestHwEnergy) > 0.0001) {
           await pool.query(
             `UPDATE consumption_logs SET consumption = $1 WHERE id = $2`,
             [latestHwEnergy, todayCheck.rows[0].id]
@@ -199,11 +167,44 @@ async function broadcastMeterState(meterId) {
       [meterId]
     );
 
+    let historyRows = historyResult.rows;
+    let cycleNet = parseFloat(cycleResult.rows[0]?.cycle_net || 0);
+
+    // If no consumption_logs yet, fallback to real hardware telemetry readings
+    if (historyRows.length === 0) {
+      const hwHistoryRes = await pool.query(
+        `SELECT 
+           DATE(timestamp)::text as date,
+           ROUND(GREATEST(0, (MAX(energy) - MIN(energy)) / 1000.0), 3) as consumption,
+           EXTRACT(DOW FROM DATE(timestamp))::int as day_of_week
+         FROM meter_readings
+         WHERE (UPPER(meter_id) = UPPER($1) OR meter_id = $2::text) AND energy > 0
+         GROUP BY DATE(timestamp)
+         ORDER BY DATE(timestamp) DESC
+         LIMIT 60`,
+        [meter.meter_number, meterId]
+      );
+      if (hwHistoryRes.rows.length > 0) {
+        historyRows = hwHistoryRes.rows;
+      }
+    }
+    if (cycleNet <= 0) {
+      const hwCycleRes = await pool.query(
+        `SELECT ROUND(GREATEST(0, (MAX(energy) - MIN(energy)) / 1000.0), 3) as cycle_hw
+         FROM meter_readings
+         WHERE (UPPER(meter_id) = UPPER($1) OR meter_id = $2::text) AND energy > 0 AND timestamp >= date_trunc('month', CURRENT_DATE)`,
+        [meter.meter_number, meterId]
+      );
+      if (hwCycleRes.rows.length > 0 && parseFloat(hwCycleRes.rows[0].cycle_hw || 0) > 0) {
+        cycleNet = parseFloat(hwCycleRes.rows[0].cycle_hw);
+      }
+    }
+
     const prediction = getWalletLifetimePrediction({
       walletBalance: balance,
-      currentCycleKWh: parseFloat(cycleResult.rows[0]?.cycle_net || 0),
+      currentCycleKWh: cycleNet,
       currentCycleDay: new Date().getDate(),
-      dailyHistory: historyResult.rows.map(r => ({
+      dailyHistory: historyRows.map(r => ({
         date: r.date,
         consumption: parseFloat(r.consumption || 0),
         dayOfWeek: r.day_of_week
@@ -216,7 +217,8 @@ async function broadcastMeterState(meterId) {
       const mlPrepaid = await mlClient.getPrepaidLifetime(meterId, balance, { timeout: 500 });
       if (mlPrepaid) {
         prediction.ml = {
-          isAvailable: true,
+          isAvailable: mlPrepaid.status !== 'AWAITING_METER_DATA' && mlPrepaid.isAvailable !== false,
+          status: mlPrepaid.status || 'ACTIVE',
           coldStartStage: mlPrepaid.cold_start_stage,
           expectedRemainingHours: mlPrepaid.expected_remaining_hours,
           expectedRemainingDays: mlPrepaid.expected_remaining_days,
@@ -225,7 +227,7 @@ async function broadcastMeterState(meterId) {
           trajectories: mlPrepaid.trajectories,
           confidenceScore: mlPrepaid.confidence_score,
           modelWeights: mlPrepaid.model_weights,
-          dailyBurnRate: mlPrepaid.daily_burn_rate_lkr
+          dailyBurnRate: mlPrepaid.daily_burn_rate_kwh || mlPrepaid.daily_burn_rate_lkr || null
         };
       } else {
         prediction.ml = { isAvailable: false };
@@ -497,11 +499,43 @@ const getMeterConsumption = async (req, res) => {
     const emergencyCreditLimit = parseFloat(meterData.emergency_credit_limit || 500);
     const emergencyCreditActive = Boolean(meterData.emergency_credit_active);
 
+    let historyRows = historyRes.rows;
+    let cycleNet = parseFloat(agg.cycle_net || 0);
+
+    if (historyRows.length === 0) {
+      const hwHistoryRes = await pool.query(
+        `SELECT 
+           DATE(timestamp)::text as date,
+           ROUND(GREATEST(0, (MAX(energy) - MIN(energy)) / 1000.0), 3) as consumption,
+           EXTRACT(DOW FROM DATE(timestamp))::int as day_of_week
+         FROM meter_readings
+         WHERE (UPPER(meter_id) = UPPER($1) OR meter_id = $2::text) AND energy > 0
+         GROUP BY DATE(timestamp)
+         ORDER BY DATE(timestamp) DESC
+         LIMIT 60`,
+        [meterNum, meterId]
+      );
+      if (hwHistoryRes.rows.length > 0) {
+        historyRows = hwHistoryRes.rows;
+      }
+    }
+    if (cycleNet <= 0) {
+      const hwCycleRes = await pool.query(
+        `SELECT ROUND(GREATEST(0, (MAX(energy) - MIN(energy)) / 1000.0), 3) as cycle_hw
+         FROM meter_readings
+         WHERE (UPPER(meter_id) = UPPER($1) OR meter_id = $2::text) AND energy > 0 AND timestamp >= date_trunc('month', CURRENT_DATE)`,
+        [meterNum, meterId]
+      );
+      if (hwCycleRes.rows.length > 0 && parseFloat(hwCycleRes.rows[0].cycle_hw || 0) > 0) {
+        cycleNet = parseFloat(hwCycleRes.rows[0].cycle_hw);
+      }
+    }
+
     const prediction = getWalletLifetimePrediction({
       walletBalance: balance,
-      currentCycleKWh: parseFloat(agg.cycle_net || 0),
+      currentCycleKWh: cycleNet,
       currentCycleDay: new Date().getDate(),
-      dailyHistory: historyRes.rows.map(r => ({
+      dailyHistory: historyRows.map(r => ({
         date: r.date,
         consumption: parseFloat(r.consumption || 0),
         dayOfWeek: r.day_of_week
@@ -514,7 +548,8 @@ const getMeterConsumption = async (req, res) => {
       const mlPrepaid = await mlClient.getPrepaidLifetime(meterId, balance, { timeout: 500 });
       if (mlPrepaid) {
         prediction.ml = {
-          isAvailable: true,
+          isAvailable: mlPrepaid.status !== 'AWAITING_METER_DATA' && mlPrepaid.isAvailable !== false,
+          status: mlPrepaid.status || 'ACTIVE',
           coldStartStage: mlPrepaid.cold_start_stage,
           expectedRemainingHours: mlPrepaid.expected_remaining_hours,
           expectedRemainingDays: mlPrepaid.expected_remaining_days,
@@ -523,7 +558,7 @@ const getMeterConsumption = async (req, res) => {
           trajectories: mlPrepaid.trajectories,
           confidenceScore: mlPrepaid.confidence_score,
           modelWeights: mlPrepaid.model_weights,
-          dailyBurnRate: mlPrepaid.daily_burn_rate_lkr
+          dailyBurnRate: mlPrepaid.daily_burn_rate_kwh || mlPrepaid.daily_burn_rate_lkr || null
         };
       } else {
         prediction.ml = { isAvailable: false };
@@ -532,32 +567,53 @@ const getMeterConsumption = async (req, res) => {
       prediction.ml = { isAvailable: false };
     }
 
-    // Extract recent 7 daily records from historyRes in ascending date order for the chart
+    // Extract real daily records from historyRes in ascending date order for the chart
     const recent7 = historyRes.rows.slice(0, 7).reverse();
     let finalChartData = recent7.map(r => ({
       date: r.date_label || r.date,
-      import: parseFloat(r.import || 0).toFixed(1),
-      export: parseFloat(r.export || 0).toFixed(1),
-      net: (parseFloat(r.import || 0) - parseFloat(r.export || 0)).toFixed(1)
+      import: parseFloat(r.import || 0).toFixed(2),
+      export: parseFloat(r.export || 0).toFixed(2),
+      net: (parseFloat(r.import || 0) - parseFloat(r.export || 0)).toFixed(2)
     }));
 
-    if (finalChartData.length === 0) {
-      const baseDaily = parseFloat(meterData.daily_average || 5.0);
-      finalChartData = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
-        const isToday = i === 0;
-        const val = isToday && liveTelemetry?.energy ? liveTelemetry.energy : +(baseDaily + Math.sin(7 - i) * 0.4).toFixed(1);
-        finalChartData.push({
-          date: dateStr,
-          import: parseFloat(val).toFixed(1),
-          export: "0.0",
-          net: parseFloat(val).toFixed(1)
-        });
-      }
+    // If no multi-day history exists yet, only show today's real reading if recorded
+    if (finalChartData.length === 0 && liveTelemetry && liveTelemetry.energy > 0) {
+      finalChartData = [{
+        date: 'Today',
+        import: parseFloat(liveTelemetry.energy).toFixed(2),
+        export: "0.00",
+        net: parseFloat(liveTelemetry.energy).toFixed(2)
+      }];
     }
+
+    // Fetch actual real hardware telemetry readings for this meter to supply Hourly and 6-Hour real graphs
+    const realReadingsRes = await pool.query(
+      `SELECT 
+         id,
+         ROUND((power / 10.0)::numeric, 1) as power_w,
+         ROUND((power / 10000.0)::numeric, 4) as power_kw,
+         ROUND((energy / 1000.0)::numeric, 3) as energy_kwh,
+         ROUND((energy)::numeric, 1) as energy_wh,
+         received_at,
+         meter_timestamp
+       FROM meter_readings
+       WHERE UPPER(meter_id) = UPPER($1) OR meter_id = $2::text
+       ORDER BY received_at DESC
+       LIMIT 120`,
+      [meterNum, meterId]
+    );
+
+    // Hourly logs for today for this meter (if available)
+    const hourlyLogsRes = await pool.query(
+      `SELECT 
+         reading_hour,
+         consumption as import,
+         energy_export as export
+       FROM consumption_logs
+       WHERE meter_id = $1 AND reading_date = CURRENT_DATE
+       ORDER BY reading_hour ASC`,
+      [meterId]
+    );
 
     const rawToday = parseFloat(agg.today_import != null ? agg.today_import : (liveTelemetry?.energy || 0));
     const todayVal = (rawToday > 0 && rawToday < 0.1) ? rawToday.toFixed(4) : (rawToday < 10 ? rawToday.toFixed(2) : rawToday.toFixed(1));
@@ -583,7 +639,9 @@ const getMeterConsumption = async (req, res) => {
       prediction: prediction,
       liveTelemetry: liveTelemetry,
 
-      chartData: finalChartData
+      chartData: finalChartData,
+      hourlyChartData: hourlyLogsRes.rows,
+      recentReadings: realReadingsRes.rows.reverse()
     });
   } catch (error) {
     console.error('Error fetching consumption:', error);
@@ -624,11 +682,43 @@ const getMeterPrediction = async (req, res) => {
       [meterId]
     );
 
+    let historyRows = historyResult.rows;
+    let cycleNet = parseFloat(cycleResult.rows[0]?.cycle_net || 0);
+
+    if (historyRows.length === 0) {
+      const hwHistoryRes = await pool.query(
+        `SELECT 
+           DATE(timestamp)::text as date,
+           ROUND(GREATEST(0, (MAX(energy) - MIN(energy)) / 1000.0), 3) as consumption,
+           EXTRACT(DOW FROM DATE(timestamp))::int as day_of_week
+         FROM meter_readings
+         WHERE (UPPER(meter_id) = UPPER($1) OR meter_id = $2::text) AND energy > 0
+         GROUP BY DATE(timestamp)
+         ORDER BY DATE(timestamp) DESC
+         LIMIT 60`,
+        [meterCheck.rows[0].meter_number || '', meterId]
+      );
+      if (hwHistoryRes.rows.length > 0) {
+        historyRows = hwHistoryRes.rows;
+      }
+    }
+    if (cycleNet <= 0) {
+      const hwCycleRes = await pool.query(
+        `SELECT ROUND(GREATEST(0, (MAX(energy) - MIN(energy)) / 1000.0), 3) as cycle_hw
+         FROM meter_readings
+         WHERE (UPPER(meter_id) = UPPER($1) OR meter_id = $2::text) AND energy > 0 AND timestamp >= date_trunc('month', CURRENT_DATE)`,
+        [meterCheck.rows[0].meter_number || '', meterId]
+      );
+      if (hwCycleRes.rows.length > 0 && parseFloat(hwCycleRes.rows[0].cycle_hw || 0) > 0) {
+        cycleNet = parseFloat(hwCycleRes.rows[0].cycle_hw);
+      }
+    }
+
     const prediction = getWalletLifetimePrediction({
       walletBalance: parseFloat(meterCheck.rows[0].balance || 0),
-      currentCycleKWh: parseFloat(cycleResult.rows[0]?.cycle_net || 0),
+      currentCycleKWh: cycleNet,
       currentCycleDay: new Date().getDate(),
-      dailyHistory: historyResult.rows.map(r => ({
+      dailyHistory: historyRows.map(r => ({
         date: r.date,
         consumption: parseFloat(r.consumption || 0),
         dayOfWeek: r.day_of_week

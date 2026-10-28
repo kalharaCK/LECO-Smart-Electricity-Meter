@@ -154,13 +154,53 @@ async def get_postpaid_forecast(meter_id: int):
                     already_consumed = float(c_row["cycle_kwh"])
                     cycle_day = int(c_row["cycle_day"] or now.day)
 
+                if already_consumed <= 0.0:
+                    hw_row = await conn.fetchrow(
+                        """
+                        SELECT (MAX(energy) - MIN(energy)) / 1000.0 as delta_kwh
+                        FROM meter_readings
+                        WHERE (meter_id = $1::text OR meter_id = (SELECT meter_number FROM meters WHERE id = $1))
+                          AND timestamp >= DATE_TRUNC('month', CURRENT_DATE)
+                          AND energy > 0;
+                        """,
+                        meter_id
+                    )
+                    if hw_row and hw_row["delta_kwh"] and float(hw_row["delta_kwh"]) > 0:
+                        already_consumed = round(float(hw_row["delta_kwh"]), 3)
+
                 # Daily average
                 avg_row = await conn.fetchrow(
                     "SELECT COALESCE(daily_average, 0.0) as d_avg FROM meters WHERE id = $1",
                     meter_id
                 )
-                if avg_row:
-                    daily_avg = float(avg_row["d_avg"] or 0.0)
+                if avg_row and avg_row["d_avg"] and float(avg_row["d_avg"]) > 0:
+                    daily_avg = float(avg_row["d_avg"])
+                else:
+                    avg_calc = await conn.fetchrow(
+                        """
+                        SELECT AVG(daily_kwh) as calc_avg FROM (
+                            SELECT SUM(consumption) as daily_kwh 
+                            FROM consumption_logs 
+                            WHERE meter_id = $1 
+                            GROUP BY reading_date
+                        ) sub
+                        """,
+                        meter_id
+                    )
+                    if avg_calc and avg_calc["calc_avg"] and float(avg_calc["calc_avg"]) > 0:
+                        daily_avg = float(avg_calc["calc_avg"])
+                    else:
+                        telemetry_avg = await conn.fetchrow(
+                            """
+                            SELECT AVG(power) as avg_p FROM meter_readings
+                            WHERE (meter_id = $1::text OR meter_id = (SELECT meter_number FROM meters WHERE id = $1))
+                              AND power > 0 
+                              AND timestamp >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+                            """,
+                            meter_id
+                        )
+                        if telemetry_avg and telemetry_avg["avg_p"]:
+                            daily_avg = round((float(telemetry_avg["avg_p"]) / 10000.0) * 24.0, 3)
         except Exception as db_err:
             logger.warning(f"DB lookup fallback for postpaid meter {meter_id}: {db_err}")
 
@@ -204,6 +244,33 @@ async def get_recharge_demand(meter_id: int):
                     curr_balance = float(m_row["balance"] or 0.0)
                     daily_avg = float(m_row["daily_average"] or 0.0)
 
+                if daily_avg <= 0.0:
+                    avg_calc = await conn.fetchrow(
+                        """
+                        SELECT AVG(daily_kwh) as calc_avg FROM (
+                            SELECT SUM(consumption) as daily_kwh 
+                            FROM consumption_logs 
+                            WHERE meter_id = $1 
+                            GROUP BY reading_date
+                        ) sub
+                        """,
+                        meter_id
+                    )
+                    if avg_calc and avg_calc["calc_avg"] and float(avg_calc["calc_avg"]) > 0:
+                        daily_avg = float(avg_calc["calc_avg"])
+                    else:
+                        telemetry_avg = await conn.fetchrow(
+                            """
+                            SELECT AVG(power) as avg_p FROM meter_readings
+                            WHERE (meter_id = $1::text OR meter_id = (SELECT meter_number FROM meters WHERE id = $1))
+                              AND power > 0 
+                              AND timestamp >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+                            """,
+                            meter_id
+                        )
+                        if telemetry_avg and telemetry_avg["avg_p"]:
+                            daily_avg = round((float(telemetry_avg["avg_p"]) / 10000.0) * 24.0, 3)
+
                 p_row = await conn.fetchrow(
                     """
                     SELECT COALESCE(SUM(consumption), 0.0) as prev_kwh
@@ -218,6 +285,12 @@ async def get_recharge_demand(meter_id: int):
                     prev_cycle_kwh = float(p_row["prev_kwh"] or 0.0)
         except Exception as db_err:
             logger.warning(f"DB lookup fallback for demand meter {meter_id}: {db_err}")
+
+        if daily_avg <= 0.0 and ensemble.default_kwh > 0:
+            daily_avg = round(ensemble.default_kwh * 24.0, 3)
+
+        if prev_cycle_kwh <= 0.0 and daily_avg > 0:
+            prev_cycle_kwh = round(daily_avg * 30.0, 3)
 
         demand_res = orchestrator.recharge_engine.predict_next_month_demand(
             ensemble=ensemble,

@@ -35,7 +35,23 @@ class RechargeDemandEngine:
         recommended recharge amount, and consumption trend status.
         """
         balance = max(0.0, float(current_balance))
-        daily_rate = max(0.1, float(daily_kwh_average))
+        if daily_kwh_average <= 0.0 and previous_cycle_kwh <= 0.0:
+            return {
+                "meter_id": ensemble.meter_id,
+                "current_balance_lkr": round(balance, 2),
+                "predicted_next_month_kwh": 0.0,
+                "prediction_range_kwh": {"lower": 0.0, "upper": 0.0},
+                "expected_electricity_cost_lkr": 0.0,
+                "cost_range_lkr": {"lower": 0.0, "upper": 0.0},
+                "recommended_recharge_lkr": 0.0,
+                "expected_tariff_group": "Awaiting Meter Data",
+                "trend": "INSUFFICIENT_DATA",
+                "percentage_change_vs_last_month": 0.0,
+                "cold_start_stage": ensemble.cold_start_stage,
+                "status": "AWAITING_METER_DATA"
+            }
+
+        daily_rate = max(0.01, float(daily_kwh_average))
         prev_kwh = max(1.0, float(previous_cycle_kwh))
 
         # Project 30-day demand incorporating trend slope

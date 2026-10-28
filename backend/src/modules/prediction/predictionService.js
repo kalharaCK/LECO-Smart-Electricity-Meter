@@ -111,6 +111,7 @@ function simulateWalletLifetime({
     nextDate.setDate(nextDate.getDate() + 1);
 
     const { predictedKWh } = predictDailyConsumption(dailyHistory, nextDate);
+    if (predictedKWh <= 0) return 0;
     const dayUsage = predictedKWh * scenarioMultiplier;
     const projectedKWh = cycleKWh + dayUsage;
 
@@ -164,6 +165,32 @@ function getWalletLifetimePrediction({
 
   // Effective available buffer considering accrued cycle bill
   const netBuffer = isLifeline ? Math.max(0, projectedNet + limit) : Math.max(0, projectedNet);
+
+  // When no usage history exists yet, report authentic AWAITING_METER_DATA instead of fabricating numbers
+  if (predictedKWh <= 0 && avgDailyKwh <= 0) {
+    return {
+      walletBalance: Math.round(balance * 100) / 100,
+      projectedNetBalance: projectedNet,
+      estimatedDaysRemaining: null,
+      estimatedMinDays: null,
+      estimatedMaxDays: null,
+      averageDailyUsageKwh: 0,
+      predictedTomorrowKwh: 0,
+      billingCycleConsumptionKwh: cycleKWh,
+      currentTariffGroup: currentBill.group,
+      currentCycleLiability: currentBill.totalCharge,
+      energyCharge: currentBill.energyCharge,
+      fixedCharge: currentBill.fixedCharge,
+      predictionConfidence: 'NONE',
+      predictionMethod: "AWAITING_METER_DATA",
+      status: "AWAITING_METER_DATA",
+      isLifelineActive: isLifeline,
+      lifelineLimit: limit,
+      lifelineUsed: Math.round(lifelineUsed * 100) / 100,
+      lifelineRemaining: Math.round(lifelineRemaining * 100) / 100,
+      calculatedAt: new Date().toISOString(),
+    };
+  }
 
   if (netBuffer <= 0) {
     return {

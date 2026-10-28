@@ -47,11 +47,43 @@ class MLServiceOrchestrator:
         if meter_id in self._ensembles:
             return self._ensembles[meter_id]
 
+        # Determine meter-specific baseline rate from actual available data for this meter
+        default_kwh = settings.DEFAULT_HOURLY_POPULATION_PRIOR_KWH
+        try:
+            async with get_connection() as conn:
+                # 1. Check meter's actual daily average if recorded
+                m_row = await conn.fetchrow(
+                    "SELECT daily_average FROM meters WHERE id = $1",
+                    meter_id
+                )
+                if m_row and m_row["daily_average"] and float(m_row["daily_average"]) > 0:
+                    default_kwh = float(m_row["daily_average"]) / 24.0
+                else:
+                    # 2. Check actual recent active power from telemetry
+                    p_row = await conn.fetchrow(
+                        """
+                        SELECT AVG(power) as avg_p 
+                        FROM (
+                            SELECT power FROM meter_readings 
+                            WHERE (meter_id = $1::text OR meter_id = (SELECT meter_number FROM meters WHERE id = $1)) 
+                              AND power > 0 
+                            ORDER BY timestamp DESC 
+                            LIMIT 60
+                        ) sub
+                        """,
+                        meter_id
+                    )
+                    if p_row and p_row["avg_p"] and float(p_row["avg_p"]) > 0:
+                        # Raw telemetry power has 1 decimal (raw / 10.0 = Watts), Watts / 1000 = kW (hourly rate)
+                        default_kwh = max(0.01, (float(p_row["avg_p"]) / 10.0) / 1000.0)
+        except Exception as e:
+            logger.debug(f"Meter baseline fetch fallback: {e}")
+
         ensemble = AdaptiveEnsemble(
             meter_id=meter_id,
             learning_rate=settings.ENSEMBLE_LEARNING_RATE,
             smoothing_factor=settings.ERROR_SMOOTHING_FACTOR,
-            default_kwh=settings.DEFAULT_HOURLY_POPULATION_PRIOR_KWH
+            default_kwh=default_kwh
         )
 
         # Hydrate from DB if record exists
@@ -268,7 +300,7 @@ class MLServiceOrchestrator:
                         """,
                         meter_id,
                         "PREDICTION_RESIDUAL_MAE",
-                        prior_predicted_kwh or 0.35,
+                        prior_predicted_kwh or total_kwh,
                         total_kwh,
                         ensemble.residual_variance,
                         "EXPANDED_UNCERTAINTY_AND_DOUBLED_ADAPTATION_RATE"
@@ -280,13 +312,21 @@ class MLServiceOrchestrator:
         await self.save_ensemble_state(ensemble)
 
     async def get_recent_history(self, meter_id: int, limit: int = 72) -> List[float]:
-        """Returns recent hourly consumption values, querying DB if memory cache is shallow."""
+        """
+        Returns recent hourly consumption values directly from real available data for this meter:
+        1. Hourly aggregations if recorded
+        2. Consumption logs for this meter
+        3. Real hardware telemetry readings from meter_readings
+        4. Meter-specific baseline profile from meters table
+        Never returns synthetic population data.
+        """
         if meter_id in self._hourly_history and len(self._hourly_history[meter_id]) >= limit:
             return self._hourly_history[meter_id][:limit]
 
-        # Query from database
+        # Query from database based strictly on available data for this meter
         try:
             async with get_connection() as conn:
+                # 1. Hourly aggregations
                 rows = await conn.fetch(
                     """
                     SELECT total_kwh FROM meter_hourly_aggregation
@@ -296,14 +336,65 @@ class MLServiceOrchestrator:
                     meter_id,
                     limit
                 )
-                if rows:
-                    vals = [float(r["total_kwh"]) for r in rows]
-                    self._hourly_history[meter_id] = vals
-                    return vals
+                if rows and len(rows) > 0:
+                    vals = [float(r["total_kwh"]) for r in rows if r["total_kwh"] is not None]
+                    if vals:
+                        self._hourly_history[meter_id] = vals
+                        return vals
+
+                # 2. Real consumption logs for this meter
+                c_rows = await conn.fetch(
+                    """
+                    SELECT consumption FROM consumption_logs
+                    WHERE meter_id = $1
+                    ORDER BY reading_date DESC, reading_hour DESC
+                    LIMIT $2;
+                    """,
+                    meter_id,
+                    limit
+                )
+                if c_rows and len(c_rows) > 0:
+                    vals = [float(r["consumption"]) for r in c_rows if r["consumption"] is not None and float(r["consumption"]) > 0]
+                    if vals:
+                        self._hourly_history[meter_id] = vals
+                        return vals
+
+                # 3. Real hardware readings from meter_readings
+                m_row = await conn.fetchrow("SELECT meter_number, daily_average FROM meters WHERE id = $1", meter_id)
+                meter_num = m_row["meter_number"] if m_row else str(meter_id)
+                meter_daily_avg = float(m_row["daily_average"] or 0.0) if m_row else 0.0
+
+                readings = await conn.fetch(
+                    """
+                    SELECT power, energy, received_at FROM meter_readings
+                    WHERE UPPER(meter_id) = UPPER($1) OR meter_id = $2::text
+                    ORDER BY received_at DESC
+                    LIMIT 120;
+                    """,
+                    meter_num,
+                    meter_id
+                )
+                if readings and len(readings) > 0:
+                    hourly_vals = []
+                    for r in readings[:limit]:
+                        raw_p = float(r["power"] or 0.0)
+                        # Power in W with 1 decimal -> raw / 10.0 W -> / 1000.0 kW
+                        kw = (raw_p / 10.0) / 1000.0
+                        if kw > 0:
+                            hourly_vals.append(round(kw, 4))
+                    if hourly_vals:
+                        self._hourly_history[meter_id] = hourly_vals
+                        return hourly_vals
+
+                # 4. Relevant meter-specific baseline if configured
+                if meter_daily_avg > 0:
+                    hourly_avg = round(meter_daily_avg / 24.0, 4)
+                    return [hourly_avg]
         except Exception as e:
             logger.warning(f"Could not load hourly history from DB for meter {meter_id}: {e}")
 
-        return self._hourly_history.get(meter_id, [0.35])
+        # Return empty list if no actual data exists (never fabricate synthetic data)
+        return self._hourly_history.get(meter_id, [])
 
 
 # Global singleton orchestrator
