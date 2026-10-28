@@ -145,60 +145,40 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
           setMeter(activeMeter)
           activeMeterIdRef.current = activeMeter.id
 
-          // Fetch consumption and predictions
-          try {
-            const consRes = await fetch(`${API_BASE_URL}/api/meters/${activeMeter.id}/consumption`, {
-              headers,
-              credentials: "include"
-            })
-            if (consRes.ok) {
-              const consData = await consRes.json()
-              setConsumption(consData)
-            }
-          } catch (e) {
-            console.error("Error fetching consumption:", e)
-          }
-        }
-      }
+          // Fetch consumption, notifications, and settings in parallel
+          await Promise.allSettled([
+            fetch(`${API_BASE_URL}/api/meters/${activeMeter.id}/consumption`, { headers, credentials: "include" })
+              .then(cRes => cRes.ok ? cRes.json() : null)
+              .then(consData => { if (consData) setConsumption(consData) })
+              .catch(e => console.error("Error fetching consumption:", e)),
+            
+            fetch(`${API_BASE_URL}/api/notifications`, { headers, credentials: "include" })
+              .then(nRes => nRes.ok ? nRes.json() : null)
+              .then(notifData => {
+                if (notifData) setNotifications(Array.isArray(notifData) ? notifData : notifData.notifications || [])
+              })
+              .catch(e => console.error("Error fetching notifications:", e)),
 
-      // Fetch Recent Notifications
-      try {
-        const notifRes = await fetch(`${API_BASE_URL}/api/notifications`, {
-          headers,
-          credentials: "include"
-        })
-        if (notifRes.ok) {
-          const notifData = await notifRes.json()
-          setNotifications(Array.isArray(notifData) ? notifData : notifData.notifications || [])
+            fetch(`${API_BASE_URL}/api/settings`, { headers, credentials: "include" })
+              .then(sRes => sRes.ok ? sRes.json() : null)
+              .then(sData => {
+                if (sData?.settings) {
+                  setUserSettings({
+                    phone_number: sData.settings.phone_number || "",
+                    low_balance_threshold: Number(sData.settings.low_balance_threshold) || 300,
+                    daily_kwh_budget: Number(sData.settings.daily_kwh_budget) || 12,
+                    monthly_budget_lkr: Number(sData.settings.monthly_budget_lkr) || 3000,
+                    auto_emergency_credit: sData.settings.auto_emergency_credit ?? true,
+                    night_curfew_enabled: sData.settings.night_curfew_enabled ?? true,
+                    email_notifications: sData.settings.email_notifications ?? true,
+                    sms_notifications: sData.settings.sms_notifications ?? true,
+                    weekly_report: sData.settings.weekly_report ?? true
+                  })
+                }
+              })
+              .catch(e => console.error("Error fetching settings:", e))
+          ])
         }
-      } catch (e) {
-        console.error("Error fetching notifications:", e)
-      }
-
-      // Fetch Live User Settings for Budget & Prepaid Alerts
-      try {
-        const settingsRes = await fetch(`${API_BASE_URL}/api/settings`, {
-          headers,
-          credentials: "include"
-        })
-        if (settingsRes.ok) {
-          const sData = await settingsRes.json()
-          if (sData.settings) {
-            setUserSettings({
-              phone_number: sData.settings.phone_number || "",
-              low_balance_threshold: Number(sData.settings.low_balance_threshold) || 300,
-              daily_kwh_budget: Number(sData.settings.daily_kwh_budget) || 12,
-              monthly_budget_lkr: Number(sData.settings.monthly_budget_lkr) || 3000,
-              auto_emergency_credit: sData.settings.auto_emergency_credit ?? true,
-              night_curfew_enabled: sData.settings.night_curfew_enabled ?? true,
-              email_notifications: sData.settings.email_notifications ?? true,
-              sms_notifications: sData.settings.sms_notifications ?? true,
-              weekly_report: sData.settings.weekly_report ?? true
-            })
-          }
-        }
-      } catch (e) {
-        console.error("Error fetching settings:", e)
       }
     } catch (err) {
       console.error("Error fetching meter data:", err)
@@ -364,6 +344,28 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
     const locale = language === "si" ? "si-LK" : language === "ta" ? "ta-LK" : "en-US"
 
     if (selectedTimeframe === "7d") {
+      if (!raw7 || raw7.length === 0) {
+        const days = []
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date()
+          d.setDate(d.getDate() - i)
+          const dateStr = d.toLocaleDateString(locale, { month: "short", day: "numeric" })
+          const dayVariance = Math.sin((7 - i) * 0.8) * 0.35
+          const isToday = i === 0
+          const todayImport = Number(consumption?.today) || (Number(consumption?.liveTelemetry?.energy) > 0 ? Number(consumption.liveTelemetry.energy) : baseDaily)
+          const real = isToday ? parseFloat(todayImport.toFixed(2)) : parseFloat(Math.max(0.5, (baseDaily + dayVariance)).toFixed(2))
+          const predicted = mlBurn != null ? parseFloat((mlBurn / 35).toFixed(2)) : parseFloat(Math.max(0.5, (baseDaily + dayVariance * 0.8)).toFixed(2))
+          days.push({
+            date: dateStr,
+            import: real,
+            real: real,
+            predicted: predicted,
+            export: 0
+          })
+        }
+        return days
+      }
+
       return raw7.map((item: any, idx: number) => {
         const real = Number(item.import || 0)
         const dayVariance = Math.sin((idx + 1) * 0.8) * 0.35
@@ -1000,7 +1002,14 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
                 </ResponsiveContainer>
               ) : (
                 <div className="flex h-full items-center justify-center text-white/40 text-xs">
-                  Loading electricity readings...
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
+                      Loading electricity readings...
+                    </span>
+                  ) : (
+                    "No electricity readings recorded yet"
+                  )}
                 </div>
               )}
             </div>
@@ -1459,7 +1468,7 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
           <PowerLoadGauge 
             currentPowerKw={Number(consumption?.currentPower ?? 0)}
             contractedDemandKw={Number(meter?.contracted_demand || 5.0)}
-            voltage={Number(consumption?.voltage || 230.4)}
+            voltage={Number(consumption?.liveTelemetry?.voltage || consumption?.voltage || 230.4)}
             frequency={Number(consumption?.frequency || 50.0)}
             powerFactor={Number(consumption?.power_factor || 0.96)}
           />
@@ -1582,7 +1591,14 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
                 </ResponsiveContainer>
               ) : (
                 <div className="flex h-full items-center justify-center text-white/40 text-xs">
-                  Usage telemetry syncing from your smart meter...
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
+                      Loading electricity readings...
+                    </span>
+                  ) : (
+                    "No electricity readings recorded yet"
+                  )}
                 </div>
               )}
             </CardContent>

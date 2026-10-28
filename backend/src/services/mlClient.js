@@ -6,10 +6,10 @@
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 const ML_SERVICE_TOKEN = process.env.ML_SERVICE_TOKEN;
-const DEFAULT_TIMEOUT_MS = 2500;
+const DEFAULT_TIMEOUT_MS = 500;
 
 class CircuitBreaker {
-  constructor(failureThreshold = 3, resetTimeoutMs = 15000) {
+  constructor(failureThreshold = 2, resetTimeoutMs = 30000) {
     this.failureThreshold = failureThreshold;
     this.resetTimeoutMs = resetTimeoutMs;
     this.failureCount = 0;
@@ -130,9 +130,9 @@ async function getHourlyForecast(meterId) {
  * @param {number|string} meterId 
  * @param {number} [balanceOverride]
  */
-async function getPrepaidLifetime(meterId, balanceOverride) {
+async function getPrepaidLifetime(meterId, balanceOverride, options = {}) {
   const query = balanceOverride !== undefined ? `?balance=${balanceOverride}` : '';
-  return await mlFetch(`/api/ml/forecast/prepaid/${meterId}${query}`);
+  return await mlFetch(`/api/ml/forecast/prepaid/${meterId}${query}`, { timeout: 500, ...options });
 }
 
 /**
