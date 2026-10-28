@@ -388,6 +388,21 @@ Where $L_i$ represents the exponentially smoothed absolute error for model $i$:
 $$L_{i, t} = \beta L_{i, t-1} + (1 - \beta) |y_t - \hat{y}_{i, t}|$$
 With smoothing factor $\beta = 0.85$ and learning rate $\eta = 0.15$. Models with lower recent errors automatically receive higher prediction weight.
 
+#### 6.5.1 Prediction Uncertainty and Dynamic Confidence Intervals
+
+To prevent misleading precision, the ML service returns bounded $95\%$ confidence intervals $[ \hat{y}_{\text{lower}}, \hat{y}_{\text{upper}} ]$ for every projected hourly step:
+
+$$\sigma_t = \sqrt{ \sum_{i=1}^3 w_i (\hat{y}_{i, t} - \hat{y}_{\text{ensemble}, t})^2 + \sigma^2_{\text{residual}} } \cdot \gamma_{\text{stage}}$$
+
+$$\hat{y}_{\text{upper}, t} = \hat{y}_{\text{ensemble}, t} + 1.96 \cdot \sigma_t$$
+$$\hat{y}_{\text{lower}, t} = \max\left(0, \hat{y}_{\text{ensemble}, t} - 1.96 \cdot \sigma_t\right)$$
+
+Where:
+- $\sigma_{\text{residual}}$ is the running standard deviation of prequential residuals over the trailing 72 hours.
+- $\gamma_{\text{stage}} \in [1.0, 2.5]$ is a cold-start expansion penalty that widens bands when historical sample counts are small ($N < 168$).
+- Non-negativity constraint ensures physical realism ($\hat{y} \ge 0$).
+
+
 ### 6.6 ADWIN Concept Drift Detection and Recovery
 Household consumption habits change abruptly when new appliances (e.g., air conditioners or EV chargers) are introduced, or during holiday periods. The **ADWIN (Adaptive Windowing)** algorithm (`ml/models/drift.py`) continuously tracks the stream of prediction residuals:
 - ADWIN maintains a sliding window $W$ of residuals that automatically expands during stationary periods.
