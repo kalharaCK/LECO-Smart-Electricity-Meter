@@ -705,6 +705,34 @@ Staff can remotely enable or disable features on the customer portal in real tim
 - `feature_solar_telemetry`: Toggle solar PV net-export displays.
 - `maintenance_mode`: Broadcast an advisory banner to all customer sessions with custom messaging.
 
+### 10.4 Smart Meter Telemetry Ingestion & Hardware Simulator
+
+The platform supports both physical ESP32 AMI edge hardware and simulated pulse generators via high-frequency telemetry endpoints (`ml/feed_telemetry.py`):
+
+#### Telemetry Pulse Payload Specification (JSON)
+```json
+{
+  "meter_id": 101,
+  "timestamp": "2026-10-28T03:45:00.000Z",
+  "cumulative_kwh": 348.42,
+  "prepaid_balance": 1850.50,
+  "connection_type": "prepaid",
+  "tariff_id": "DOMESTIC_D1",
+  "billing_cycle_day": 14,
+  "voltage": 230.4,
+  "current_amps": 4.12,
+  "power_factor": 0.96,
+  "solar_export_kwh": 12.85
+}
+```
+
+#### Running the Multi-Meter Telemetry Simulator
+To test live dashboard graphs and ML learning streaming without physical hardware:
+```bash
+# Stream 100 sample intervals across linked meters
+python ml/feed_telemetry.py --meters 101,102 --interval 30 --noise 0.05
+```
+
 ---
 
 ## 11. Database Schema and Complete Data Dictionary
