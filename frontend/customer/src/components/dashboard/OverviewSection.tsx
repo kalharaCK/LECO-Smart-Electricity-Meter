@@ -30,16 +30,17 @@ import {
   CalendarClock,
   Bot,
   ArrowRight,
-  Gauge
+  Gauge,
+  Layers,
+  Info,
+  AlertTriangle
 } from "lucide-react"
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
 import { getSocket } from "@/lib/socket"
 import { useDashboardI18n } from "@/lib/dashboardI18n"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import TariffSlabCard from "./TariffSlabCard"
-import PeakHoursAdvisoryWidget from "./PeakHoursAdvisoryWidget"
-import PowerLoadGauge from "./PowerLoadGauge"
+import { getTariffTierDetails, PUCSL_TARIFF_SLABS } from "./TariffSlabCard"
 import ExportDataModal from "./ExportDataModal"
 
 interface UserSettingsState {
@@ -116,6 +117,7 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
   const [savingBudget, setSavingBudget] = useState(false)
   const [budgetSuccessMsg, setBudgetSuccessMsg] = useState<string | null>(null)
   const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [showTariffScheduleModal, setShowTariffScheduleModal] = useState(false)
 
   const activeMeterIdRef = useRef<number | null>(null)
   const user = JSON.parse(localStorage.getItem("user") || '{"email": "Customer"}')
@@ -587,8 +589,15 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
   const budgetSpentPercent = Math.min(100, Math.round((currentAccruedBill / monthlyBudget) * 100))
   const remainingBudget = Math.max(0, monthlyBudget - currentAccruedBill)
 
-  const dailyTargetKwh = userSettings.daily_kwh_budget || 12
-  const todayUsedKwh = consumption ? Number(consumption.today || 0) : 0
+  // Tariff Tier Calculations
+  const cycleKwh = Number(consumption?.prediction?.billingCycleConsumptionKwh || 0)
+  const currentTier = getTariffTierDetails(cycleKwh)
+  const slabRangeSpan = currentTier.slabMax - currentTier.slabMin + 1
+  const consumedInRange = Math.max(0, currentTier.currentKwh - (currentTier.slabMin > 0 ? currentTier.slabMin - 1 : 0))
+  const slabProgressPercent = currentTier.nextSlabThreshold
+    ? Math.min(100, Math.max(5, Math.round((consumedInRange / slabRangeSpan) * 100)))
+    : 100
+  const isNearTierThreshold = currentTier.unitsRemainingInSlab !== null && currentTier.unitsRemainingInSlab <= 6 && currentTier.unitsRemainingInSlab > 0
 
   const totalPeriodKwh = activeChartData.reduce((acc: number, curr: any) => acc + (Number(curr.import) || 0), 0)
   const avgPeriodKwh = activeChartData.length > 0 ? (totalPeriodKwh / activeChartData.length) : 0
@@ -1389,318 +1398,309 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
             </Button>
           </div>
 
-          {/* 3. Core 4-Card Hero Grid: Estimated Supply Days & Daily Estimation Prominently Featured */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI Card 1: Available Balance */}
-        <Card className="glass-card bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
-                <Wallet className="h-4 w-4 text-yellow-400" />
-                {t.overview.availableBalance}
-              </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/90 font-mono font-bold tracking-wider">
-                PREPAID
-              </span>
-            </div>
-
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className={`text-3xl font-black tracking-tight ${balanceNumber < 0 ? "text-amber-300" : "text-white"}`}>
-                Rs. {Math.abs(balanceNumber).toLocaleString("en-US", { minimumFractionDigits: 2 })}
-              </span>
-              {balanceNumber < 0 && (
-                <span className="text-[10px] font-bold text-amber-300 uppercase px-1.5 py-0.5 rounded bg-amber-400/20">
-                  Debt
-                </span>
-              )}
-            </div>
-
-            <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/5 text-[11px] text-white/70">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-              <span>
-                {isEmergencyActive ? "Lifeline Active (-Rs. 500 Buffer)" : "Lifeline Permitted (Rs. 500)"}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
-            <span className="text-white/40 flex items-center gap-1 text-[11px]">
-              <BellRing className="h-3 w-3 text-white/30" />
-              Alert: Rs. {lowThreshold}
-            </span>
-            <button
-              type="button"
-              onClick={() => onNavigate?.("history")}
-              className="text-yellow-400 hover:text-yellow-300 font-semibold text-[11px] underline underline-offset-2 cursor-pointer transition-colors"
-            >
-              History
-            </button>
-          </div>
-        </Card>
-
-        {/* KPI Card 2: Estimated Supply Horizon */}
-        <Card className="glass-card bg-gradient-to-b from-[#18181c] to-[#141416] border border-yellow-400/40 shadow-xl shadow-yellow-400/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-1.5">
-                <CalendarClock className="h-4 w-4 text-yellow-400" />
-                {t.overview.supplyDaysTitle}
-              </span>
-              {mlConfidenceScore != null && isMlAvailable && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-400/10 border border-yellow-400/20 text-yellow-300 font-mono">
-                  {(mlConfidenceScore * 100).toFixed(0)}% {t.overview.confidence}
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-baseline gap-2 mt-1">
-              {isMlAvailable && mlDaysRemaining != null ? (
-                <span className="text-3xl font-black tracking-tight text-yellow-300 font-mono">
-                  ~{mlDaysRemaining.toFixed(1)} <span className="text-sm font-semibold text-white/60">{t.overview.daysUnit}</span>
-                </span>
-              ) : (
-                <span className="text-3xl font-black tracking-tight text-white/30 font-mono">
-                  N/A
-                </span>
-              )}
-            </div>
-
-            <div className="mt-3 space-y-1 text-[11px] text-white/60">
-              <div className="flex items-center justify-between">
-                <span>{t.overview.supplyDaysSubtext}:</span>
-                <span className="font-mono text-white/90">
-                  {isMlAvailable && mlExhaustionTimestamp
-                    ? new Date(mlExhaustionTimestamp).toLocaleDateString(language === "si" ? "si-LK" : language === "ta" ? "ta-LK" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
-                    : "N/A"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
-            <span className="text-white/40">
-              {isMlAvailable ? t.overview.tariffLifetimePrediction : "N/A"}
-            </span>
-          </div>
-        </Card>
-
-        {/* KPI Card 3: Daily Cost Estimation */}
-        <Card className="glass-card bg-gradient-to-b from-[#18181c] to-[#141416] border border-sky-400/40 shadow-xl shadow-sky-400/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-sky-400/10 rounded-full blur-3xl pointer-events-none" />
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
-                <TrendingUp className="h-4 w-4 text-sky-400" />
-                {t.overview.dailyEstimateTitle}
-              </span>
-            </div>
-
-            <div className="flex items-baseline gap-2 mt-1">
-              {isMlAvailable && mlDailyBurnRate != null ? (
-                <span className="text-3xl font-black tracking-tight text-white font-mono">
-                  Rs. {mlDailyBurnRate.toFixed(2)}
-                  <span className="text-xs font-normal text-white/50 ml-1">{t.overview.perDayUnit}</span>
-                </span>
-              ) : (
-                <span className="text-3xl font-black tracking-tight text-white/30 font-mono">
-                  N/A
-                </span>
-              )}
-            </div>
-
-            <div className="mt-3 space-y-1 text-[11px] text-white/60">
-              <div className="flex items-center justify-between">
-                <span>{t.overview.dailyBudgetTitle}:</span>
-                <span className="font-mono text-white/90">{dailyTargetKwh} kWh {t.overview.perDayUnit}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>{t.overview.todayUsageTitle}:</span>
-                <span className={todayUsedKwh > dailyTargetKwh ? "text-amber-400 font-mono" : "text-emerald-400 font-mono"}>
-                  {todayUsedKwh.toFixed(1)} kWh ({Math.round((todayUsedKwh / dailyTargetKwh) * 100)}%)
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
-            <span className="text-white/40">{t.overview.dailyEstimateSubtext}</span>
-            <button
-              type="button"
-              onClick={handleOpenBudgetModal}
-              className="text-sky-400 hover:text-sky-300 font-semibold underline underline-offset-2 cursor-pointer transition-colors"
-            >
-              {t.overview.adjustBudgetBtn}
-            </button>
-          </div>
-        </Card>
-
-        {/* KPI Card 4: Grid Usage & Live Active Load */}
-        <Card className="glass-card bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/5 rounded-full blur-3xl pointer-events-none" />
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
-                <Activity className="h-4 w-4 text-blue-400" />
-                {t.overview.todayUsageTitle}
-              </span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                meter.status === "Connected"
-                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                  : "bg-rose-500/10 border-rose-500/30 text-rose-400"
-              }`}>
-                {meter.status === "Connected" ? t.overview.connectedGrid : t.overview.disconnectedGrid}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mt-1">
+          {/* 3. Executive 4-Card Grid (Detailed Mode) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+            {/* Card 1: Available Balance & Wallet */}
+            <Card className="glass-card bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between h-full">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
               <div>
-                <span className="text-[11px] text-white/50 block">{t.overview.todayUsageTitle}</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-white">
-                    {todayEnergyDisplay}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                    <Wallet className="h-4 w-4 text-yellow-400" />
+                    {t.overview.availableBalance}
                   </span>
-                  <span className="text-xs font-semibold text-white/50">{todayEnergyUnit}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/90 font-mono font-bold tracking-wider">
+                    {meter.prepaid !== false ? "PREPAID" : "POSTPAID"}
+                  </span>
+                </div>
+
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className={`text-3xl font-black tracking-tight ${balanceNumber < 0 ? "text-amber-300" : "text-white"}`}>
+                    Rs. {Math.abs(balanceNumber).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </span>
+                  {balanceNumber < 0 && (
+                    <span className="text-[10px] font-bold text-amber-300 uppercase px-1.5 py-0.5 rounded bg-amber-400/20">
+                      Debt
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/5 text-[11px] text-white/70">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                    <span>
+                      {isEmergencyActive ? "Lifeline Active (-Rs. 500)" : "Lifeline Buffer (Rs. 500)"}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => onNavigate?.("payments")}
+                    className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-xs h-7 px-3 rounded-lg cursor-pointer"
+                  >
+                    Recharge
+                  </Button>
                 </div>
               </div>
 
+              <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
+                <span className="text-white/40 flex items-center gap-1 text-[11px]">
+                  <BellRing className="h-3 w-3 text-white/30" />
+                  Alert: Rs. {lowThreshold}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onNavigate?.("history")}
+                  className="text-yellow-400 hover:text-yellow-300 font-semibold text-[11px] underline underline-offset-2 cursor-pointer transition-colors"
+                >
+                  History
+                </button>
+              </div>
+            </Card>
+
+            {/* Card 2: Estimated Supply Horizon */}
+            <Card className="glass-card bg-gradient-to-b from-[#18181c] to-[#141416] border border-yellow-400/40 shadow-xl shadow-yellow-400/5 rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between h-full">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/10 rounded-full blur-3xl pointer-events-none" />
               <div>
-                <span className="text-[11px] text-white/50 block">{t.overview.activeLoadTitle}</span>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="text-2xl font-black text-blue-400">
-                    {activeLoadDisplay}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold text-yellow-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <CalendarClock className="h-4 w-4 text-yellow-400" />
+                    {t.overview.supplyDaysTitle}
                   </span>
-                  <span className="text-xs font-semibold text-blue-400/60">{activeLoadUnit}</span>
+                  {mlConfidenceScore != null && isMlAvailable ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-400/10 border border-yellow-400/20 text-yellow-300 font-mono">
+                      {(mlConfidenceScore * 100).toFixed(0)}% {t.overview.confidence}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-white/40 font-mono">
+                      Active
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-baseline gap-2 mt-1">
+                  {isMlAvailable && mlDaysRemaining != null ? (
+                    <span className="text-3xl font-black tracking-tight text-yellow-300 font-mono">
+                      ~{mlDaysRemaining.toFixed(1)} <span className="text-sm font-semibold text-white/60">{t.overview.daysUnit}</span>
+                    </span>
+                  ) : (
+                    <span className="text-2xl font-black tracking-tight text-white/40 font-mono">
+                      Estimating
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3 space-y-1.5 text-[11px]">
+                  <div className="flex items-center justify-between text-white/70">
+                    <span className="text-white/50">Daily Burn Rate:</span>
+                    <span className="font-mono font-bold text-white">
+                      {isMlAvailable && mlDailyBurnRate != null
+                        ? `Rs. ${mlDailyBurnRate.toFixed(2)}/day`
+                        : consumption?.prediction?.dailyBurnRateKwh != null
+                        ? `${Number(consumption.prediction.dailyBurnRateKwh).toFixed(1)} kWh/day`
+                        : "Meter Telemetry Grounded"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-white/70">
+                    <span className="text-white/50">{t.overview.supplyDaysSubtext}:</span>
+                    <span className="font-mono text-white/90">
+                      {isMlAvailable && mlExhaustionTimestamp
+                        ? new Date(mlExhaustionTimestamp).toLocaleDateString(language === "si" ? "si-LK" : language === "ta" ? "ta-LK" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                        : "Subject to load"}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/5 text-[11px] text-white/70">
-              <Zap className="h-3.5 w-3.5 text-blue-400 shrink-0" />
-              <span>
-                {t.overview.outFlow}: {consumption ? Number(consumption.exportToday || 0).toFixed(1) : "0.0"} kWh
-              </span>
-            </div>
-          </div>
+              <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-white/40">
+                <span>{isMlAvailable ? "Adaptive Meter AI" : "Linear Telemetry Run"}</span>
+                <span className="text-white/60 font-mono">
+                  {consumption ? `${Number(consumption.today || 0).toFixed(1)} kWh today` : "Live telemetry"}
+                </span>
+              </div>
+            </Card>
 
-          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-[11px]">
-            <span className="text-emerald-400 font-mono text-[11px] flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              {meter.status === "Connected" ? t.overview.connectedGrid : t.overview.disconnectedGrid}
-            </span>
-          </div>
-        </Card>
-      </div>
+            {/* Card 3: Current Cycle Bill & PUCSL Tariff Slab */}
+            <Card className="glass-card bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between h-full">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/5 rounded-full blur-3xl pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                    <Target className="h-4 w-4 text-emerald-400" />
+                    {t.overview.currentMonthAccruedBill}
+                  </span>
+                  <Badge className="bg-amber-400/10 text-amber-300 border-amber-400/30 text-[10px] font-bold">
+                    {currentTier.group} • {currentTier.slabMax < 9000 ? `${currentTier.slabMin}–${currentTier.slabMax} kWh` : '>180 kWh'}
+                  </Badge>
+                </div>
 
-      {/* 4. Tier: Engineering Specs Grid (Detailed Mode) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Card: Monthly Electricity Bill & Budget Tracker */}
-          <Card className="bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 sm:p-6 relative overflow-hidden h-full flex flex-col justify-between">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
-                    <Target className="h-4 w-4" />
+                <div className="flex items-baseline justify-between gap-2 mt-1">
+                  <span className="text-3xl font-black tracking-tight text-white font-mono">
+                    Rs. {currentAccruedBill.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-xs text-white/50 font-mono">
+                    {currentTier.currentKwh.toFixed(1)} kWh
+                  </span>
+                </div>
+
+                {/* Active Unit Rate & Fixed Charge row */}
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                  <div className="bg-white/[0.03] border border-white/5 rounded-xl p-2">
+                    <span className="text-[10px] text-white/50 font-medium block">Active Unit Rate</span>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="text-base font-black text-amber-400 font-mono">Rs. {currentTier.unitRate.toFixed(2)}</span>
+                      <span className="text-[10px] text-white/40">/ kWh</span>
+                    </div>
+                  </div>
+                  <div className="bg-white/[0.03] border border-white/5 rounded-xl p-2">
+                    <span className="text-[10px] text-white/50 font-medium block">Monthly Fixed</span>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="text-base font-black text-white font-mono">Rs. {currentTier.fixedCharge.toFixed(0)}</span>
+                      <span className="text-[10px] text-white/40">/ mo</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slab Threshold Progress & Headroom */}
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-white/50">Cycle Consumption:</span>
+                    <span className="font-mono font-bold text-white text-[11px]">
+                      {currentTier.currentKwh.toFixed(1)} kWh
+                      {currentTier.nextSlabThreshold && (
+                        <span className="text-white/40 font-normal"> / {currentTier.nextSlabThreshold} kWh</span>
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden p-0.5">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        isNearTierThreshold
+                          ? "bg-gradient-to-r from-amber-400 to-red-500 animate-pulse"
+                          : "bg-gradient-to-r from-yellow-500 to-amber-400"
+                      }`}
+                      style={{ width: `${slabProgressPercent}%` }}
+                    />
+                  </div>
+
+                  {currentTier.unitsRemainingInSlab !== null ? (
+                    <div className="flex items-center justify-between text-[10px] text-white/60">
+                      <span className="flex items-center gap-1">
+                        <Info className="h-3 w-3 text-amber-400 shrink-0" />
+                        <span><strong>{currentTier.unitsRemainingInSlab.toFixed(1)} kWh</strong> until rate jumps</span>
+                      </span>
+                      <span className="text-amber-300 font-bold font-mono">Rs. {currentTier.nextSlabRate?.toFixed(2)}/unit</span>
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-red-300 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />
+                      <span>Peak domestic tier (&gt;180 kWh). Conserve energy.</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
+                <button
+                  type="button"
+                  onClick={handleOpenBudgetModal}
+                  className="text-white/50 hover:text-white font-medium text-[11px] cursor-pointer transition-colors"
+                >
+                  Budget: Rs. {monthlyBudget.toLocaleString()} ({budgetSpentPercent}% used • Rs. {remainingBudget.toLocaleString()} left)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTariffScheduleModal(true)}
+                  className="text-yellow-400 hover:text-yellow-300 font-semibold text-[11px] flex items-center gap-0.5 cursor-pointer transition-colors"
+                >
+                  <span>View All Slabs</span>
+                  <ChevronRight className="h-3 w-3" />
+                </button>
+              </div>
+            </Card>
+
+            {/* Card 4: Live Power & Grid Diagnostics */}
+            <Card className="glass-card bg-[#141416] border border-white/10 shadow-xl rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between h-full">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/5 rounded-full blur-3xl pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                    <Activity className="h-4 w-4 text-blue-400" />
+                    Live Power &amp; Grid
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                    meter.status === "Connected"
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                      : "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                  }`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${meter.status === "Connected" ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
+                    {meter.status === "Connected" ? "Connected" : "Disconnected"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  <div>
+                    <span className="text-[10px] text-white/50 font-medium block uppercase tracking-wider">Active Demand</span>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="text-3xl font-black text-blue-400 font-mono tracking-tight">
+                        {activeLoadDisplay}
+                      </span>
+                      <span className="text-xs font-bold text-blue-400/70">{activeLoadUnit}</span>
+                    </div>
                   </div>
                   <div>
-                    <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider block">
-                      {t.overview.currentMonthAccruedBill}
+                    <span className="text-[10px] text-white/50 font-medium block uppercase tracking-wider">Today's Total</span>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="text-3xl font-black text-white font-mono tracking-tight">
+                        {todayEnergyDisplay}
+                      </span>
+                      <span className="text-xs font-bold text-white/50">{todayEnergyUnit}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grid Telemetry 3-Pill Specs */}
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  <div className="bg-white/[0.03] border border-white/5 rounded-xl p-2 text-center">
+                    <span className="text-[9px] text-white/50 font-medium block uppercase">Voltage</span>
+                    <span className="text-xs font-black text-white font-mono block mt-0.5">
+                      {consumption?.liveTelemetry?.voltage != null 
+                        ? Number(consumption.liveTelemetry.voltage).toFixed(1) 
+                        : (consumption?.voltage ? Number(consumption.voltage).toFixed(1) : "230.8")} V
                     </span>
-                    <h4 className="text-sm font-bold text-white">Monthly Accrual</h4>
+                    <span className="text-[9px] text-emerald-400 block mt-0.5">Normal</span>
                   </div>
-                </div>
-                <Badge className={`text-[10px] font-bold ${
-                  budgetSpentPercent > 90 ? "bg-red-500/10 border-red-500/30 text-red-400" :
-                  budgetSpentPercent > 70 ? "bg-amber-500/10 border-amber-500/30 text-amber-400" :
-                  "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                }`}>
-                  {budgetSpentPercent}% {t.overview.spentOf}
-                </Badge>
-              </div>
 
-              {/* 2-Pill Rate/Budget Stats Row matching Card 2 */}
-              <div className="grid grid-cols-2 gap-2.5 pt-1">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                  <span className="text-[10px] text-white/50 font-medium block">Daily Average</span>
-                  <div className="flex items-baseline gap-1 mt-0.5">
-                    <span className="text-lg font-black text-emerald-400">
-                      Rs. {(currentAccruedBill / Math.max(1, new Date().getDate())).toFixed(1)}
+                  <div className="bg-white/[0.03] border border-white/5 rounded-xl p-2 text-center">
+                    <span className="text-[9px] text-white/50 font-medium block uppercase">Frequency</span>
+                    <span className="text-xs font-black text-white font-mono block mt-0.5">
+                      {Number(consumption?.frequency || 50.0).toFixed(1)} Hz
                     </span>
-                    <span className="text-[10px] text-white/40">/ day</span>
+                    <span className="text-[9px] text-emerald-400 block mt-0.5">50 Hz</span>
                   </div>
-                </div>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                  <span className="text-[10px] text-white/50 font-medium block">Monthly Budget</span>
-                  <div className="flex items-baseline gap-1 mt-0.5">
-                    <span className="text-lg font-black text-white">Rs. {monthlyBudget.toLocaleString()}</span>
-                    <span className="text-[10px] text-white/40">/ mo</span>
+
+                  <div className="bg-white/[0.03] border border-white/5 rounded-xl p-2 text-center">
+                    <span className="text-[9px] text-white/50 font-medium block uppercase">P. Factor</span>
+                    <span className="text-xs font-black text-white font-mono block mt-0.5">
+                      {Number(consumption?.power_factor || 0.96).toFixed(2)}
+                    </span>
+                    <span className="text-[9px] text-cyan-400 block mt-0.5">Optimal</span>
                   </div>
                 </div>
               </div>
 
-              {/* Progress and Remaining */}
-              <div className="space-y-2 pt-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/60 font-medium">Accrued Amount:</span>
-                  <span className="font-mono font-bold text-white">
-                    Rs. {currentAccruedBill.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                    <span className="text-white/40 font-normal"> ({consumption?.prediction?.billingCycleConsumptionKwh || "0"} kWh)</span>
-                  </span>
-                </div>
-
-                <div className="w-full bg-white/10 h-2.5 rounded-full overflow-hidden p-0.5">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
-                      budgetSpentPercent > 90
-                        ? "from-amber-500 to-red-500"
-                        : budgetSpentPercent > 70
-                        ? "from-yellow-400 to-amber-500"
-                        : "from-emerald-400 to-teal-400"
-                    }`}
-                    style={{ width: `${Math.max(4, Math.min(100, budgetSpentPercent))}%` }}
-                  />
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-[11px] text-white/70 flex items-center justify-between">
-                  <span>Remaining in Budget:</span>
-                  <strong className="text-emerald-400 font-mono">
-                    Rs. {remainingBudget.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                  </strong>
-                </div>
+              <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-white/40">
+                <span className="flex items-center gap-1">
+                  <Zap className="h-3 w-3 text-yellow-400 shrink-0" />
+                  <span>Single Phase • 30A</span>
+                </span>
+                <span>
+                  Cap: {Number(meter?.contracted_demand || 5.0).toFixed(1)} kW
+                </span>
               </div>
-            </div>
-
-            <div className="pt-3 border-t border-white/5 mt-auto flex items-center justify-between text-xs text-white/50">
-              <span>Tariff: PUCSL D-1 Block</span>
-              <button
-                type="button"
-                onClick={handleOpenBudgetModal}
-                className="text-xs text-yellow-400 hover:text-yellow-300 font-semibold cursor-pointer transition-colors"
-              >
-                {t.overview.adjustBudgetBtn}
-              </button>
-            </div>
-          </Card>
-
-          {/* Card: PUCSL Tariff Slab */}
-          <TariffSlabCard 
-            currentMonthlyKwh={Number(consumption?.prediction?.billingCycleConsumptionKwh || 0)} 
-            tariffType={meter.tariff_type} 
-          />
-
-          {/* Card: Peak Hours Advisory Widget */}
-          <PeakHoursAdvisoryWidget />
-          <PowerLoadGauge 
-            currentPowerKw={Number(consumption?.currentPower ?? 0)}
-            currentPowerW={consumption?.liveTelemetry?.powerW != null ? Number(consumption.liveTelemetry.powerW) : undefined}
-            contractedDemandKw={Number(meter?.contracted_demand || 5.0)}
-            voltage={Number(consumption?.liveTelemetry?.voltage || consumption?.voltage || 230.4)}
-            frequency={Number(consumption?.frequency || 50.0)}
-            powerFactor={Number(consumption?.power_factor || 0.96)}
-          />
-        </div>
+            </Card>
+          </div>
 
       {/* 5. Lower Tier: Chart & Analytics Summary (Left 2/3) + Recent Activity (Right 1/3) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -2236,6 +2236,84 @@ export default function OverviewSection({ refreshKey, onNavigate, features }: Ov
                 ) : (
                   "Save Changes"
                 )}
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* PUCSL Domestic Tariff Schedule Modal */}
+      {showTariffScheduleModal && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#121214] border border-white/20 rounded-3xl w-full max-w-xl p-5 sm:p-6 shadow-2xl relative overflow-hidden">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <Layers className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-white">PUCSL Domestic Tariff Slabs</h3>
+                  <p className="text-xs text-white/50">LECO / CEB End-User Electricity Tariff Schedule (2026)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTariffScheduleModal(false)}
+                className="p-2 rounded-xl hover:bg-white/10 text-white/60 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5 max-h-[60vh] overflow-y-auto pr-1">
+              {PUCSL_TARIFF_SLABS.map((slab, idx) => {
+                const isCurrent = (slab.range === "0 - 30 kWh" && cycleKwh <= 30) ||
+                                  (slab.range === "31 - 60 kWh" && cycleKwh > 30 && cycleKwh <= 60) ||
+                                  (slab.range === "61 - 90 kWh" && cycleKwh > 60 && cycleKwh <= 90) ||
+                                  (slab.range === "91 - 120 kWh" && cycleKwh > 90 && cycleKwh <= 120) ||
+                                  (slab.range === "121 - 180 kWh" && cycleKwh > 120 && cycleKwh <= 180) ||
+                                  (slab.range === "> 180 kWh" && cycleKwh > 180)
+                return (
+                  <div 
+                    key={idx}
+                    className={`p-3 rounded-2xl border transition-all ${
+                      isCurrent
+                        ? "bg-amber-400/10 border-amber-400/40 shadow-sm"
+                        : "bg-white/[0.02] border-white/5 hover:border-white/15"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-white">{slab.range}</span>
+                        {isCurrent && (
+                          <Badge className="bg-amber-400 text-black font-black text-[9px] px-1.5 py-0 h-4">
+                            Current Slab
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="text-xs font-black text-amber-400">{slab.rate}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1 text-[11px] text-white/50">
+                      <span>{slab.desc}</span>
+                      <span className="text-white/70 font-mono">Fixed: {slab.fixed}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="pt-4 border-t border-white/10 mt-4 flex items-center justify-between">
+              <span className="text-[11px] text-white/40 flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                Updated with PUCSL Standard Regulations
+              </span>
+              <Button
+                type="button"
+                onClick={() => setShowTariffScheduleModal(false)}
+                className="bg-white/10 hover:bg-white/15 text-white text-xs font-semibold h-8 px-4 rounded-xl cursor-pointer"
+              >
+                Close
               </Button>
             </div>
           </div>
