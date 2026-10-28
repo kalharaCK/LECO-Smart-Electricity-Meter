@@ -1005,10 +1005,26 @@ cd ../frontend/staff && npm run build
 
 ---
 
-## 14. Future Roadmap and License
+## 14. Future Roadmap, Contributing, and License
 
-- **Hardware MQTT Broker**: Direct CoAP and MQTT protocol gateway for physical ESP32 hardware meters.
-- **Dynamic Time-of-Use Auto-Scheduling**: Automatic domestic appliance scheduling during off-peak windows (22:30-05:30).
-- **Prosumer Solar P2P Energy Trading**: Blockchain-backed local energy marketplace allowing neighbors to trade surplus solar credits.
+### 14.1 Future Engineering Milestones
+- [ ] **Hardware MQTT / CoAP Broker**: Direct protocol bridge for edge ESP32 microcontrollers with hardware-accelerated TLS.
+- [ ] **Dynamic Time-of-Use Auto-Scheduling**: Automatic domestic appliance scheduling during off-peak windows (22:30-05:30).
+- [ ] **Prosumer Solar P2P Energy Trading**: Blockchain-backed local energy marketplace allowing domestic microgrids to trade surplus solar credits.
+- [ ] **Mobile Native Companion App**: React Native / Expo build sharing core business logic with customer portal.
 
-Developed for the **LECO Smart Electricity Metering Project**. Designed and engineered with modern web and machine learning standards.
+### 14.2 Contribution Guidelines
+1. **Fork & Branch**: Create feature branches from `main` using descriptive prefixes (`feature/meter-telemetry`, `fix/tariff-boundary`).
+2. **Coding Standards**: Ensure TypeScript strict mode compliance and run Prettier before committing:
+   ```bash
+   npm run format
+   npm run lint
+   ```
+3. **Test Coverage**: All submissions must pass the complete test suites without regressions:
+   - Backend: `npm test` (134/134 passing)
+   - ML microservice: `pytest -o pythonpath=. test` (24/24 passing)
+4. **Pull Requests**: Submit PRs with a clear description of changes, referenced issue numbers, and architectural impact summary.
+
+### 14.3 License
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for complete details. Developed and maintained for the **LECO Smart Electricity Metering Project**.
+
