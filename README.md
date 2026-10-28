@@ -820,6 +820,32 @@ SMS_SENDER_ID=TextLKDemo
 GROQ_API_KEY=your_groq_api_key
 GROQ_MODEL=llama-3.3-70b-versatile
 ```
+
+#### Environment Variable Specification Matrix
+
+| Variable Name | Required | Default | Scope | Description |
+|---|---|---|---|---|
+| `PORT` | Optional | `3000` | Backend | HTTP Port for the Core Node.js Express Server |
+| `DATABASE_URL` | **Required** | - | Backend / ML | Neon PostgreSQL connection URI with SSL mode enabled |
+| `DATABASE_SSL` | Optional | `true` | Backend | Enforce verified TLS connection pooling |
+| `JWT_SECRET` | **Required** | - | Backend | High-entropy secret key (>=32 chars) for signing session JWTs |
+| `FRONTEND_URL` | Optional | `http://localhost:5173` | Backend | Whitelisted origin for Customer Portal CORS & cookies |
+| `STAFF_FRONTEND_URL`| Optional | `http://localhost:5174` | Backend | Whitelisted origin for Staff Operations Console CORS |
+| `ML_SERVICE_URL` | Optional | `http://localhost:8000` | Backend | Gateway address of the Python streaming ML microservice |
+| `ML_SERVICE_TOKEN`| Optional | - | Backend / ML | Shared symmetric bearer token for inter-service communication |
+| `PAYHERE_MERCHANT_ID` | Optional | - | Backend | PayHere Merchant ID for prepaid wallet top-up processing |
+| `PAYHERE_MERCHANT_SECRET` | Optional | - | Backend | PayHere Merchant Secret for SHA-256 IPN checksum verification |
+| `PAYHERE_SANDBOX` | Optional | `true` | Backend | Enable PayHere sandbox mode for mock payment simulations |
+| `SMS_API_TOKEN` | Optional | - | Backend | Text.lk Bearer Token for dual-channel OTP and relay notifications |
+| `SMS_SENDER_ID` | Optional | `TextLKDemo` | Backend | Registered Sender ID for outbound telecommunication messages |
+| `GROQ_API_KEY` | Optional | - | Backend | Groq Cloud API key for high-speed Llama 3.3 / Qwen inference |
+| `GROQ_MODEL` | Optional | `llama-3.3-70b-versatile` | Backend | Model identifier for Conversational RAG Engine |
+| `SMTP_HOST` | Optional | `smtp.gmail.com` | Backend | Outbound mail gateway SMTP hostname |
+| `SMTP_PORT` | Optional | `465` | Backend | SSL port for secure transactional email delivery |
+| `SMTP_USER` | Optional | - | Backend | Authenticated Gmail address for OTP and PDF statement dispatch |
+| `SMTP_PASS` | Optional | - | Backend | 16-character Google App Password (not account password) |
+| `EMAIL_FROM` | Optional | `LECO Smart Care` | Backend | Sender header signature formatted for email clients |
+
 Run database migrations and start server:
 ```bash
 npm run dev
